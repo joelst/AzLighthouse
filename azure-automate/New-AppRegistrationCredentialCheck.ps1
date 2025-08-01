@@ -343,8 +343,9 @@ function New-AppRegCredential {
     # If a new credential was needed, but it was not created.
     # This may not be a catostrophic problem if another AppRegistration has a valid credential
     # We will check at the end to see if this is a real problem.
-    Write-Warning "New secret was required for $($AppDisplayName), however a new secret could not be created"
-    $Script:ValidAppRegExists = $false
+    Write-Warning "A new secret could not be created for $($AppDisplayName) $($ApplicationId)"
+    Write-Warning $_.Exception.Message
+    #$Script:ValidAppRegExists = $false
     $script:SummaryStats.SecretsFailedToCreate++
   }
 }
@@ -730,7 +731,6 @@ Write-Output "  - Secrets Deleted (expired): $($script:SummaryStats.SecretsDelet
 Write-Output "  - Secrets Created: $($script:SummaryStats.SecretsCreated)"
 Write-Output "  - Secrets Failed to Create: $($script:SummaryStats.SecretsFailedToCreate)"
 Write-Output ''
-
 
 $scriptStatus = if ($validAppRegExists) { 'SUCCESS' } else { 'FAILED' }
 

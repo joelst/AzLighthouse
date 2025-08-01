@@ -111,8 +111,8 @@ The tests use extensive mocking to avoid dependencies on actual Azure resources:
 ```powershell
 # View test results
 [xml]$Results = Get-Content ".\TestResults.xml"
-$Results.'test-results'.'test-suite'.results.'test-case' | 
-    Where-Object { $_.result -eq 'Failure' } | 
+$Results.'test-results'.'test-suite'.results.'test-case' |
+    Where-Object { $_.result -eq 'Failure' } |
     Select-Object name, message
 
 # View code coverage summary
@@ -174,13 +174,13 @@ steps:
     targetType: 'filePath'
     filePath: '$(Build.SourcesDirectory)/azure-automate/Run-Tests.ps1'
     arguments: '-OutputPath "$(Agent.TempDirectory)"'
-    
+
 - task: PublishTestResults@2
   displayName: 'Publish Test Results'
   inputs:
     testResultsFormat: 'NUnit'
     testResultsFiles: '$(Agent.TempDirectory)/TestResults.xml'
-    
+
 - task: PublishCodeCoverageResults@1
   displayName: 'Publish Code Coverage'
   inputs:
@@ -195,7 +195,7 @@ steps:
   shell: pwsh
   run: |
     .\azure-automate\Run-Tests.ps1 -OutputPath "${{ runner.temp }}"
-    
+
 - name: Publish Test Results
   uses: dorny/test-reporter@v1
   if: always()
@@ -212,9 +212,9 @@ steps:
 1. **Pester Version Conflicts**
    ```powershell
    # Remove old Pester versions
-   Get-Module Pester -ListAvailable | Where-Object Version -lt '5.0.0' | 
+   Get-Module Pester -ListAvailable | Where-Object Version -lt '5.0.0' |
        ForEach-Object { Uninstall-Module -Name $_.Name -RequiredVersion $_.Version -Force }
-   
+
    # Install Pester 5
    Install-Module -Name Pester -MinimumVersion 5.0.0 -Force -SkipPublisherCheck
    ```
