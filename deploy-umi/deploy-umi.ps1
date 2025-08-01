@@ -122,11 +122,9 @@ $appRoles | ForEach-Object {
 # Make sure the UMI is set as the owner of the application. This is required to allow
 # the UMI to manage the app registration.
 $newOwner = @{
-  '@odata.id' = "https://graph.microsoft.com/v1.0/directoryObjects/{$($umi.Id)}"
+  '@odata.id' = "https://graph.microsoft.com/v1.0/directoryObjects/$($umi.Id)"
 }
 
 # This adds the UMI as an owner to application
-New-MgApplicationOwnerByRef -ApplicationId $Id -BodyParameter $newOwner
+New-MgApplicationOwnerByRef -ApplicationId $adsp.Id -BodyParameter $newOwner
 
-# This will update the name to be in line with our new standard name
-Update-MgApplication -ApplicationId $Id -DisplayName 'MSSP-Sentinel-Ingestion'
