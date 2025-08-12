@@ -76,12 +76,6 @@ else {
   Write-Information 'Skipping module installation as requested' -InformationAction Continue
 }
 
-# Register required Azure Resource Providers
-# These providers must be registered in the subscription before creating the resources
-Register-AzResourceProvider -ProviderNamespace Microsoft.Insights      # For monitoring and metrics
-Register-AzResourceProvider -ProviderNamespace Microsoft.ManagedServices # For Azure Lighthouse
-Register-AzResourceProvider -ProviderNamespace Microsoft.ManagedIdentity  # For User Managed Identities
-
 # Get user input if not provided as parameters
 # Validate customer prefix - must be at least 3 characters for resource naming
 if (-not $CustomerPrefix) {
@@ -140,6 +134,12 @@ Set-AzContext -SubscriptionId $Subscription
 # Get the context of the current subscription for role assignments
 $subscriptionId = (Get-AzContext).Subscription.Id
 $scope = "/subscriptions/$($subscriptionId)"  # Subscription-level scope for role assignments
+
+# Register required Azure Resource Providers
+# These providers must be registered in the subscription before creating the resources
+Register-AzResourceProvider -ProviderNamespace Microsoft.Insights      # For monitoring and metrics
+Register-AzResourceProvider -ProviderNamespace Microsoft.ManagedServices # For Azure Lighthouse
+Register-AzResourceProvider -ProviderNamespace Microsoft.ManagedIdentity  # For User Managed Identities
 
 # Define Azure RBAC role IDs (these are constant GUIDs across all Azure tenants)
 # These role definitions provide the UMI with necessary permissions
@@ -295,19 +295,56 @@ foreach ($role in $roleAssignments) {
     Write-Information "  Object ID: $($umi.Id)" -InformationAction Continue
     Write-Information "  Scope: $scope" -InformationAction Continue
 
-    try {
-      $null = New-AzRoleAssignment -RoleDefinitionId $role.RoleId -ObjectId $umi.Id -Scope $scope -ErrorAction Stop
-      Write-Information "Successfully assigned '$($role.Name)' role" -InformationAction Continue
-      $changesSummary.RoleAssignments += $role.Name
-    }
-    catch {
-      # Handle common errors gracefully
-      if ($_.Exception.Message -like '*already exists*' -or $_.Exception.Message -like '*conflict*' -or $_.Exception.Message -like '*RoleAssignmentExists*') {
-        Write-Information "RBAC role '$($role.Name)' already exists (detected during assignment attempt)" -InformationAction Continue
+    $attempt = 0
+    $maxRoleAssignAttempts = 3  # Initial try + up to 2 retries
+    $assigned = $false
+
+    while (-not $assigned -and $attempt -lt $maxRoleAssignAttempts) {
+      $attempt++
+      try {
+        $null = New-AzRoleAssignment -RoleDefinitionId $role.RoleId -ObjectId $umi.Id -Scope $scope -ErrorAction Stop
+        Write-Information "Successfully assigned '$($role.Name)' role (attempt $attempt)" -InformationAction Continue
+        $changesSummary.RoleAssignments += $role.Name
+        $assigned = $true
+        break
       }
-      else {
-        Write-Warning "Failed to assign '$($role.Name)' role: $($_.Exception.Message)"
-        Write-Warning 'This may be due to insufficient permissions or a temporary Azure issue'
+      catch {
+        # Check if assignment actually exists despite error (eventual consistency)
+        $postCheck = Get-AzRoleAssignment -RoleDefinitionId $role.RoleId -ObjectId $umi.Id -Scope $scope -ErrorAction SilentlyContinue
+
+        if ($postCheck) {
+          Write-Information "Role '$($role.Name)' appears assigned after error (attempt $attempt) - treating as success" -InformationAction Continue
+          if ($role.Name -notin $changesSummary.RoleAssignments) { $changesSummary.RoleAssignments += $role.Name }
+          $assigned = $true
+          break
+        }
+
+        if ($_.Exception.Message -like '*already exists*' -or $_.Exception.Message -like '*conflict*' -or $_.Exception.Message -like '*RoleAssignmentExists*') {
+          Write-Information "RBAC role '$($role.Name)' already exists (error indicated duplicate)" -InformationAction Continue
+          $assigned = $true
+          break
+        }
+        elseif ($attempt -lt $maxRoleAssignAttempts) {
+          Write-Warning "Attempt $attempt to assign '$($role.Name)' failed: $($_.Exception.Message)"
+          Write-Information 'Waiting 10 seconds before rechecking and retrying...' -InformationAction Continue
+          Start-Sleep -Seconds 10
+
+          # Re-verify before retrying
+          $existingAssignmentRecheck = Get-AzRoleAssignment -RoleDefinitionId $role.RoleId -ObjectId $umi.Id -Scope $scope -ErrorAction SilentlyContinue
+          if ($existingAssignmentRecheck) {
+            Write-Information "Role '$($role.Name)' detected after wait - no further retry needed" -InformationAction Continue
+            if ($role.Name -notin $changesSummary.RoleAssignments) { $changesSummary.RoleAssignments += $role.Name }
+            $assigned = $true
+            break
+          }
+          else {
+            Write-Information "Retrying assignment for role '$($role.Name)' (attempt $(($attempt)+1))" -InformationAction Continue
+          }
+        }
+        else {
+          Write-Warning "Final attempt $attempt failed for role '$($role.Name)': $($_.Exception.Message)"
+          Write-Warning 'Continuing without this role assignment.'
+        }
       }
     }
   }
@@ -498,14 +535,65 @@ $appRoles | ForEach-Object {
     Write-Information "Microsoft Graph permission '$roleName' already assigned to UMI - skipping" -InformationAction Continue
   }
   else {
-    Write-Information "Assigning Microsoft Graph permission '$roleName' to UMI..." -InformationAction Continue
-    try {
-      New-MgServicePrincipalAppRoleAssignment -ResourceId $graphSP.Id -PrincipalId $umi.Id -AppRoleId $_.Id -ServicePrincipalId $umi.Id
-      Write-Information "Successfully assigned '$roleName' permission" -InformationAction Continue
-      $changesSummary.GraphPermissions += $roleName
-    }
-    catch {
-      Write-Warning "Failed to assign '$roleName' permission: $($_.Exception.Message)"
+    $attempt = 0
+    $maxGraphAssignAttempts = 3 # initial + 2 retries
+    $assigned = $false
+    while (-not $assigned -and $attempt -lt $maxGraphAssignAttempts) {
+      $attempt++
+      Write-Information "Assigning Microsoft Graph permission '$roleName' to UMI (attempt $attempt)..." -InformationAction Continue
+      try {
+        New-MgServicePrincipalAppRoleAssignment -ResourceId $graphSP.Id -PrincipalId $umi.Id -AppRoleId $_.Id -ServicePrincipalId $umi.Id -ErrorAction Stop
+        # Re-check to confirm assignment (eventual consistency)
+        $verify = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $umi.Id -ErrorAction SilentlyContinue | Where-Object { $_.AppRoleId -eq $roleId -and $_.ResourceId -eq $graphSP.Id }
+        if ($verify) {
+          Write-Information "Successfully assigned '$roleName' permission (attempt $attempt)" -InformationAction Continue
+          if ($roleName -notin $changesSummary.GraphPermissions) { $changesSummary.GraphPermissions += $roleName }
+          $assigned = $true
+          break
+        }
+        else {
+          Write-Warning "Permission '$roleName' not visible yet after assignment attempt $attempt - will re-check/ retry if attempts remain"
+        }
+      }
+      catch {
+        # Check if assignment exists despite error
+        $postErrorCheck = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $umi.Id -ErrorAction SilentlyContinue | Where-Object { $_.AppRoleId -eq $roleId -and $_.ResourceId -eq $graphSP.Id }
+        if ($postErrorCheck) {
+          Write-Information "Permission '$roleName' appears assigned after error (attempt $attempt) - treating as success" -InformationAction Continue
+          if ($roleName -notin $changesSummary.GraphPermissions) { $changesSummary.GraphPermissions += $roleName }
+          $assigned = $true
+          break
+        }
+        elseif ($_.Exception.Message -like '*already*' -or $_.Exception.Message -like '*conflict*') {
+          Write-Information "Permission '$roleName' error indicated it already exists - treating as success" -InformationAction Continue
+          if ($roleName -notin $changesSummary.GraphPermissions) { $changesSummary.GraphPermissions += $roleName }
+          $assigned = $true
+          break
+        }
+        elseif ($attempt -lt $maxGraphAssignAttempts) {
+          Write-Warning "Attempt $attempt failed assigning Graph permission '$roleName': $($_.Exception.Message)"
+          Write-Information 'Waiting 10 seconds before retrying permission assignment...' -InformationAction Continue
+          Start-Sleep -Seconds 10
+          # Re-evaluate if assignment appeared during wait
+          $recheck = Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $umi.Id -ErrorAction SilentlyContinue | Where-Object { $_.AppRoleId -eq $roleId -and $_.ResourceId -eq $graphSP.Id }
+          if ($recheck) {
+            Write-Information "Permission '$roleName' detected after wait - no further retry needed" -InformationAction Continue
+            if ($roleName -notin $changesSummary.GraphPermissions) { $changesSummary.GraphPermissions += $roleName }
+            $assigned = $true
+            break
+          }
+        }
+        else {
+          Write-Warning "Final attempt $attempt failed for Graph permission '$roleName': $($_.Exception.Message)"
+          Write-Warning 'Continuing without this Graph permission.'
+        }
+      }
+      if (-not $assigned -and $attempt -lt $maxGraphAssignAttempts) {
+        # Delay before next loop iteration if not already delayed due to catch
+        if (-not $postErrorCheck -and -not $recheck -and -not $verify) {
+          Start-Sleep -Seconds 10
+        }
+      }
     }
   }
 }
@@ -526,25 +614,62 @@ if ($umiIsOwner) {
   Write-Information "UMI is already an owner of application '$appName' - skipping ownership assignment" -InformationAction Continue
 }
 else {
-  Write-Information "Adding UMI as owner of application '$appName'..." -InformationAction Continue
-
-  $newOwner = @{
-    '@odata.id' = "https://graph.microsoft.com/v1.0/directoryObjects/$($umi.Id)"
-  }
-
-  try {
-    # Add the UMI as an owner to the application (using the application object, not service principal)
-    # This enables the UMI to manage the application registration autonomously
-    New-MgApplicationOwnerByRef -ApplicationId $application.Id -BodyParameter $newOwner
-    Write-Information 'Successfully added UMI as application owner' -InformationAction Continue
-    $changesSummary.OwnershipAdded = $true
-  }
-  catch {
-    if ($_.Exception.Message -like '*already exists*' -or $_.Exception.Message -like '*conflict*') {
-      Write-Information ' UMI ownership already exists (detected during assignment attempt)' -InformationAction Continue
+  $ownerAttempts = 0
+  $maxOwnerAttempts = 3
+  $ownershipAdded = $false
+  while (-not $ownershipAdded -and $ownerAttempts -lt $maxOwnerAttempts) {
+    $ownerAttempts++
+    Write-Information "Adding UMI as owner of application '$appName' (attempt $ownerAttempts)..." -InformationAction Continue
+    $newOwner = @{
+      '@odata.id' = "https://graph.microsoft.com/v1.0/directoryObjects/$($umi.Id)"
     }
-    else {
-      Write-Warning " Failed to add UMI as application owner: $($_.Exception.Message)"
+    try {
+      New-MgApplicationOwnerByRef -ApplicationId $application.Id -BodyParameter $newOwner -ErrorAction Stop
+      # Verify ownership
+      $ownerVerify = Get-MgApplicationOwner -ApplicationId $application.Id -ErrorAction SilentlyContinue | Where-Object { $_.Id -eq $umi.Id }
+      if ($ownerVerify) {
+        Write-Information 'Successfully added UMI as application owner' -InformationAction Continue
+        $changesSummary.OwnershipAdded = $true
+        $ownershipAdded = $true
+        break
+      }
+      else {
+        Write-Warning 'Ownership addition not visible yet after attempt - will retry if attempts remain'
+      }
+    }
+    catch {
+      $ownerPostCheck = Get-MgApplicationOwner -ApplicationId $application.Id -ErrorAction SilentlyContinue | Where-Object { $_.Id -eq $umi.Id }
+      if ($ownerPostCheck) {
+        Write-Information 'UMI ownership appears present after error - treating as success' -InformationAction Continue
+        $changesSummary.OwnershipAdded = $true
+        $ownershipAdded = $true
+        break
+      }
+      elseif ($_.Exception.Message -like '*already exists*' -or $_.Exception.Message -like '*conflict*') {
+        Write-Information 'UMI ownership already exists (error indicated duplicate)' -InformationAction Continue
+        $changesSummary.OwnershipAdded = $true
+        $ownershipAdded = $true
+        break
+      }
+      elseif ($ownerAttempts -lt $maxOwnerAttempts) {
+        Write-Warning "Attempt $ownerAttempts failed adding ownership: $($_.Exception.Message)"
+      }
+      else {
+        Write-Warning "Final attempt $ownerAttempts failed adding ownership: $($_.Exception.Message)"
+        Write-Warning 'Continuing without setting ownership.'
+      }
+    }
+    if (-not $ownershipAdded -and $ownerAttempts -lt $maxOwnerAttempts) {
+      Write-Information 'Waiting 10 seconds before retrying ownership assignment...' -InformationAction Continue
+      Start-Sleep -Seconds 10
+      # Re-check before next attempt
+      $preNextAttemptCheck = Get-MgApplicationOwner -ApplicationId $application.Id -ErrorAction SilentlyContinue | Where-Object { $_.Id -eq $umi.Id }
+      if ($preNextAttemptCheck) {
+        Write-Information 'Ownership detected during wait - stopping retries' -InformationAction Continue
+        $changesSummary.OwnershipAdded = $true
+        $ownershipAdded = $true
+        break
+      }
     }
   }
 }

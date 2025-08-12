@@ -370,7 +370,6 @@ catch {
   throw 'Authentication failed. Cannot continue.'
 }
 
-
 $azureTenant = Get-AzTenant -ErrorAction SilentlyContinue -TenantId $azureContext.Tenant.Id
 $env:TENANT_ID = $azureTenant.Id
 $env:TENANT_NAME = $azureTenant.Name
