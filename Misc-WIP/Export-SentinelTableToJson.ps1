@@ -29,7 +29,9 @@
 .PARAMETER AzureStorageAccountResourceGroup
     The resource group for the Azure Storage Account.
 .PARAMETER HourIncrements
-    The number of hours to get data for in each iteration. This must be evenly divisible by 24. The default is 12 hours.
+    The number of hours to get data for in each iteration. Must evenly divide the value of HourDivisionBase (default 24). Default: 12.
+.PARAMETER HourDivisionBase
+    The base period (in hours) that HourIncrements must evenly divide. Defaults to 24 (one day). Change only if you want to segment a different total window.
 .PARAMETER DoNotUpload
     Set to $true to not upload the data to Azure Storage.
 .PARAMETER LogPath
@@ -60,8 +62,10 @@ param (
     $AzureStorageContainer,
     # The resource group for the Azure Storage Account
     $AzureStorageAccountResourceGroup,
-    # The number of hours to get data for in each iteration. This should be evenly divisible by 24. The default is 12 hours.
-    $HourIncrements = 12,
+    # The number of hours to get data for in each iteration. Must evenly divide HourDivisionBase. Default 12.
+    [int]$HourIncrements = 12,
+    # Base (in hours) which HourIncrements must evenly divide. Default 24.
+    [int]$HourDivisionBase = 24,
     # Set to $true to not upload the data to Azure Storage
     $DoNotUpload = $false,
     # The path to write the log file. The default is the export path.
@@ -117,6 +121,53 @@ function Write-Log {
     } | Export-Csv -Path $LogFilePath -Append -NoTypeInformation -Force -ErrorAction SilentlyContinue
 } 
 
+function Test-HourIncrementValidity {
+    <#
+    .SYNOPSIS
+        Tests whether the provided HourIncrements value evenly divides the specified base.
+    .PARAMETER HourIncrements
+        The candidate increment in hours.
+    .PARAMETER Base
+        The base period (in hours) to divide (default 24).
+    .OUTPUTS
+        [bool] True if valid; otherwise False.
+    #>
+    [CmdletBinding()] param(
+        [Parameter(Mandatory)][int]$HourIncrements,
+        [int]$Base = 24
+    )
+    if ($HourIncrements -le 0) { return $false }
+    if ($Base -le 0) { return $false }
+    return (($Base % $HourIncrements) -eq 0)
+}
+
+function Get-ExportFileNames {
+    <#
+    .SYNOPSIS
+        Builds the JSON and ZIP file names for an export segment.
+    .PARAMETER Table
+        Table name being exported.
+    .PARAMETER CurrentDate
+        Segment start timestamp (datetime).
+    .PARAMETER NextDate
+        Segment end timestamp (datetime).
+    .OUTPUTS
+        PSCustomObject with Json and Zip properties.
+    .NOTES
+        File timestamp pattern intentionally preserved (yyyy-MM-dd-mmHHss) for backward compatibility.
+    #>
+    [CmdletBinding()] param(
+        [Parameter(Mandatory)][string]$Table,
+        [Parameter(Mandatory)][datetime]$CurrentDate,
+        [Parameter(Mandatory)][datetime]$NextDate
+    )
+    $jsonFileName = "$Table-$($CurrentDate.ToString('yyyy-MM-dd-mmHHss'))-$($NextDate.ToString('yyyy-MM-dd-mmHHss')).json"
+    [pscustomobject]@{
+        Json = $jsonFileName
+        Zip  = "$jsonFileName.zip"
+    }
+}
+
 # This was an attempt to set the maximum idle time for the service point to 10 minutes (600000 milliseconds) instead of the default 1000 milliseconds.
 [System.Net.ServicePointManager]::MaxServicePointIdleTime = 600000
 
@@ -160,8 +211,19 @@ if (-not $HourIncrements) {
     $HourIncrements = Read-Host "Enter the number of hours to get data for in each iteration (must be divisable by 24):"
 }
 
+# Validate hour increment divisibility
+if (-not (Test-HourIncrementValidity -HourIncrements $HourIncrements -Base $HourDivisionBase)) {
+    throw "HourIncrements ($HourIncrements) must evenly divide HourDivisionBase ($HourDivisionBase)."
+}
+
+# Provide a skip mechanism for test harnesses to dot-source without executing main logic
+if ($env:EXPORT_TABLES_SKIP_MAIN -eq '1') {
+    Write-Log -Message "EXPORT_TABLES_SKIP_MAIN=1 detected; skipping main export loop." -Severity Information
+    return
+}
+
 # Authenticate to Azure
-Write-Log "Authenticating to Azure." -Severity Information
+Write-Log -Message "Authenticating to Azure." -Severity Information
 $null = Connect-AzAccount -TenantId $TenantId -Subscription $SubscriptionId | Out-Null
 
 # Get the Azure Storage Account context if the DoNotUpload parameter is set to $false.
@@ -189,19 +251,18 @@ foreach ($table in $TableName) {
         $currentDate = $StartDate.AddHours($i)
         $nextDate = $currentDate.AddHours($HourIncrements)
         
-        # Construct the file names for the current date
-        $jsonFileName = "$table-$($currentDate.ToString('yyyy-MM-dd-mmHHss'))-$($nextDate.ToString('yyyy-MM-dd-mmHHss')).json"
-        $outputJsonFile = Join-Path $ExportPath $jsonFileName
-        $zipFileName = "$table-$($currentDate.ToString('yyyy-MM-dd-mmHHss'))-$($nextDate.ToString('yyyy-MM-dd-mmHHss')).json.zip"
-        $outputZipFile = Join-Path $ExportPath $zipFileName
+    # Construct the file names for the current date via helper
+    $fileNames = Get-ExportFileNames -Table $table -CurrentDate $currentDate -NextDate $nextDate
+    $outputJsonFile = Join-Path $ExportPath $fileNames.Json
+    $outputZipFile  = Join-Path $ExportPath $fileNames.Zip
         
         # if the file already exists, skip querying the data
         if (Test-Path $outputZipFile) {
-            Write-Log "File $outputZipFile already exists. Skipping." -Severity Information
+            Write-Log -Message "File $outputZipFile already exists. Skipping." -Severity Information
             continue
         }
         elseif (Test-Path $outputJsonFile) {
-            Write-Log "File $outputJsonFile already exists. Skipping." -Severity Information
+            Write-Log -Message "File $outputJsonFile already exists. Skipping." -Severity Information
             continue
         }
         else {
@@ -209,7 +270,7 @@ foreach ($table in $TableName) {
             # Construct the query for the current date
             $currentQuery = $table
             $currentTimeSpan = New-TimeSpan -Start $currentDate -End $nextDate
-            Write-Log "Getting data from $currentQuery for $currentDate to $nextDate"
+            Write-Log -Message "Getting data from $currentQuery for $currentDate to $nextDate" -Severity Information
             # Get the Table data from Log Analytics for the current date
             $currentTableResult = Invoke-AzOperationalInsightsQuery -WorkspaceId $WorkspaceId -Query $currentQuery -wait 600 -Timespan $currentTimeSpan | Select-Object Results -ExpandProperty Results -ExcludeProperty Results
             
@@ -232,17 +293,17 @@ foreach ($table in $TableName) {
                     $null = Remove-Item $outputJsonFile -Force  
                     # upload the zip file to Azure Storage
                     if ($false -eq $DoNotUpload) {
-                        $result = Set-AzStorageBlobContent -Context $context -Container $AzureStorageContainer -File $outputZipFile -Blob $zipFileName -Force -ErrorAction SilentlyContinue 
+                        $result = Set-AzStorageBlobContent -Context $context -Container $AzureStorageContainer -File $outputZipFile -Blob $fileNames.Zip -Force -ErrorAction SilentlyContinue 
                         if ($result) {
-                            Write-Log "File $outputZipFile uploaded to Azure Storage" -Severity Debug
+                            Write-Log -Message "File $outputZipFile uploaded to Azure Storage" -Severity Debug
                         }
                         else {
-                            Write-Log "Failed to upload $outputZipFile to Azure Storage" -Severity Error
+                            Write-Log -Message "Failed to upload $outputZipFile to Azure Storage" -Severity Error
                         }
                     }
                 }
                 else {
-                    Write-Log "Failed to create file $outputZipFile" -Severity Debug
+                    Write-Log -Message "Failed to create file $outputZipFile" -Severity Debug
                 }       
             }
             else {
