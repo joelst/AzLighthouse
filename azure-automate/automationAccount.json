@@ -75,34 +75,6 @@
       },
       "defaultValue": "\"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\""
     },
-    "secretsLogicAppUri": {
-      "type": "string",
-      "metadata": {
-        "description": "Secrets Logic App URI"
-      },
-      "defaultValue": "\"https://logicapp.azure.com/\""
-    },
-    "newAppReg": {
-      "type": "string",
-      "metadata": {
-        "description": "New app registration name"
-      },
-      "defaultValue": "\"MSSP-Sentinel-Ingestion\""
-    },
-    "appSearchString": {
-      "type": "string",
-      "metadata": {
-        "description": "App search string"
-      },
-      "defaultValue": "\"*-Sentinel-Ingestion\""
-    },
-    "sentinelResourceGroupName": {
-      "type": "string",
-      "metadata": {
-        "description": "Resource group where the Sentinel workspace is located"
-      },
-      "defaultValue": "\"*-Sentinel-Prod\""
-    },
     "umiResourceGroupName": {
       "type": "string",
       "metadata": {
@@ -110,6 +82,27 @@
       },
       "defaultValue": "\"*-Sentinel-Prod\""
     },
+    "secretsLogicAppUri": {
+      "type": "string",
+      "metadata": {
+        "description": "Secrets Logic App URI"
+      },
+      "defaultValue": "\"https://logicapp.azure.com/\""
+    },
+    "appReg": {
+      "type": "string",
+      "metadata": {
+        "description": "Sentinel ingestion app registration (service principal) name"
+      },
+      "defaultValue": "\"MSSP-Sentinel-Ingestion\""
+    },
+    "sentinelResourceGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource group where the Sentinel workspace is located"
+      },
+      "defaultValue": "\"*-Sentinel-Prod\""
+    },    
     "sentinelWorkspaceName": {
       "type": "string",
       "metadata": {
@@ -349,7 +342,7 @@
       "name": "[concat(parameters('accountName'), '/APP_REG_NAME')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[parameters('newAppReg')]",
+        "value": "[parameters('appReg')]",
         "description": "Name of the data ingestion app registration"
       },
       "dependsOn": [
