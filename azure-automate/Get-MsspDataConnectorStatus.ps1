@@ -7,11 +7,11 @@
   User Assigned Managed Identity (UAMI), derives connector status & ingestion metrics (KQL).
 
     Status priority:
-    ActivelyIngesting (last log <=1h)
-    RecentlyActive    (last log <=24h)
-    Stale             (logs exist but last >24h)
+    ActivelyIngesting   (last log <=1h)
+    RecentlyActive      (last log <=24h)
+    Stale               (logs exist but last >24h)
     ConfiguredButNoLogs (enabled/connected yet no logs observed)
-        NoKqlAndNoLogs    (no mapping available and no log evidence)
+    NoKqlAndNoLogs      (no mapping available and no log evidence)
     Disabled
     Error
     Unknown
@@ -752,7 +752,7 @@ function Get-IngestionStatus {
     #>
     param(
         [Nullable[DateTime]] $LastLogTime,
-        [int] $ActiveThresholdHours = 1,
+        [int] $ActiveThresholdHours = 12,
         [int] $RecentThresholdHours = 24
     )
         if (-not $LastLogTime) {
@@ -1355,9 +1355,95 @@ else {
     # Produce a clean collection prior to consolidated object.
     $ConnectorCollection = $summary | Select-Object Name, Kind, Status, LastLogTime, LogsLastHour, TotalLogs24h, QueryStatus, HoursSinceLastLog, StatusDetails, Workspace, Subscription, @{Name='NoLastLog';Expression={ $_.LogMetrics.NoLastLog }}
 
+    # ------------------------------------------------------------------
+    # Deduplication/Merge: Some connectors appear twice (GUID + friendly) for same underlying integration.
+    # Requirement: For non-GenericUI kinds that have multiple entries, combine StatusDetails and output only
+    # the one whose Name is a GUID if a GUID-named record exists; otherwise keep the first.
+    #
+    # Merge approach:
+    #   Group by Kind where Kind -ne 'GenericUI'
+    #   If group count > 1:
+    #       Identify GUID candidate(s) by name regex
+    #       Target = first GUID record if any else first record
+    #       Merge StatusDetails (semicolon joining unique tokens)
+    #       If metric fields differ, prefer the one with latest LastLogTime; copy over logs counts if target is null
+    #       Remove all group members then add merged target once
+    # Logging: emit INFO with merge summary for transparency.
+    $guidPattern = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    $merged = @()
+    $toRemove = New-Object System.Collections.Generic.HashSet[string]
+    $groupsByKind = $ConnectorCollection | Where-Object { $_.Kind -and $_.Kind -ne 'GenericUI' } | Group-Object -Property Kind
+    foreach ($g in $groupsByKind) {
+        if ($g.Count -le 1) { continue }
+        $records = $g.Group
+        # Only consider duplicates if there is more than one DISTINCT Name
+        $distinctNames = ($records | Select-Object -ExpandProperty Name -Unique)
+        if ($distinctNames.Count -le 1) { continue }
+        $guidRecords = $records | Where-Object { $_.Name -match $guidPattern }
+        $target = if ($guidRecords) { $guidRecords | Select-Object -First 1 } else { $records | Select-Object -First 1 }
+    $allStatusDetailsTokens = ($records | ForEach-Object { ($_.StatusDetails -split ';') }) | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+        $uniqueTokens = $allStatusDetailsTokens | Select-Object -Unique
+        $mergedStatusDetails = ($uniqueTokens -join '; ')
+        # Determine latest LastLogTime among records
+        $latest = ($records | Where-Object { $_.LastLogTime } | Sort-Object LastLogTime -Descending | Select-Object -First 1)
+        if ($latest -and $latest.LastLogTime -and ($target.LastLogTime -lt $latest.LastLogTime)) {
+            # Copy fresher metrics if target older
+            $target.LastLogTime = $latest.LastLogTime
+            $target.LogsLastHour = $latest.LogsLastHour
+            $target.TotalLogs24h = $latest.TotalLogs24h
+        }
+        # If HoursSinceLastLog null on target but present elsewhere, copy
+        $withHours = $records | Where-Object { $_.HoursSinceLastLog -ne $null } | Sort-Object HoursSinceLastLog | Select-Object -First 1
+        if ($withHours) {
+            # Assign HoursSinceLastLog only if target lacks a numeric value (avoids null comparison lint rule)
+            if ($target.HoursSinceLastLog -isnot [double] -and $target.HoursSinceLastLog -isnot [int]) {
+                $target.HoursSinceLastLog = $withHours.HoursSinceLastLog
+            }
+        }
+        # Merge statuses preference order if they differ: ActivelyIngesting > RecentlyActive > Stale > ConfiguredButNoLogs > Disabled > Error > Unknown
+        $priority = @('ActivelyIngesting','RecentlyActive','Stale','ConfiguredButNoLogs','Disabled','Error','NoKqlAndNoLogs','Unknown')
+        $bestStatus = ($records | Sort-Object { [Array]::IndexOf($priority, $_.Status) } | Select-Object -First 1).Status
+        $target.Status = $bestStatus
+        $target.StatusDetails = $mergedStatusDetails
+        # Mark all others for removal
+        foreach ($r in $records) { if ($r -ne $target) { [void]$toRemove.Add($r.Name + '|' + $r.Kind) } }
+        $merged += [pscustomobject]@{ Kind=$g.Name; KeptName=$target.Name; RemovedCount=($records.Count-1); NewStatus=$target.Status }
+    }
+    if ($toRemove.Count -gt 0) {
+        Write-Log -Level INFO -Message "Merging duplicate connectors for non-GenericUI kinds: $($toRemove.Count) removed." 
+        foreach ($m in $merged) { Write-Log -Level DEBUG -Message "MergeDetail Kind=$($m.Kind) Kept=$($m.KeptName) Removed=$($m.RemovedCount) Status=$($m.NewStatus)" }
+        $ConnectorCollection = $ConnectorCollection | Where-Object { -not $toRemove.Contains($_.Name + '|' + $_.Kind) }
+    }
+
     if ($ExcludeStatus) {
         $ConnectorCollection = $ConnectorCollection | Where-Object { $ExcludeStatus -notcontains $_.Status }
     }
+
+    # ------------------------------------------------------------------
+    # Remediation Pass: HoursSinceLastLog is unexpectedly null for records with a non-null LastLogTime.
+    # Root cause could be prior classification path not executed; recompute defensively here.
+    # Also (optionally) upgrade Status if it is a configuration placeholder but ingestion recency indicates activity.
+    $recomputed = 0
+    $upgraded = 0
+    foreach ($rec in $ConnectorCollection) {
+        if ($rec.LastLogTime -and $null -eq $rec.HoursSinceLastLog) {
+            try {
+                $hrs = ((Get-Date).ToUniversalTime() - ([DateTime]$rec.LastLogTime).ToUniversalTime()).TotalHours
+                $rounded = [Math]::Round($hrs,2)
+                $rec.HoursSinceLastLog = $rounded
+                $recomputed++
+                # Status upgrade logic mirrors Get-IngestionStatus thresholds (1h / 24h) if current status is placeholder
+                if ($rec.Status -in @('ConfiguredButNoLogs','Unknown','NoKqlAndNoLogs')) {
+                    $newStatus = if ($hrs -le 1) { 'ActivelyIngesting' } elseif ($hrs -le 24) { 'RecentlyActive' } else { $rec.Status }
+                    if ($newStatus -ne $rec.Status) { $rec.Status = $newStatus; $upgraded++ }
+                }
+            }
+            catch {
+                Write-Log -Level DEBUG -Message "RemediationHours calc failed for Name='$($rec.Name)': $($_.Exception.Message)" 
+            }
+        }
+    }
+    if ($recomputed -gt 0) { Write-Log -Level INFO -Message "Remediation: Recomputed HoursSinceLastLog for $recomputed record(s). UpgradedStatus=$upgraded" }
 
     # Guarantee 'Kind' property presence & value (fallback to 'UnknownKind' if null/empty)
     $missingKindCount = 0
