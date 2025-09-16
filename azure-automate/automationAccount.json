@@ -109,6 +109,13 @@
         "description": "Data connector Logic App URI"
       },
       "defaultValue": "\"https://logicapp.azure.com/\""
+    },
+    "scheduleStartDate": {
+      "type": "string",
+      "defaultValue": "[dateTimeAdd(utcNow(), 'PT90M')]",
+      "metadata": {
+        "description": "UTC date time now plus 90 minutes for when the schedule will become active, not when the schedule runs"
+      }
     }
   },
   "variables": {
@@ -292,7 +299,7 @@
       "apiVersion": "2023-11-01",
       "name": "[format('{0}/{1}', parameters('automationAccountName'), variables('runbookScheduleName'))]",
       "properties": {
-        "startTime": "[dateTimeAdd(utcNow(), 'PT90M')]",
+        "startTime": "[parameters('scheduleStartDate')]",
         "expiryTime": "9999-12-31T17:59:00-06:00",
         "interval": 1,
         "frequency": "Week",
