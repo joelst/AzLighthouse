@@ -406,19 +406,6 @@
     {
       "type": "Microsoft.Automation/automationAccounts/variables",
       "apiVersion": "2023-11-01",
-    "name": "[concat(parameters('automationAccountName'), '/UMI_RESOURCE_GROUP_NAME')]",
-      "properties": {
-        "isEncrypted": false,
-        "value": "[parameters('userAssignedIdentityResourceGroupName')]",
-        "description": "Name of the user managed identity resource group"
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
-      ]
-    },
-    {
-      "type": "Microsoft.Automation/automationAccounts/variables",
-      "apiVersion": "2023-11-01",
       "name": "[concat(parameters('automationAccountName'), '/SUBSCRIPTION_ID')]",
       "properties": {
         "isEncrypted": false,
