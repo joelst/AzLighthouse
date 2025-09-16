@@ -75,6 +75,7 @@ if ([string]::IsNullOrWhiteSpace($SecretLAUri)) {
   # fallback to old name for compatibility
   if ([string]::IsNullOrWhiteSpace($SecretLAUri)) {
     $SecretLAUri = Get-AutomationVariable -Name 'SECRET_API_URI'
+  }
 }
 if ([string]::IsNullOrWhiteSpace($AppSearchString)) {
   $AppSearchString = Get-AutomationVariable -Name 'APP_SEARCH_STRING'
@@ -382,7 +383,7 @@ if ($null -eq $env:TENANT_NAME) {
   $mgOrg = Get-MgOrganization -ErrorAction SilentlyContinue
   $env:TENANT_NAME = $mgOrg.DisplayName
   $env:TENANT_DOMAIN = (Get-MgDomain -ErrorAction SilentlyContinue |
-      Where-Object { $_.IsInitial -eq $true }).Id
+    Where-Object { $_.IsInitial -eq $true }).Id
 }
 
 # track that at least one credential is valid
@@ -523,7 +524,7 @@ if ($apps.Count -ne 0 -and $CreateNewAppReg -eq $false) {
       $appRegCredentialParams = @{
         AppId               = $app.AppId
         ApplicationId       = $app.Id
-        SecretLAUri        = $SecretLAUri
+        SecretLAUri         = $SecretLAUri
         CredentialValidDays = $CredentialValidDays
         AppPublisherDomain  = $app.PublisherDomain
         AppDisplayName      = $app.DisplayName
@@ -590,7 +591,7 @@ if ($createNewAppReg -eq $true) {
     Start-Sleep -Seconds 5
     try {
       $app = Get-MgApplication -ConsistencyLevel eventual -All |
-        Where-Object { $_.AppId -eq $sp.AppId }
+      Where-Object { $_.AppId -eq $sp.AppId }
     }
     catch {
       Write-Warning "Retry $retryCount failed to find application: $($_.Exception.Message)"
