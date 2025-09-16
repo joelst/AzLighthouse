@@ -88,7 +88,7 @@
         "description": "Resource group where the Sentinel workspace is located"
       },
       "defaultValue": "\"*-Sentinel-Prod\""
-    },    
+    },
     "sentinelWorkspaceName": {
       "type": "string",
       "metadata": {
@@ -110,7 +110,7 @@
         "description": "UTC date time now plus 90 minutes for when the schedule will become active, not when the schedule runs"
       }
     },
-      "newGuid": {
+    "newGuid": {
       "type": "string",
       "defaultValue": "[newGuid()]",
       "metadata": {
@@ -196,7 +196,9 @@
       "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}/Az.MonitoringSolutions', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
-        "contentLink": { "uri": "https://www.powershellgallery.com/api/v2/package/Az.MonitoringSolutions/0.2.0" }
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Az.MonitoringSolutions/0.2.0"
+        }
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
@@ -208,7 +210,9 @@
       "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}/Microsoft.Graph.Users', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
-        "contentLink": { "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Users/2.30.0" }
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Users/2.30.0"
+        }
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
@@ -220,7 +224,9 @@
       "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}/Microsoft.Graph.Authentication', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
-        "contentLink": { "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Authentication/2.30.0" }
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Authentication/2.30.0"
+        }
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
@@ -232,7 +238,9 @@
       "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}/Microsoft.Graph.Applications', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
-        "contentLink": { "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Applications/2.30.0" }
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Applications/2.30.0"
+        }
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
@@ -244,7 +252,9 @@
       "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}/Microsoft.Graph.Users.Actions', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
-        "contentLink": { "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Users.Actions/2.30.0" }
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Users.Actions/2.30.0"
+        }
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
@@ -256,7 +266,9 @@
       "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}/Microsoft.Graph.DirectoryObjects', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
-        "contentLink": { "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.DirectoryObjects/2.30.0" }
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.DirectoryObjects/2.30.0"
+        }
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
@@ -268,7 +280,9 @@
       "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}/Microsoft.Graph.Identity.DirectoryManagement', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
-        "contentLink": { "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Identity.DirectoryManagement/2.30.0" }
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Identity.DirectoryManagement/2.30.0"
+        }
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
@@ -393,7 +407,7 @@
     {
       "type": "Microsoft.Automation/automationAccounts/variables",
       "apiVersion": "2023-11-01",
-    "name": "[concat(parameters('automationAccountName'), '/RESOURCE_GROUP_NAME')]",
+      "name": "[concat(parameters('automationAccountName'), '/RESOURCE_GROUP_NAME')]",
       "properties": {
         "isEncrypted": false,
         "value": "[parameters('sentinelResourceGroupName')]",
