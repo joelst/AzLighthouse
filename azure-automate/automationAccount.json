@@ -8,30 +8,30 @@
     "accountName": {
       "type": "string",
       "metadata": {
-        "description": "Name of the automation account"
+        "description": "Name of the new automation account"
       },
-      "defaultValue": "MSSP-ServicePrincipal-Management"
+      "defaultValue": "MSSP-Automation"
     },
     "rsocRunbookContentUri": {
       "type": "string",
       "metadata": {
         "description": "URI to the runbook content"
       },
-      "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/azure-automate/New-AppRegistrationCredentialCheck.ps1"
+      "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/azure-automate/Update-MsspAppRegistrationCredential.ps1"
     },
     "rsocRunbookDescription": {
       "type": "string",
       "metadata": {
         "description": "Description of the runbook"
       },
-      "defaultValue": "Runbook to manage service principals for the MSSP RSOC"
+      "defaultValue": "Runbook to manage service principal credentials for the MSSP"
     },
     "rsocRunbookName": {
       "type": "string",
       "metadata": {
         "description": "Name of the runbook"
       },
-      "defaultValue": "MSSP-ServicePrincipal-Runbook"
+      "defaultValue": "Update-MsspAppRegistrationCredential"
     },
     "connectorRunbookContentUri": {
       "type": "string",
@@ -45,14 +45,14 @@
       "metadata": {
         "description": "Description of the runbook"
       },
-      "defaultValue": "Runbook to report the data connector status for the MSSP RSOC"
+      "defaultValue": "Runbook to report the data connector status for the MSSP"
     },
     "connectorRunbookName": {
       "type": "string",
       "metadata": {
         "description": "Name of the runbook"
       },
-      "defaultValue": "Get-MSSPDataConnectorStatus"
+      "defaultValue": "Get-MsspDataConnectorStatus"
     },
     "userAssignedIdentityName": {
       "type": "string",
