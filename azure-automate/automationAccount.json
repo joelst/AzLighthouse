@@ -12,6 +12,13 @@
       },
       "defaultValue": "MSSP-Automation"
     },
+    "newGuid": {
+      "type": "string",
+      "defaultValue": "[newGuid()]",
+      "metadata": {
+        "description": "Enter new GUID to be used to create a unique job schedule name"
+      }
+    },
     "servicePrincipalCredentialRunbookContentUri": {
       "type": "string",
       "metadata": {
@@ -309,7 +316,7 @@
     {
       "type": "Microsoft.Automation/automationAccounts/jobSchedules",
       "apiVersion": "2023-11-01",
-      "name": "[format('{0}/{1}', parameters('automationAccountName'), newGuid())]",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('newGuid'))]",
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
         "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('automationAccountName'), parameters('servicePrincipalCredentialRunbookName'))]",
