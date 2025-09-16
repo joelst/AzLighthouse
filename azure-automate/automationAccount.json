@@ -124,17 +124,17 @@
       },
       "defaultValue": "\"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\""
     },
-    "subscriptionId": {
-      "type": "string",
-      "metadata": {
-        "description": "Azure subscription ID"
-      },
-      "defaultValue": "\"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\""
-    },
     "resourceGroupName": {
       "type": "string",
       "metadata": {
-        "description": "Resource group name"
+        "description": "Azure Automate resource group name"
+      },
+      "defaultValue": "\"*-Sentinel-Prod\""
+    },
+    "umiResourceGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Azure user assigned managed identity resource group name"
       },
       "defaultValue": "\"*-Sentinel-Prod\""
     },
@@ -163,7 +163,7 @@
       "identity": {
         "type": "SystemAssigned, UserAssigned",
         "userAssignedIdentities": {
-          "[format('/subscriptions/{0}/resourceGroups/{1}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{2}', subscription().subscriptionId, resourceGroup().name, parameters('userAssignedIdentityName'))]": {}
+          "[format('/subscriptions/{0}/resourceGroups/{1}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{2}', subscription().subscriptionId, parameters('umiResourceGroupName'), parameters('userAssignedIdentityName'))]": {}
         }
       },
       "properties": {
@@ -426,7 +426,7 @@
       "properties": {
         "isEncrypted": false,
         "value": "[parameters('dataConnectorLA')]",
-        "description": "User managed identity client GUID"
+        "description": "Data collector Logic App URI"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('accountName'))]"
@@ -439,7 +439,20 @@
       "properties": {
         "isEncrypted": false,
         "value": "[parameters('resourceGroupName')]",
-        "description": "Name of the resource group"
+        "description": "Name of the resource group to deploy the automation account"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('accountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+    "name": "[concat(parameters('accountName'), '/UMI_RESOURCE_GROUP_NAME')]",
+      "properties": {
+        "isEncrypted": false,
+        "value": "[parameters('umiResourceGroupName')]",
+        "description": "Name of the user managed identity resource group"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('accountName'))]"
@@ -452,7 +465,7 @@
       "properties": {
         "isEncrypted": false,
         "value": "[parameters('umiObjectId')]",
-        "description": "User managed identity object GUID"
+        "description": "User managed identity object (principal) GUID"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('accountName'))]"
@@ -464,7 +477,7 @@
       "name": "[concat(parameters('accountName'), '/SUBSCRIPTION_ID')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[parameters('subscriptionId')]",
+        "value": "[subscription().subscriptionId]",
         "description": "Azure subscription ID"
       },
       "dependsOn": [
