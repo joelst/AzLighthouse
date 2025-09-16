@@ -116,7 +116,7 @@
       "metadata": {
         "description": "Enter new GUID to be used to create a unique job schedule name"
       }
-    },
+    }
   },
   "variables": {
     "pwshRuntimeName": "PowerShell_74_Plus",
