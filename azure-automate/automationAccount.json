@@ -126,7 +126,8 @@
     }
   },
   "variables": {
-    "pwshRuntimeName": "PowerShell_74_Plus"
+    "pwshRuntimeName": "PowerShell_74_Plus",
+    "runbookScheduleName": "SP_daily_8am"
   },
   "resources": [
     {
@@ -301,7 +302,7 @@
     {
       "type": "Microsoft.Automation/automationAccounts/schedules",
       "apiVersion": "2023-11-01",
-      "name": "[format('{0}/{1}', parameters('accountName'), 'SP_daily_8am')]",
+      "name": "[format('{0}/{1}', parameters('accountName'), variables('runbookScheduleName'))]",
       "properties": {
         "startTime": "[dateTimeAdd(utcNow(), 'PT90M')]",
         "expiryTime": "9999-12-31T17:59:00-06:00",
@@ -331,14 +332,14 @@
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('accountName'))]",
         "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('accountName'), parameters('rsocRunbookName'))]",
-        "[resourceId('Microsoft.Automation/automationAccounts/schedules', parameters('accountName'), 'SP_daily_8am')]"
+        "[resourceId('Microsoft.Automation/automationAccounts/schedules', parameters('accountName'), variables('runbookScheduleName'))]"
       ],
       "properties": {
         "runbook": {
           "name": "[parameters('rsocRunbookName')]"
         },
         "schedule": {
-          "name": "SP_daily_8am"
+          "name": "[variables('runbookScheduleName')]"
         }
       }
     },
