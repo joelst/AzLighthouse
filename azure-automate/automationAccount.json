@@ -68,24 +68,24 @@
         "description": "Location for user assigned managed identity"
       }
     },
-    "umiClientId": {
+    "userAssignedIdentityClientId": {
       "type": "string",
       "metadata": {
         "description": "User managed identity client GUID"
       },
       "defaultValue": "\"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\""
     },
-    "umiResourceGroupName": {
+    "userAssignedIdentityResourceGroupName": {
       "type": "string",
       "metadata": {
         "description": "Resource group where the user managed identity is located"
       },
       "defaultValue": "\"*-Sentinel-Prod\""
     },
-    "secretsLogicAppUri": {
+    "servicePrincipalCredentialLogicAppUri": {
       "type": "string",
       "metadata": {
-        "description": "Secrets Logic App URI"
+        "description": "Service Principal credential update Logic App URI"
       },
       "defaultValue": "\"https://logicapp.azure.com/\""
     },
@@ -132,7 +132,7 @@
       "identity": {
         "type": "SystemAssigned, UserAssigned",
         "userAssignedIdentities": {
-          "[format('/subscriptions/{0}/resourceGroups/{1}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{2}', subscription().subscriptionId, parameters('umiResourceGroupName'), parameters('userAssignedIdentityName'))]": {}
+          "[format('/subscriptions/{0}/resourceGroups/{1}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{2}', subscription().subscriptionId, parameters('userAssignedIdentityResourceGroupName'), parameters('userAssignedIdentityName'))]": {}
         }
       },
       "properties": {
@@ -355,8 +355,8 @@
       "name": "[concat(parameters('accountName'), '/SECRET_LA_URI')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[parameters('secretsLogicAppUri')]",
-        "description": "URI for the secrets management Logic App"
+        "value": "[parameters('servicePrincipalCredentialLogicAppUri')]",
+        "description": "URI for the service principal credential update Logic App"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('accountName'))]"
@@ -368,7 +368,7 @@
       "name": "[concat(parameters('accountName'), '/UMI_ID')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[parameters('umiClientId')]",
+        "value": "[parameters('userAssignedIdentityClientId')]",
         "description": "User managed identity client GUID"
       },
       "dependsOn": [
@@ -407,7 +407,7 @@
     "name": "[concat(parameters('accountName'), '/UMI_RESOURCE_GROUP_NAME')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[parameters('umiResourceGroupName')]",
+        "value": "[parameters('userAssignedIdentityResourceGroupName')]",
         "description": "Name of the user managed identity resource group"
       },
       "dependsOn": [
