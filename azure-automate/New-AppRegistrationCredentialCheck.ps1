@@ -15,7 +15,7 @@
     Number of days before the credential expires to create a new one.
 .PARAMETER CredentialValidDays
     Number of days the new credential will be valid.
-.PARAMETER SecretApiUri
+.PARAMETER SecretLAUri
     URI to post credential notifications.
 .PARAMETER AppSearchString
     String to find existing/legacy application registrations.
@@ -52,7 +52,7 @@ param (
 
   [Parameter(Mandatory = $false)]
   [ValidateNotNullOrEmpty()]
-  [string]$SecretApiUri,
+  [string]$SecretLAUri,
 
   [Parameter(Mandatory = $false)]
   [ValidateNotNullOrEmpty()]
@@ -70,8 +70,11 @@ param (
 if ([string]::IsNullOrWhiteSpace($UMIId)) {
   $UMIId = Get-AutomationVariable -Name 'UMI_ID'
 }
-if ([string]::IsNullOrWhiteSpace($SecretApiUri)) {
-  $SecretApiUri = Get-AutomationVariable -Name 'SECRET_API_URI'
+if ([string]::IsNullOrWhiteSpace($SecretLAUri)) {
+  $SecretLAUri = Get-AutomationVariable -Name 'SECRET_LA_URI'
+  # fallback to old name for compatibility
+  if ([string]::IsNullOrWhiteSpace($SecretLAUri)) {
+    $SecretLAUri = Get-AutomationVariable -Name 'SECRET_API_URI'
 }
 if ([string]::IsNullOrWhiteSpace($AppSearchString)) {
   $AppSearchString = Get-AutomationVariable -Name 'APP_SEARCH_STRING'
@@ -84,7 +87,7 @@ if ([string]::IsNullOrWhiteSpace($NewAppRegName)) {
 if ($null -eq $UMIId) {
   throw 'No UMI Id specified'
 }
-if ($null -eq $SecretApiUri) {
+if ($null -eq $SecretLAUri) {
   throw 'No Secret API URI specified'
 }
 
@@ -265,7 +268,7 @@ function New-AppRegCredential {
   secret information to a notification endpoint.
   .PARAMETER ApplicationId
   The application ID of the application for which to create a new credential.
-  .PARAMETER SecretApiUri
+  .PARAMETER SecretLAUri
   The URI to post the secret notification to.
   .PARAMETER CredentialValidDays
   The number of days the new credential will be valid.
@@ -285,7 +288,7 @@ function New-AppRegCredential {
     $ApplicationId,
     [Parameter()]
     [string]
-    $SecretApiUri,
+    $SecretLAUri,
     [Parameter()]
     [int]
     $CredentialValidDays = 180,
@@ -321,7 +324,7 @@ function New-AppRegCredential {
   if ([string]::IsNullOrWhiteSpace($secret.KeyId) -eq $false) {
     # Post the secret info to a API/Azure Function/Azure Logic App/etc to save this in the main tenant.
     $secretNotificationParams = @{
-      URI             = $SecretApiUri
+      URI             = $SecretLAUri
       AppId           = $AppId
       ApplicationId   = $ApplicationId
       SecretName      = $secret.DisplayName
@@ -480,7 +483,7 @@ if ($apps.Count -ne 0 -and $CreateNewAppReg -eq $false) {
         # Post that this secret is being removed to a API/Azure Function/Azure Logic App/etc to save
         # this in the main tenant.
         $secretNotificationParams = @{
-          URI             = $SecretApiUri
+          URI             = $SecretLAUri
           AppId           = $app.AppId
           ApplicationId   = $app.Id
           SecretName      = $cred.DisplayName
@@ -520,7 +523,7 @@ if ($apps.Count -ne 0 -and $CreateNewAppReg -eq $false) {
       $appRegCredentialParams = @{
         AppId               = $app.AppId
         ApplicationId       = $app.Id
-        SecretApiUri        = $SecretApiUri
+        SecretLAUri        = $SecretLAUri
         CredentialValidDays = $CredentialValidDays
         AppPublisherDomain  = $app.PublisherDomain
         AppDisplayName      = $app.DisplayName
@@ -638,7 +641,7 @@ if ($createNewAppReg -eq $true) {
 
   # Post the secret info to a API/Azure Function/Azure Logic App/etc to save this in the main tenant.
   $secretNotificationParams = @{
-    URI             = $SecretApiUri
+    URI             = $SecretLAUri
     AppId           = $app.AppId
     ApplicationId   = $app.Id
     SecretName      = $appCred.DisplayName
@@ -680,7 +683,7 @@ if ($validAppRegExists -eq $false) {
   Write-Error 'Error creating new credentials. Please review logs.'
 
   $newSecretNotificationParams = @{
-    URI             = $SecretApiUri
+    URI             = $SecretLAUri
     ApplicationId   = 'NONE'
     SecretName      = 'No valid credentials'
     PublisherDomain = 'NONE'

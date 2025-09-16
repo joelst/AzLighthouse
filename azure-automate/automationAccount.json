@@ -75,10 +75,10 @@
       },
       "defaultValue": "\"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\""
     },
-    "secretUri": {
+    "secretsLogicAppUri": {
       "type": "string",
       "metadata": {
-        "description": "Secret URI"
+        "description": "Secrets Logic App URI"
       },
       "defaultValue": "\"https://logicapp.azure.com/\""
     },
@@ -96,14 +96,7 @@
       },
       "defaultValue": "\"*-Sentinel-Ingestion\""
     },
-    "umiObjectId": {
-      "type": "string",
-      "metadata": {
-        "description": "User managed identity object ID"
-      },
-      "defaultValue": "\"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\""
-    },
-    "resourceGroupName": {
+    "sentinelResourceGroupName": {
       "type": "string",
       "metadata": {
         "description": "Resource group where the Sentinel workspace is located"
@@ -117,14 +110,14 @@
       },
       "defaultValue": "\"*-Sentinel-Prod\""
     },
-    "workspaceName": {
+    "sentinelWorkspaceName": {
       "type": "string",
       "metadata": {
         "description": "Sentinel Log Analytics workspace name"
       },
       "defaultValue": "\"*-Sentinel\""
     },
-    "dataconnectorLA": {
+    "dataConnectorLogicAppUri": {
       "type": "string",
       "metadata": {
         "description": "Data connector Logic App URI"
@@ -379,11 +372,11 @@
     {
       "type": "Microsoft.Automation/automationAccounts/variables",
       "apiVersion": "2023-11-01",
-      "name": "[concat(parameters('accountName'), '/SECRET_API_URI')]",
+      "name": "[concat(parameters('accountName'), '/SECRET_LA_URI')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[parameters('secretUri')]",
-        "description": "URI to the secret management API"
+        "value": "[parameters('secretsLogicAppUri')]",
+        "description": "URI for the secrets management Logic App"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('accountName'))]"
@@ -405,10 +398,10 @@
     {
       "type": "Microsoft.Automation/automationAccounts/variables",
       "apiVersion": "2023-11-01",
-      "name": "[concat(parameters('accountName'), '/DATA_CONNECTOR_LA')]",
+      "name": "[concat(parameters('accountName'), '/DATACONNECTOR_LA_URI')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[parameters('dataConnectorLA')]",
+        "value": "[parameters('dataConnectorLogicAppUri')]",
         "description": "Data collector Logic App URI"
       },
       "dependsOn": [
@@ -421,7 +414,7 @@
     "name": "[concat(parameters('accountName'), '/RESOURCE_GROUP_NAME')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[parameters('resourceGroupName')]",
+        "value": "[parameters('sentinelResourceGroupName')]",
         "description": "Name of the resource group where Sentinel workspace is located"
       },
       "dependsOn": [
@@ -436,19 +429,6 @@
         "isEncrypted": false,
         "value": "[parameters('umiResourceGroupName')]",
         "description": "Name of the user managed identity resource group"
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', parameters('accountName'))]"
-      ]
-    },
-    {
-      "type": "Microsoft.Automation/automationAccounts/variables",
-      "apiVersion": "2023-11-01",
-      "name": "[concat(parameters('accountName'), '/UMI_OBJECT_ID')]",
-      "properties": {
-        "isEncrypted": false,
-        "value": "[parameters('umiObjectId')]",
-        "description": "User managed identity object (principal) GUID"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('accountName'))]"
@@ -473,8 +453,8 @@
       "name": "[concat(parameters('accountName'), '/WORKSPACE_NAME')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[parameters('workspaceName')]",
-        "description": "Name of the Log Analytics workspace"
+        "value": "[parameters('SentinelWorkspaceName')]",
+        "description": "Name of the Sentinel Log Analytics workspace"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('accountName'))]"

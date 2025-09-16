@@ -503,25 +503,13 @@ function Resolve-ManagedIdentityObjectId {
   Uses explicit override, automation variable, or directory lookup via application (client) id.
   .PARAMETER ClientId
   ApplicationId of user-assigned managed identity.
-  .PARAMETER ObjectIdOverride
-  Direct object id if supplied as parameter.
-  .PARAMETER VariableObjectId
-  Object id from automation variable.
   .OUTPUTS
   System.String ObjectId GUID.
   .EXAMPLE
   Resolve-ManagedIdentityObjectId -ClientId $UmiClientId
   #>
-    param([string]$ClientId, 
-        [string]$ObjectIdOverride, 
-        [string]$VariableObjectId)
-
-    if ($ObjectIdOverride) {
-    Write-Log -Level INFO -Message 'Using supplied ManagedIdentityObjectId parameter.'; return $ObjectIdOverride 
-    }
-    if ($VariableObjectId) {
-    Write-Log -Level INFO -Message 'Using automation variable UMI_OBJECT_ID.'; return $VariableObjectId 
-    }
+    param([string]$ClientId
+        )
     if (-not $ClientId) {
         throw 'Cannot resolve managed identity objectId: no clientId and no overrides provided.' 
     }
@@ -1062,11 +1050,10 @@ Write-Log -Level INFO -Message "RunId=$script:RunId"
 # UMI_ID (preferred) should be the CLIENT ID (ApplicationId) of the User-Assigned Managed Identity.
 # Optionally allow UMI_OBJECT_ID variable if available to avoid directory lookup.
 $UmiClientId = Get-Var -Name 'UMI_ID'                            # UAMI (client) id (preferred)
-$UmiObjectIdVar = Get-Var -Name 'UMI_OBJECT_ID' -Optional         # Optional object id (skip directory lookup)
 $AutoSubId = Get-Var -Name 'SUBSCRIPTION_ID'                      # Target subscription GUID
 $AutoRg = Get-Var -Name 'RESOURCE_GROUP_NAME'                     # Resource group name
 $AutoWorkspaceName = Get-Var -Name 'WORKSPACE_NAME'               # Log Analytics workspace name
-$LogicAppUri = Get-Var -Name 'DATA_CONNECTOR_LA'                     # Optional Logic App endpoint
+$LogicAppUri = Get-Var -Name 'DATACONNECTOR_LA_URI'                     # Optional Logic App endpoint
 
 Write-Log -Level INFO -Message "Variables loaded: RG=$AutoRg Workspace=$AutoWorkspaceName LogicAppUri=$LogicAppUri UmiClientId=$UmiClientId" 
 
@@ -1209,7 +1196,7 @@ function Invoke-AutomaticReaderRoleAssignment {
     # PURPOSE: If connector retrieval fails (likely RBAC), attempt to grant Sentinel Reader to MI.
     param([string]$Scope)
     $roleName = 'Microsoft Sentinel Reader'
-    $miObjectId = Resolve-ManagedIdentityObjectId -ClientId $UmiClientId -VariableObjectId $UmiObjectIdVar
+    $miObjectId = Resolve-ManagedIdentityObjectId -ClientId $UmiClientId
     Write-Log -Level WARN -Message "Attempting automatic role assignment due to access failure. Role='$roleName' ObjectId=$miObjectId Scope=$Scope"
     if ($WhatIf) {
     Write-Log -Level INFO -Message "WhatIf: Would assign role '$roleName' to ObjectId $miObjectId at $Scope"
@@ -1536,7 +1523,7 @@ else {
     $summaryObj | ConvertTo-Json -Depth 5 | Write-Output
 }
 
-# Logic App posting: already resolved from automation variable earlier (DATA_CONNECTOR_LA)
+# Logic App posting: already resolved from automation variable earlier (DATACONNECTOR_LA_URI)
 if ($LogicAppUri) {
     # Optional outbound push of results to Logic App (if uri provided)
     try {
