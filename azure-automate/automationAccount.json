@@ -126,8 +126,7 @@
     }
   },
   "variables": {
-    "pwshRuntimeName": "PowerShell_74_Plus",
-    "newGuid" : "[newGuid()]"
+    "pwshRuntimeName": "PowerShell_74_Plus"
   },
   "resources": [
     {
@@ -328,7 +327,7 @@
     {
       "type": "Microsoft.Automation/automationAccounts/jobSchedules",
       "apiVersion": "2023-11-01",
-      "name": "[format('{0}/{1}', parameters('accountName'), variables('newGuid'))]",
+      "name": "[format('{0}/{1}', parameters('accountName'), newGuid())]",
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('accountName'))]",
         "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('accountName'), parameters('rsocRunbookName'))]",
