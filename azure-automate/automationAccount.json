@@ -38,7 +38,7 @@
       "metadata": {
         "description": "URI to the runbook content"
       },
-      "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/azure-automate/Get-MSSP-DataConnectorStatus.ps1"
+      "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/azure-automate/Get-MsspDataConnectorStatus.ps1"
     },
     "connectorRunbookDescription": {
       "type": "string",
@@ -52,7 +52,7 @@
       "metadata": {
         "description": "Name of the runbook"
       },
-      "defaultValue": "MSSP-DataConnectorStatus-Runbook"
+      "defaultValue": "Get-MSSPDataConnectorStatus"
     },
     "userAssignedIdentityName": {
       "type": "string",
