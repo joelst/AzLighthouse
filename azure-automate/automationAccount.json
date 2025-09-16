@@ -12,21 +12,21 @@
       },
       "defaultValue": "MSSP-Automation"
     },
-    "rsocRunbookContentUri": {
+    "servicePrincipalCredentialRunbookContentUri": {
       "type": "string",
       "metadata": {
         "description": "URI to the runbook content"
       },
       "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/azure-automate/Update-MsspAppRegistrationCredential.ps1"
     },
-    "rsocRunbookDescription": {
+    "servicePrincipalCredentialRunbookDescription": {
       "type": "string",
       "metadata": {
         "description": "Description of the runbook"
       },
       "defaultValue": "Runbook to manage service principal credentials for the MSSP"
     },
-    "rsocRunbookName": {
+    "servicePrincipalCredentialRunbookName": {
       "type": "string",
       "metadata": {
         "description": "Name of the runbook"
@@ -148,7 +148,7 @@
     {
       "type": "Microsoft.Automation/automationAccounts/runbooks",
       "apiVersion": "2024-10-23",
-      "name": "[format('{0}/{1}', parameters('accountName'), parameters('rsocRunbookName'))]",
+      "name": "[format('{0}/{1}', parameters('accountName'), parameters('servicePrincipalCredentialRunbookName'))]",
       "location": "[resourceGroup().location]",
       "tags": {},
       "properties": {
@@ -156,9 +156,9 @@
         "runtimeEnvironment": "[variables('pwshRuntimeName')]",
         "logProgress": false,
         "logVerbose": false,
-        "description": "[parameters('rsocRunbookDescription')]",
+        "description": "[parameters('servicePrincipalCredentialRunbookDescription')]",
         "publishContentLink": {
-          "uri": "[parameters('rsocRunbookContentUri')]",
+          "uri": "[parameters('servicePrincipalCredentialRunbookContentUri')]",
           "version": "1.0.0.0"
         }
       },
@@ -324,12 +324,12 @@
       "name": "[format('{0}/{1}', parameters('accountName'), newGuid())]",
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('accountName'))]",
-        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('accountName'), parameters('rsocRunbookName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('accountName'), parameters('servicePrincipalCredentialRunbookName'))]",
         "[resourceId('Microsoft.Automation/automationAccounts/schedules', parameters('accountName'), variables('runbookScheduleName'))]"
       ],
       "properties": {
         "runbook": {
-          "name": "[parameters('rsocRunbookName')]"
+          "name": "[parameters('servicePrincipalCredentialRunbookName')]"
         },
         "schedule": {
           "name": "[variables('runbookScheduleName')]"
