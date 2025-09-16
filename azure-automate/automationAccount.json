@@ -346,24 +346,11 @@
     {
       "type": "Microsoft.Automation/automationAccounts/variables",
       "apiVersion": "2023-11-01",
-      "name": "[concat(parameters('accountName'), '/APP_SEARCH_STRING')]",
-      "properties": {
-        "isEncrypted": false,
-        "value": "[parameters('appSearchString')]",
-        "description": "App search string"
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', parameters('accountName'))]"
-      ]
-    },
-    {
-      "type": "Microsoft.Automation/automationAccounts/variables",
-      "apiVersion": "2023-11-01",
-      "name": "[concat(parameters('accountName'), '/NEW_APP_REG_NAME')]",
+      "name": "[concat(parameters('accountName'), '/APP_REG_NAME')]",
       "properties": {
         "isEncrypted": false,
         "value": "[parameters('newAppReg')]",
-        "description": "Name of the new app registration"
+        "description": "Name of the data ingestion app registration"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('accountName'))]"

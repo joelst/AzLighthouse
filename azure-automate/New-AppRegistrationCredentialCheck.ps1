@@ -17,9 +17,7 @@
     Number of days the new credential will be valid.
 .PARAMETER SecretLAUri
     URI to post credential notifications.
-.PARAMETER AppSearchString
-    String to find existing/legacy application registrations.
-.PARAMETER NewAppRegName
+.PARAMETER AppRegName
     Name for newly created application registrations.
 .PARAMETER CreateNewAppReg
     When set to true, a new application registration will be created even if one already exists.
@@ -56,11 +54,7 @@ param (
 
   [Parameter(Mandatory = $false)]
   [ValidateNotNullOrEmpty()]
-  [string]$AppSearchString,
-
-  [Parameter(Mandatory = $false)]
-  [ValidateNotNullOrEmpty()]
-  [string]$NewAppRegName,
+  [string]$AppRegName,
 
   [Parameter(Mandatory = $false)]
   [bool]$CreateNewAppReg = $false
@@ -77,11 +71,13 @@ if ([string]::IsNullOrWhiteSpace($SecretLAUri)) {
     $SecretLAUri = Get-AutomationVariable -Name 'SECRET_API_URI'
   }
 }
-if ([string]::IsNullOrWhiteSpace($AppSearchString)) {
-  $AppSearchString = Get-AutomationVariable -Name 'APP_SEARCH_STRING'
-}
-if ([string]::IsNullOrWhiteSpace($NewAppRegName)) {
-  $NewAppRegName = Get-AutomationVariable -Name 'NEW_APP_REG_NAME'
+
+if ([string]::IsNullOrWhiteSpace($AppRegName)) {
+  $AppRegName = Get-AutomationVariable -Name 'APP_REG_NAME'
+  # fallback to old name for compatibility
+  if ([string]::IsNullOrWhiteSpace($AppRegName)) {
+    $AppRegName = Get-AutomationVariable -Name 'NEW_APP_REG_NAME'
+  }
 }
 
 # Check if all required parameters are set.
@@ -92,11 +88,8 @@ if ($null -eq $SecretLAUri) {
   throw 'No Secret API URI specified'
 }
 
-if ($null -eq $AppSearchString) {
-  throw 'No App Search String specified'
-}
 
-if ($null -eq $NewAppRegName) {
+if ($null -eq $AppRegName) {
   throw 'No New App Reg Name specified'
 }
 
@@ -420,7 +413,7 @@ if (-not $?) {
 }
 
 # find all legacy app registrations
-$apps = $allApps | Where-Object { $_.DisplayName -like $AppSearchString -or $_.DisplayName -like $NewAppRegName }
+$apps = $allApps | Where-Object { $_.DisplayName -like $AppRegName }
 
 Write-Output "`n----------------------------------------------------"
 Write-Output "Tenant ID: $($env:TENANT_ID)"
@@ -533,7 +526,7 @@ if ($apps.Count -ne 0 -and $CreateNewAppReg -eq $false) {
 
       # If the app credential was not created, we need to create a new app registration; however only if
       # the app registration name matches the original search string.
-      if ($app.DisplayName -like $AppSearchString -and $result -eq $false) {
+      if ($app.DisplayName -like $AppRegName -and $result -eq $false) {
         Write-Debug "Failed to create a new credential for $($app.DisplayName) ($($app.Id))"
         # We need to create a new app registration since we could not create a new credential for the existing one.
         $createNewAppReg = $true
@@ -552,20 +545,20 @@ else {
 
 if ($createNewAppReg -eq $true) {
   $validAppRegExists = $false
-  # Create a new service principal with the name $NewAppRegName
+  # Create a new service principal with the name $AppRegName
   $subscriptionId = (Get-AzContext).Subscription.Id
   $scope = "/subscriptions/$($subscriptionId)"
-  Write-Output "Creating a new service principal $NewAppRegName with Owner role on subscription $subscriptionId"
+  Write-Output "Creating a new service principal $AppRegName with Owner role on subscription $subscriptionId"
   $appOwner = @{
     '@odata.id' = "https://graph.microsoft.com/v1.0/directoryObjects/{$($UMIId)}"
   }
   try {
-    # Create a new application registration with the name $NewAppRegName
+    # Create a new application registration with the name $AppRegName
     $description = "Created by MSSP RSOC Automation on $(Get-Date)"
     $appRegParams = @{
-      DisplayName            = $NewAppRegName
+      DisplayName            = $AppRegName
       Description            = $description
-      IdentifierUris         = @("https://$($NewAppRegName)")
+      IdentifierUris         = @("https://$($AppRegName)")
       SignInAudience         = 'AzureADMyOrg'
       AppRoles               = @()
       RequiredResourceAccess = @()
@@ -574,7 +567,7 @@ if ($createNewAppReg -eq $true) {
     $sp = New-AzADServicePrincipal @appRegParams
   }
   catch {
-    Write-Error "Failed to create a new service principal $NewAppRegName"
+    Write-Error "Failed to create a new service principal $AppRegName"
     Write-Error $_.Exception.Message
     $script:SummaryStats.ApplicationsFailedToCreate++
     throw 'Cannot continue without creating service principal'
@@ -709,8 +702,7 @@ Write-Output ''
 Write-Output 'Script Configuration:'
 Write-Output "  - Days Before Expiration Threshold: $DaysBeforeExpiration"
 Write-Output "  - New Credential Valid Days: $CredentialValidDays"
-Write-Output "  - App Search String: '$AppSearchString'"
-Write-Output "  - New App Registration Name: '$NewAppRegName'"
+Write-Output "  - App Registration Name: '$AppRegName'"
 Write-Output "  - Force Create New App: $CreateNewAppReg"
 Write-Output ''
 Write-Output 'Tenant Information:'
