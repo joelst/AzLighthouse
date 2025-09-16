@@ -12,13 +12,6 @@
       },
       "defaultValue": "MSSP-Automation"
     },
-    "newGuid": {
-      "type": "string",
-      "defaultValue": "[newGuid()]",
-      "metadata": {
-        "description": "Enter new GUID to be used to create a unique job schedule name"
-      }
-    },
     "servicePrincipalCredentialRunbookContentUri": {
       "type": "string",
       "metadata": {
@@ -116,7 +109,14 @@
       "metadata": {
         "description": "UTC date time now plus 90 minutes for when the schedule will become active, not when the schedule runs"
       }
-    }
+    },
+      "newGuid": {
+      "type": "string",
+      "defaultValue": "[newGuid()]",
+      "metadata": {
+        "description": "Enter new GUID to be used to create a unique job schedule name"
+      }
+    },
   },
   "variables": {
     "pwshRuntimeName": "PowerShell_74_Plus",
@@ -409,7 +409,7 @@
       "name": "[concat(parameters('automationAccountName'), '/SUBSCRIPTION_ID')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[subscription().subscriptionId]",
+        "value": "[concat('\"', subscription().subscriptionId, '\"')]",
         "description": "Azure subscription ID"
       },
       "dependsOn": [
