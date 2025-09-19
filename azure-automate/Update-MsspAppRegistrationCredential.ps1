@@ -1,6 +1,11 @@
 #requires -module Microsoft.Graph.Authentication, Microsoft.Graph.Application, Microsoft.Graph.Users.Actions, Microsoft.Graph.DirectoryObjects, Microsoft.Graph.Identity.DirectoryManagement
 
 <#
+
+Disclaimer: This script is provided "as-is" without any warranties.
+
+Updated: 2025-09-19
+
 .SYNOPSIS
     Monitors and rotates Azure AD application credentials.
 
@@ -335,13 +340,22 @@ function New-AppRegCredential {
     $null = New-SecretNotification @secretNotificationParams
     $Script:ValidAppRegExists = $true
     $script:SummaryStats.SecretsCreated++
+    # Track new credential app for summary
+    [void]$script:NewCredentialApps.Add([pscustomobject]@{
+        DisplayName      = $AppDisplayName
+        ApplicationId    = $ApplicationId
+        AppId            = $AppId
+        NewSecretEndDate = $secret.EndDateTime
+      })
   }
   else {
     # If a new credential was needed, but it was not created.
     # This may not be a catostrophic problem if another AppRegistration has a valid credential
     # We will check at the end to see if this is a real problem.
     Write-Warning "A new secret could not be created for $($AppDisplayName) $($ApplicationId)"
-    Write-Warning $_.Exception.Message
+  # Safely emit warning even if $_ or $_.Exception is null
+  $warnMsg = if ($null -ne $_ -and $null -ne $_.Exception -and -not [string]::IsNullOrWhiteSpace($_.Exception.Message)) { $_.Exception.Message } else { 'Unknown warning condition encountered removing credential.' }
+  Write-Warning $warnMsg
     #$Script:ValidAppRegExists = $false
     $script:SummaryStats.SecretsFailedToCreate++
   }
@@ -396,6 +410,11 @@ $script:SummaryStats = @{
   ApplicationsFailedToCreate = 0
 }
 
+# Collections for detailed end-of-run reporting
+$script:ExpiredUnresolvedApps = New-Object System.Collections.ArrayList   # Apps whose all credentials expired/expiring and new secret not created
+$script:NewCredentialApps     = New-Object System.Collections.ArrayList   # Apps where a new credential was successfully created this run
+$script:ValidApps             = New-Object System.Collections.ArrayList   # Apps with at least one currently valid credential (post rotation)
+
 # Get all the apps from graph and then filter out only those that have "-Sentinel-Ingestion" in the name.
 
 # Attempt to get all the apps
@@ -413,7 +432,7 @@ if (-not $?) {
 }
 
 # find all legacy app registrations
-$apps = $allApps | Where-Object { $_.DisplayName -like $AppRegName }
+$apps = $allApps | Where-Object { $_.DisplayName -like $AppRegName } | Sort-Object -Property CreatedDateTime
 
 Write-Output "`n----------------------------------------------------"
 Write-Output "Tenant ID: $($env:TENANT_ID)"
@@ -427,6 +446,78 @@ if ($apps.Count -ne 0 -and $CreateNewAppReg -eq $false) {
 
   # Loop through each of the apps and check credential expiration.
   foreach ($app in $apps) {
+
+    # ------------------------------------------------------------
+    # Ensure the UMI is an application owner (idempotent)
+    # ------------------------------------------------------------
+    try {
+      if (-not $umiSp) { $umiSp = Get-AzADServicePrincipal -ApplicationId $UMIId -ErrorAction Stop }
+      $owners = @()
+      try { $owners = Get-MgApplicationOwner -ApplicationId $app.Id -All -ErrorAction Stop } catch { Write-Verbose "Could not enumerate owners for $($app.DisplayName): $($_.Exception.Message)" }
+
+      # Build a readable owner summary: DisplayName (Id) OR indicate none
+      if (-not $owners -or $owners.Count -eq 0) {
+        Write-Warning "No owners currently assigned to application $($app.DisplayName)."
+      }
+      else {
+        $ownerSummary = @()
+        foreach ($o in $owners) {
+          $name = $null
+          if ($o.PSObject.Properties.Name -contains 'DisplayName' -and [string]::IsNullOrWhiteSpace($o.DisplayName) -eq $false) {
+            $name = $o.DisplayName
+          }
+          elseif ($o.PSObject.Properties.Name -contains 'AdditionalProperties' -and $o.AdditionalProperties.ContainsKey('displayName')) {
+            $name = $o.AdditionalProperties['displayName']
+          }
+          else {
+            $name = 'Unknown'
+          }
+          $ownerSummary += "$name ($($o.Id))"
+        }
+        Write-Output ("Owners: " + ($ownerSummary -join ', '))
+      }
+      $umiIsOwner = $owners | Where-Object { $_.Id -eq $umiSp.Id }
+ 
+      if (-not $umiIsOwner) {
+        Write-Output "UMI not currently an owner of $($app.DisplayName); adding owner reference." 
+        $ownerRef = @{ '@odata.id' = "https://graph.microsoft.com/v1.0/directoryObjects/$($umiSp.Id)" }
+        try { New-MgApplicationOwnerByRef -ApplicationId $app.Id -BodyParameter $ownerRef | Out-Null } catch { Write-Warning "Failed to add UMI owner to $($app.DisplayName): $($_.Exception.Message)" }
+      }
+    }
+    catch {
+      Write-Warning "Owner validation failed for $($app.DisplayName): $($_.Exception.Message)"
+    }
+
+    # ------------------------------------------------------------
+    # Ensure the service principal has the expected subscription role (idempotent)
+    # ------------------------------------------------------------
+    try {
+      $subscriptionId = (Get-AzContext).Subscription.Id
+      $scope = "/subscriptions/$subscriptionId"
+      # Resolve SP first, then check assignment using SP object Id (not Application/AppId)
+      $spForApp = Get-AzADServicePrincipal -ApplicationId $app.AppId -ErrorAction SilentlyContinue
+      if ($spForApp) {
+        $existingRole = Get-AzRoleAssignment -ObjectId $spForApp.Id -Scope $scope -ErrorAction SilentlyContinue |
+          Where-Object { $_.RoleDefinitionId -like '3913510d-42f4-4e42-8a64-420c390055eb*' }
+        if (-not $existingRole) {
+          try {
+            New-AzRoleAssignment -RoleDefinitionId '3913510d-42f4-4e42-8a64-420c390055eb' -ObjectId $spForApp.Id -Scope $scope | Out-Null
+            Write-Output "Added role assignment (3913510d...) for $($app.DisplayName) at subscription scope."
+          }
+          catch {
+            if ($_.Exception.Message -match 'Conflict') {
+              Write-Verbose "Role assignment already exists (conflict) for $($app.DisplayName); continuing."
+            } else {
+              Write-Warning "Failed to add role assignment for $($app.DisplayName): $($_.Exception.Message)"
+            }
+          }
+        } else {
+          Write-Verbose "Role assignment already present for $($app.DisplayName)."
+        }
+      } else {
+        Write-Verbose "Service principal not yet resolvable for appId $($app.AppId); skipping role check."
+      }
+    } catch { Write-Verbose "Role assignment validation skipped for $($app.DisplayName): $($_.Exception.Message)" }
 
     # Track if credential rotation is needed (increments per expiring credential)
     $expiredCredentialCount = 0
@@ -452,14 +543,12 @@ if ($apps.Count -ne 0 -and $CreateNewAppReg -eq $false) {
       Write-Output "   Expires: $($cred.EndDateTime)"
       Write-Output "   Current Time: $(Get-Date)"
       Write-Output "   Is Expired: $($dateDifference -le 0)"
-      Write-Output "   Date difference (days): $($dateDifference.days)"
-      Write-Output '   === '
+      Write-Output "   Days until expiration: $($dateDifference.Days)"
 
       # If the credential is expired or will expire within the next $DaysBeforeExpiration days,
       # we need to create a new one.
       # If the date differences is less than or equal to 0 that means it has expired.
-      if ($dateDifference.days -le 0) {
-
+      if ($dateDifference.Days -le 0) {
         Write-Output "   Credential expired! $($cred.EndDateTime)"
         $script:SummaryStats.ExpiredSecrets++
 
@@ -496,8 +585,7 @@ if ($apps.Count -ne 0 -and $CreateNewAppReg -eq $false) {
       }
       elseif ($dateDifference.days -le $DaysBeforeExpiration) {
         # If the credential is expiring within the next $DaysBeforeExpiration days, we need to create a new one.
-        $daysToExpiration = (Get-Date).AddDays(- $DaysBeforeExpiration) - $cred.EndDateTime
-        Write-Output "   Expires within $DaysBeforeExpiration days! $daysToExpiration"
+        Write-Output "   Expires within $DaysBeforeExpiration days!"
         $script:SummaryStats.ExpiringSecrets++
         # Yes if this is the only cred we need to create one
         $expiredCredentialCount++
@@ -531,9 +619,35 @@ if ($apps.Count -ne 0 -and $CreateNewAppReg -eq $false) {
         # We need to create a new app registration since we could not create a new credential for the existing one.
         $createNewAppReg = $true
       }
+      # If still no valid credential after attempt, record as unresolved expired
+      if (-not $validCredentialExists -and -not ($script:NewCredentialApps | Where-Object { $_.ApplicationId -eq $app.Id })) {
+        # Determine the most recent (latest) credential end date if any credentials exist
+        $latestEnd = $null
+        if ($app.PasswordCredentials -and $app.PasswordCredentials.Count -gt 0) {
+          $latestEnd = ($app.PasswordCredentials | Sort-Object EndDateTime -Descending | Select-Object -First 1).EndDateTime
+        }
+        [void]$script:ExpiredUnresolvedApps.Add([pscustomobject]@{
+            DisplayName      = $app.DisplayName
+            ApplicationId    = $app.Id
+            AppId            = $app.AppId
+            LastKnownEndDate = $latestEnd
+          })
+      }
     }
     else {
       Write-Output "  At least one valid key is present for $($app.DisplayName)."
+    }
+    # Track valid apps (post-rotation) if at least one valid cred exists
+    if ($validCredentialExists) {
+      $maxValid = ($app.PasswordCredentials | Where-Object { (New-TimeSpan -Start (Get-Date) -End $_.EndDateTime).Days -gt 0 } | Sort-Object EndDateTime -Descending | Select-Object -First 1).EndDateTime
+      if (-not ($script:ValidApps | Where-Object { $_.ApplicationId -eq $app.Id })) {
+        [void]$script:ValidApps.Add([pscustomobject]@{
+            DisplayName        = $app.DisplayName
+            ApplicationId      = $app.Id
+            AppId              = $app.AppId
+            MaxValidEndDateUtc = $maxValid
+          })
+      }
     }
     Write-Output ''
   }
@@ -549,20 +663,23 @@ if ($createNewAppReg -eq $true) {
   $subscriptionId = (Get-AzContext).Subscription.Id
   $scope = "/subscriptions/$($subscriptionId)"
   Write-Output "Creating a new service principal $AppRegName with Owner role on subscription $subscriptionId"
-  $appOwner = @{
-    '@odata.id' = "https://graph.microsoft.com/v1.0/directoryObjects/{$($UMIId)}"
-  }
+    # Resolve the OBJECT (directory) Id for the managed identity (we were passed the client/application Id)
+    try {
+      $umiSp = Get-AzADServicePrincipal -ApplicationId $UMIId -ErrorAction Stop
+    }
+    catch {
+      throw "Unable to resolve managed identity service principal by ApplicationId $UMIId. $_"
+    }
+    $appOwner = @{
+      '@odata.id' = "https://graph.microsoft.com/v1.0/directoryObjects/$($umiSp.Id)"
+    }
   try {
     # Create a new application registration with the name $AppRegName
     $description = "Created by MSSP RSOC Automation on $(Get-Date)"
     $appRegParams = @{
-      DisplayName            = $AppRegName
-      Description            = $description
-      IdentifierUris         = @("https://$($AppRegName)")
-      SignInAudience         = 'AzureADMyOrg'
-      AppRoles               = @()
-      RequiredResourceAccess = @()
-      EndDate                = (Get-Date).AddDays($CredentialValidDays)
+        DisplayName = $AppRegName
+        Description = $description
+        EndDate     = (Get-Date).AddDays($CredentialValidDays)
     }
     $sp = New-AzADServicePrincipal @appRegParams
   }
@@ -600,24 +717,53 @@ if ($createNewAppReg -eq $true) {
     Write-Error "Failed to find the newly created application registration after $maxRetries attempts."
     throw 'Cannot continue without valid application registration'
   }
-
+ # Review app owners and role assignment for application. If the UMI is not listed as an owner, add it
   Write-Debug "Found application $($app.DisplayName) ($($app.Id)) after $($retryCount) retries."
-  Write-Debug "Adding the UMI as an owner of the application $($app.DisplayName) ($($app.Id))"
+  # Verify ownership (add only if missing)
   try {
-    New-MgApplicationOwnerByRef -ApplicationId $app.Id -BodyParameter $appOwner
-  }
-  catch {
-    Write-Warning "Failed to add UMI as owner of application: $($_.Exception.Message)"
-  }
+    $owners = Get-MgApplicationOwner -ApplicationId $app.Id -All -ErrorAction Stop
+    if (-not $owners -or $owners.Count -eq 0) {
+      Write-Warning "No owners currently assigned to newly created application $($app.DisplayName)."
+    } else {
+      $ownerSummary = @()
+      foreach ($o in $owners) {
+        $name = $null
+        if ($o.PSObject.Properties.Name -contains 'DisplayName' -and [string]::IsNullOrWhiteSpace($o.DisplayName) -eq $false) {
+          $name = $o.DisplayName
+        }
+        elseif ($o.PSObject.Properties.Name -contains 'AdditionalProperties' -and $o.AdditionalProperties.ContainsKey('displayName')) {
+          $name = $o.AdditionalProperties['displayName']
+        }
+        else { $name = 'Unknown' }
+        $ownerSummary += "$name ($($o.Id))"
+      }
+      Write-Output ("New App Owners: " + ($ownerSummary -join ', '))
+    }
+    if (-not ($owners | Where-Object { $_.Id -eq $umiSp.Id })) {
+      Write-Debug "UMI not owner yet; adding owner reference to $($app.DisplayName)"
+      New-MgApplicationOwnerByRef -ApplicationId $app.Id -BodyParameter $appOwner | Out-Null
+    } else { Write-Debug "UMI already an owner of $($app.DisplayName)." }
+  } catch { Write-Warning "Owner check/add failed for new app $($app.DisplayName): $($_.Exception.Message)" }
 
-  # Assign the service principal the Owner role on the subscription
-  Write-Debug "Assigning Owner role on subscription $subscriptionId to $($sp.DisplayName) ($($sp.Id))"
+  # Ensure service principal has subscription role only if missing
+  Write-Debug "Ensuring role assignment on subscription $subscriptionId for $($sp.DisplayName) ($($sp.Id))"
   try {
-    New-AzRoleAssignment -RoleDefinitionId '3913510d-42f4-4e42-8a64-420c390055eb' -ObjectId $sp.Id -Scope $scope
-  }
-  catch {
-    Write-Warning "Failed to assign Owner role to service principal: $($_.Exception.Message)"
-  }
+    $existingRole = Get-AzRoleAssignment -ObjectId $sp.Id -Scope $scope -ErrorAction SilentlyContinue |
+      Where-Object { $_.RoleDefinitionId -like '3913510d-42f4-4e42-8a64-420c390055eb*' }
+    if (-not $existingRole) {
+      try {
+        New-AzRoleAssignment -RoleDefinitionId '3913510d-42f4-4e42-8a64-420c390055eb' -ObjectId $sp.Id -Scope $scope | Out-Null
+        Write-Output "Added role assignment (3913510d...) for new app $($sp.DisplayName)."
+      }
+      catch {
+        if ($_.Exception.Message -match 'Conflict') {
+          Write-Verbose "Role assignment conflict (already exists) for new app $($sp.DisplayName)."
+        } else {
+          Write-Warning "Failed to assign role to new app $($sp.DisplayName): $($_.Exception.Message)"
+        }
+      }
+    } else { Write-Verbose "Role already assigned for new app $($sp.DisplayName)." }
+  } catch { Write-Verbose "Skipped role ensure for new app $($sp.DisplayName): $($_.Exception.Message)" }
   $appCred = $sp | Select-Object -ExpandProperty PasswordCredentials | Select-Object -First 1
 
   # Validate that we have a credential from the service principal creation
@@ -655,6 +801,20 @@ if ($createNewAppReg -eq $true) {
   $validAppRegExists = $true
   $script:SummaryStats.ApplicationsCreated++
   $script:SummaryStats.SecretsCreated++
+  # Track new app + credential
+  [void]$script:NewCredentialApps.Add([pscustomobject]@{
+      DisplayName      = $app.DisplayName
+      ApplicationId    = $app.Id
+      AppId            = $app.AppId
+      NewSecretEndDate = $appCred.EndDateTime
+    })
+  # Also treat as valid app
+  [void]$script:ValidApps.Add([pscustomobject]@{
+      DisplayName        = $app.DisplayName
+      ApplicationId      = $app.Id
+      AppId              = $app.AppId
+      MaxValidEndDateUtc = $appCred.EndDateTime
+    })
 }
 
 # If there are no valid credentials after all this then we need to raise an issue
@@ -697,37 +857,65 @@ if ($validAppRegExists -eq $false) {
 Write-Output "`n"
 Write-Output '=================================================================='
 Write-Output '           CREDENTIAL MANAGEMENT SCRIPT SUMMARY'
-Write-Output '=================================================================='
-Write-Output ''
 Write-Output 'Script Configuration:'
 Write-Output "  - Days Before Expiration Threshold: $DaysBeforeExpiration"
 Write-Output "  - New Credential Valid Days: $CredentialValidDays"
 Write-Output "  - App Registration Name: '$AppRegName'"
 Write-Output "  - Force Create New App: $CreateNewAppReg"
-Write-Output ''
 Write-Output 'Tenant Information:'
 Write-Output "  - Tenant ID: $($env:TENANT_ID)"
 Write-Output "  - Tenant Name: $($env:TENANT_NAME)"
 Write-Output "  - Tenant Domain: $($env:TENANT_DOMAIN)"
-Write-Output ''
 Write-Output 'Application Statistics:'
 Write-Output "  - Matching Applications Found: $($script:SummaryStats.MatchingApplications)"
 Write-Output "  - Applications Created: $($script:SummaryStats.ApplicationsCreated)"
 Write-Output "  - Applications Failed to Create: $($script:SummaryStats.ApplicationsFailedToCreate)"
-Write-Output ''
 Write-Output 'Credential Statistics:'
 Write-Output "  - Total Secrets Analyzed: $($script:SummaryStats.TotalSecrets)"
 Write-Output "  - Valid Secrets: $($script:SummaryStats.ValidSecrets)"
 Write-Output "  - Expired Secrets: $($script:SummaryStats.ExpiredSecrets)"
 Write-Output "  - Expiring Secrets (within $DaysBeforeExpiration days): $($script:SummaryStats.ExpiringSecrets)"
-Write-Output ''
 Write-Output 'Actions Performed:'
 Write-Output "  - Secrets Deleted (expired): $($script:SummaryStats.SecretsDeleted)"
 Write-Output "  - Secrets Created: $($script:SummaryStats.SecretsCreated)"
 Write-Output "  - Secrets Failed to Create: $($script:SummaryStats.SecretsFailedToCreate)"
-Write-Output ''
 
 $scriptStatus = if ($validAppRegExists) { 'SUCCESS' } else { 'FAILED' }
 
 Write-Output "Overall Status: $scriptStatus"
+Write-Output '=================================================================='
+
+# ---------------------------------------------------------------
+# DETAILED APPLICATION STATUS SUMMARY (Machine & Human Readable)
+# ---------------------------------------------------------------
+Write-Output ''
+Write-Output 'Detailed Application Status:'
+
+# Helper local function for consistent table formatting (fallback to list if no entries)
+function Write-AppGroupSummary {
+  param(
+    [string]$Title,
+    [System.Collections.IEnumerable]$Items,
+    [string[]]$SelectProps
+  )
+  Write-Output "-- $Title --"
+  if (-not $Items -or $Items.Count -eq 0) {
+    Write-Output '  (none)'
+  }
+  else {
+    $Items | Select-Object $SelectProps | Format-Table -AutoSize | Out-String | ForEach-Object { $_.TrimEnd() } | Write-Output
+  }
+  Write-Output ''
+}
+
+Write-AppGroupSummary -Title 'Expired / Expiring Applications (failed to create new credential)' `
+  -Items ($script:ExpiredUnresolvedApps | Sort-Object AppId) -SelectProps DisplayName,AppId,ApplicationId,LastKnownEndDate
+
+Write-AppGroupSummary -Title 'Applications where new credentials created this run' `
+  -Items ($script:NewCredentialApps | Sort-Object AppId) -SelectProps DisplayName,AppId,ApplicationId,NewSecretEndDate
+
+Write-AppGroupSummary -Title 'Applications With At Least One Valid Credential (post-run)' `
+  -Items ($script:ValidApps | Sort-Object AppId) -SelectProps DisplayName,AppId,ApplicationId,MaxValidEndDateUtc
+
+
 Write-Output '=================================================================='
