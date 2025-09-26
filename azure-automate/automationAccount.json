@@ -194,6 +194,20 @@
     {
       "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments/packages",
       "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}/Az.Accounts', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Az.Accounts/5.3.0"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments/packages",
+      "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}/Az.MonitoringSolutions', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
         "contentLink": {
