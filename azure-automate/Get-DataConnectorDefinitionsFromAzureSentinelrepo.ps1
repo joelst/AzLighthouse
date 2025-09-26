@@ -59,9 +59,9 @@ if (-not (Test-Path $BasePath)) {
 
 # Construct the full output file path based on the output type
 if ($AsCsv) {
-    $OutputFilePath = Join-Path $OutputFolderPath "AllDataConnectors.csv"
+    $OutputFilePath = Join-Path $OutputFolderPath "AllDataConnectorDefinitions.csv"
 } else {
-    $OutputFilePath = Join-Path $OutputFolderPath "AllDataConnectors.json"
+    $OutputFilePath = Join-Path $OutputFolderPath "AllDataConnectorDefinitions.json"
 }
 
 # Ensure the output folder exists
@@ -80,12 +80,40 @@ $jsonFiles = Get-ChildItem -Path $BasePath -Recurse -Filter *.json -File | Where
 foreach ($file in $jsonFiles) {
     try {
         $jsonContent = Get-Content $file.FullName -Raw | ConvertFrom-Json -ErrorAction Stop
-        if ($jsonContent.metadata.kind -eq "dataConnector") {
-            $matchingFiles += [PSCustomObject]@{
-                FilePath = $file.FullName
-                FileName = $file.Name
-            }
+        
+        # Check if required properties exist at top level
+        $hasTopLevelProperties = (-not [string]::IsNullOrWhiteSpace($jsonContent.id) -and 
+                                -not [string]::IsNullOrWhiteSpace($jsonContent.title) -and 
+                                -not [string]::IsNullOrWhiteSpace($jsonContent.publisher))
+        
+        # Check if required properties exist under properties.connectorUiConfig
+        $hasConnectorUiConfigProperties = (-not [string]::IsNullOrWhiteSpace($jsonContent.properties.connectorUiConfig.id) -and 
+                                         -not [string]::IsNullOrWhiteSpace($jsonContent.properties.connectorUiConfig.title) -and 
+                                         -not [string]::IsNullOrWhiteSpace($jsonContent.properties.connectorUiConfig.publisher))
+        
+        if ($hasTopLevelProperties) {
+            # Use top-level properties
+            $matchingFiles += $jsonContent
         }
+        elseif ($hasConnectorUiConfigProperties) {
+            # Use properties.connectorUiConfig and promote to top level for consistent output
+            $connectorConfig = $jsonContent.properties.connectorUiConfig
+            $normalizedContent = [PSCustomObject]@{
+                id = $connectorConfig.id
+                title = $connectorConfig.title
+                publisher = $connectorConfig.publisher
+                descriptionMarkdown = $connectorConfig.descriptionMarkdown
+                graphQueries = $connectorConfig.graphQueries
+                sampleQueries = $connectorConfig.sampleQueries
+                dataTypes = $connectorConfig.dataTypes
+                connectivityCriterias = $connectorConfig.connectivityCriterias
+                availability = $connectorConfig.availability
+                metadata = $jsonContent.metadata  # Keep original metadata
+            }
+            $matchingFiles += $normalizedContent
+        }
+        # If neither location has the required properties, skip the file (no else clause needed)
+        
     } catch {
         Write-Warning "Skipping invalid JSON file: $($file.FullName)"
     }
@@ -94,11 +122,35 @@ foreach ($file in $jsonFiles) {
 # Output results
 try {
     if ($AsCsv) {
-        $matchingFiles | Export-Csv -Path $OutputFilePath -NoTypeInformation -Encoding UTF8
+        # For CSV output, flatten and JSON-encode complex properties
+        $csvOutput = $matchingFiles | Where-Object { 
+            # Only include objects that have the essential properties
+            $_.id -and $_.title -and $_.publisher
+        } | ForEach-Object {
+            [PSCustomObject]@{
+                Id = $_.id
+                Title = $_.title
+                Publisher = $_.publisher
+                DescriptionMarkdown = $_.descriptionMarkdown
+                GraphQueries = if ($_.graphQueries) { ($_.graphQueries | ConvertTo-Json -Compress) } else { $null }
+                SampleQueries = if ($_.sampleQueries) { ($_.sampleQueries | ConvertTo-Json -Compress) } else { $null }
+                DataTypes = if ($_.dataTypes) { ($_.dataTypes | ConvertTo-Json -Compress) } else { $null }
+                ConnectivityCriterias = if ($_.connectivityCriterias) { ($_.connectivityCriterias | ConvertTo-Json -Compress) } else { $null }
+                Availability = if ($_.availability) { ($_.availability | ConvertTo-Json -Compress) } else { $null }
+                MetadataId = $_.metadata.contentId
+                MetadataVersion = $_.metadata.version
+                MetadataAuthorName = $_.metadata.author.name
+                MetadataSourceKind = $_.metadata.source.kind
+                MetadataSupportName = $_.metadata.support.name
+                MetadataSupportLink = $_.metadata.support.link
+                MetadataSupportTier = $_.metadata.support.tier
+            }
+        }
+        $csvOutput | Export-Csv -Path $OutputFilePath -NoTypeInformation -Encoding UTF8
         Write-Host "✅ CSV output saved to: $OutputFilePath"
     } else {
-        # Output as JSON format
-        $matchingFiles | ConvertTo-Json -Depth 3 | Out-File -FilePath $OutputFilePath -Encoding UTF8
+        # Output as JSON format with just content
+        $matchingFiles | ConvertTo-Json -Depth 15 | Out-File -FilePath $OutputFilePath -Encoding UTF8
         Write-Host "✅ JSON output saved to: $OutputFilePath"
     }
 } catch {
