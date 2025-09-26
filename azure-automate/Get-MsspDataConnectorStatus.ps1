@@ -37,7 +37,6 @@
      When specified, process connectors concurrently using ForEach-Object -Parallel (PowerShell 7+ only).
  .PARAMETER ThrottleLimit
      Maximum number of concurrent connector queries when -Parallel is used. Default 4.
-.
 .NOTES
   Managed identity requires Log Analytics Data Reader for KQL. MappingFound columns assist diagnostics.
   
@@ -86,7 +85,7 @@ $script:RunId = [guid]::NewGuid().ToString('N')
 # Record run start timestamp (UTC) early for later duration computation
 if (-not $RunStartUtc) { $RunStartUtc = (Get-Date).ToUniversalTime() }
 
-# Per-connector KQL mappings (preferred over table list when present)
+# Per-connector KQL mappings for ingestion metrics extraction. There needs to be a mapping for each connector Kind.
 $ConnectorKql = @{
     # Each key = connector Kind; value = KQL producing LastLogTime, LogsLastHour, TotalLogs24h
     # Alphabetical order maintained for readability & merge clarity.
@@ -1038,6 +1037,31 @@ function Get-StringDiagnostics {
     }
 }
 
+# ---------- Automatic Role Assignment Helper ----------
+function Invoke-AutomaticReaderRoleAssignment {
+    # PURPOSE: If connector retrieval fails (likely RBAC), attempt to grant Sentinel Reader to MI.
+    param([string]$Scope)
+    $roleName = 'Microsoft Sentinel Reader'
+    $miObjectId = Resolve-ManagedIdentityObjectId -ClientId $UmiClientId
+    Write-Log -Level WARN -Message "Attempting automatic role assignment due to access failure. Role='$roleName' ObjectId=$miObjectId Scope=$Scope"
+    if ($WhatIf) {
+    Write-Log -Level INFO -Message "WhatIf: Would assign role '$roleName' to ObjectId $miObjectId at $Scope"
+        return
+    }
+    try {
+        $existing = Get-AzRoleAssignment -ObjectId $miObjectId -Scope $Scope -ErrorAction SilentlyContinue | Where-Object { $_.RoleDefinitionName -eq $roleName }
+        if ($existing) {
+            Write-Log -Level INFO -Message 'Reader role already present.'
+            return
+        }
+        New-AzRoleAssignment -ObjectId $miObjectId -RoleDefinitionName $roleName -Scope $Scope -ErrorAction Stop | Out-Null
+        Write-Log INFO 'Reader role assignment created.'
+    }
+    catch {
+        Write-Log ERROR "Automatic role assignment failed: $($_.Exception.Message)"
+    }
+}
+
 if ($env:MSP_SKIP_CONNECTOR_RUN -eq '1') {
     Write-Log -Level INFO -Message 'MSP_SKIP_CONNECTOR_RUN=1 detected; skipping main execution (test harness mode).'
     return
@@ -1191,30 +1215,7 @@ else {
     $WorkspaceCustomerId = $null
 }
 
-# ---------- Automatic Role Assignment Helper ----------
-function Invoke-AutomaticReaderRoleAssignment {
-    # PURPOSE: If connector retrieval fails (likely RBAC), attempt to grant Sentinel Reader to MI.
-    param([string]$Scope)
-    $roleName = 'Microsoft Sentinel Reader'
-    $miObjectId = Resolve-ManagedIdentityObjectId -ClientId $UmiClientId
-    Write-Log -Level WARN -Message "Attempting automatic role assignment due to access failure. Role='$roleName' ObjectId=$miObjectId Scope=$Scope"
-    if ($WhatIf) {
-    Write-Log -Level INFO -Message "WhatIf: Would assign role '$roleName' to ObjectId $miObjectId at $Scope"
-        return
-    }
-    try {
-        $existing = Get-AzRoleAssignment -ObjectId $miObjectId -Scope $Scope -ErrorAction SilentlyContinue | Where-Object { $_.RoleDefinitionName -eq $roleName }
-        if ($existing) {
-            Write-Log -Level INFO -Message 'Reader role already present.'
-            return
-        }
-        New-AzRoleAssignment -ObjectId $miObjectId -RoleDefinitionName $roleName -Scope $Scope -ErrorAction Stop | Out-Null
-        Write-Log INFO 'Reader role assignment created.'
-    }
-    catch {
-        Write-Log ERROR "Automatic role assignment failed: $($_.Exception.Message)"
-    }
-}
+
 
 # ---------- Retrieve Data Connectors ----------
 Write-Log INFO 'Retrieving Sentinel Data Connectors for workspace...'
