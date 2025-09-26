@@ -79,6 +79,7 @@ param(
     [int] $ThrottleLimit = 4
 )
 
+# This provides a way to collect all logs for a single run via the RunId correlation id.
 # Correlation Run Id (32 hex chars) for this execution. Appended to all log lines.
 $script:RunId = [guid]::NewGuid().ToString('N')
 
@@ -92,25 +93,25 @@ $ConnectorKql = @{
     # Lookup order when resolving a mapping:
     #   1. Exact match on resolved Kind
     #   2. If no Kind match, exact match on connector Name (fallback)
-    'AbnormalSecurity' = @'
+    'AbnormalSecurity'                          = @'
 union ABNORMAL_THREAT_MESSAGES_CL, ABNORMAL_CASES_CL
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h;
 '@
-    'AmazonWebServicesCloudTrail' = @'
+    'AmazonWebServicesCloudTrail'               = @'
 AWSCloudTrail
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'AmazonWebServicesS3' = @'
+    'AmazonWebServicesS3'                       = @'
 AWSCloudTrail
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h;
 '@
-    'AWS' = @'
+    'AWS'                                       = @'
 let a = 
 AWSGuardDuty
 | where TimeGenerated >= ago(24h);
@@ -121,13 +122,14 @@ union a, b
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h;
 '@
-    'AzureActiveDirectory' = @'
+    'AzureActiveDirectory'                      = @'
 union isfuzzy=true SigninLogs, AuditLogs, AADNonInteractiveUserSignInLogs, AADServicePrincipalSignInLogs
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h;
 '@
-    'AzureActiveDirectoryIdentityProtection' = @'
+
+    'AzureActiveDirectoryIdentityProtection'    = @'
 SecurityAlert
 | where TimeGenerated >= ago(24h)
 | where ProductName == "Azure Active Directory Identity Protection"
@@ -136,13 +138,13 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'AzureActivity' = @'
+    'AzureActivity'                             = @'
 AzureActivity
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'AzureAdvancedThreatProtection' = @'
+    'AzureAdvancedThreatProtection'             = @'
 SecurityAlert
 | where TimeGenerated >= ago(24h)
 | where ProductName == "Azure Advanced Threat Protection"
@@ -151,37 +153,53 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'AzureSecurityCenter' = @'
+
+    'AzureSecurityCenter'                       = @'
 union isfuzzy=true SecurityAlert, SecurityRecommendation
 | where TimeGenerated >= ago(24h)
+| where ProductName == "Azure Security Center"
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h;
 '@
-    'AwsS3' = @'
+
+    'AwsS3'                                     = @'
 AWSCloudTrail
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h;
 '@
-    'CommonSecurityLog' = @'
+    'CEF'                                       = @'
 CommonSecurityLog
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'DNS' = @'
+    'CefAma'                                    = @'
+CommonSecurityLog
+| where TimeGenerated >= ago(24h)
+| summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
+| project LastLogTime, LogsLastHour, TotalLogs24h
+'@
+
+    'CommonSecurityLog'                         = @'
+CommonSecurityLog
+| where TimeGenerated >= ago(24h)
+| summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
+| project LastLogTime, LogsLastHour, TotalLogs24h
+'@
+    'DNS'                                       = @'
 DnsEvents
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'GCPIAMDataConnector' = @'
+    'GCPIAMDataConnector'                       = @'
 GCP_IAM_CL
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h;
 '@
-    'MicrosoftCloudAppSecurity' = @'
+    'MicrosoftCloudAppSecurity'                 = @'
 McasShadowItReporting
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
@@ -193,19 +211,28 @@ union isfuzzy=true DeviceEvents, DeviceFileEvents, DeviceImageLoadEvents, Device
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h;
 '@
-    'MicrosoftDefenderThreatIntelligence' = @'
+
+    'MicrosoftDefenderForCloudTenantBased'      = @'
+SecurityAlert
+| where ProductName == "Azure Security Center"
+| where TimeGenerated >= ago(24h)
+| summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
+| project LastLogTime, LogsLastHour, TotalLogs24h
+'@
+
+    'MicrosoftDefenderThreatIntelligence'       = @'
 ThreatIntelligenceIndicator
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'MicrosoftThreatIntelligence' = @'
+    'MicrosoftThreatIntelligence'               = @'
 ThreatIntelligenceIndicator
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'MicrosoftThreatProtection' = @'
+    'MicrosoftThreatProtection'                 = @'
 SecurityAlert
 | where TimeGenerated >= ago(24h)
 | where ProductName in("Microsoft Defender Advanced Threat Protection", "Office 365 Advanced Threat Protection", "Microsoft Cloud App Security", "Microsoft 365 Defender", "Azure Active Directory Identity Protection")
@@ -214,13 +241,13 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'Office365' = @'
+    'Office365'                                 = @'
 OfficeActivity
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h;
 '@
-    'OfficeATP' = @'
+    'OfficeATP'                                 = @'
 SecurityAlert
 | where TimeGenerated >= ago(24h)
 | where ProviderName == "OATP"
@@ -229,7 +256,7 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'OfficeIRM' = @'
+    'OfficeIRM'                                 = @'
 SecurityAlert
 | where TimeGenerated >= ago(24h)
 | where ProductName == "Microsoft 365 Insider Risk Management"
@@ -238,43 +265,49 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'OktaSSO' = @'
+    'OktaSSO'                                   = @'
 OktaV2_CL
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h;
 '@
-    'SecurityEvents' = @'
+    'SecurityEvents'                            = @'
 SecurityEvent
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'Syslog' = @'
+    'Syslog'                                    = @'
 Syslog
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'ThreatIntelligence' = @'
+    'SyslogAma'                                 = @'
+Syslog
+| where TimeGenerated >= ago(24h)
+| summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
+| project LastLogTime, LogsLastHour, TotalLogs24h
+'@
+    'ThreatIntelligence'                        = @'
 ThreatIntelligenceIndicator
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'ThreatIntelligenceTaxii' = @'
+    'ThreatIntelligenceTaxii'                   = @'
 ThreatIntelligenceIndicator
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'ThreatIntelligenceUploadIndicatorsAPI' = @'
+    'ThreatIntelligenceUploadIndicatorsAPI'     = @'
 ThreatIntelligenceIndicator
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'WindowsFirewall' = @'
+    'WindowsFirewall'                           = @'
 WindowsFirewall
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
@@ -508,7 +541,7 @@ function Resolve-ManagedIdentityObjectId {
   Resolve-ManagedIdentityObjectId -ClientId $UmiClientId
   #>
     param([string]$ClientId
-        )
+    )
     if (-not $ClientId) {
         throw 'Cannot resolve managed identity objectId: no clientId and no overrides provided.' 
     }
@@ -520,7 +553,7 @@ function Resolve-ManagedIdentityObjectId {
         throw 'Service principal lookup returned no Id'
     }
     catch {
-    Write-Log -Level WARN -Message "Directory lookup for MI objectId failed: $($_.Exception.Message). Provide -ManagedIdentityObjectId or set automation variable 'UMI_OBJECT_ID'."
+        Write-Log -Level WARN -Message "Directory lookup for MI objectId failed: $($_.Exception.Message). Provide -ManagedIdentityObjectId or set automation variable 'UMI_OBJECT_ID'."
         throw
     }
 }
@@ -540,7 +573,7 @@ function Test-ModuleLoaded {
     param([string]$Name)
 
     if (-not (Get-Module -ListAvailable -Name $Name)) {
-    Write-Log -Level WARN -Message "Module '$Name' not found in environment; attempting install (may fail in Automation sandbox)."
+        Write-Log -Level WARN -Message "Module '$Name' not found in environment; attempting install (may fail in Automation sandbox)."
         try {
             Install-Module -Name $Name -Force -Scope CurrentUser -ErrorAction Stop 
         }
@@ -587,10 +620,10 @@ function Get-LogIngestionMetrics {
     if ($defaultKql) {
         $kql = $defaultKql
         $mappingFound = $true
-    Write-Log -Level DEBUG -Message "Default KQL mapping applied for Kind='$ConnectorKind'"
+        Write-Log -Level DEBUG -Message "Default KQL mapping applied for Kind='$ConnectorKind'"
     }
     else {
-    Write-Log -Level DEBUG -Message "No default KQL mapping found for Kind='$ConnectorKind' — attempting Name fallback ('$ConnectorName')."
+        Write-Log -Level DEBUG -Message "No default KQL mapping found for Kind='$ConnectorKind' — attempting Name fallback ('$ConnectorName')."
         # 2. Fallback: attempt connector Name (exact key)
         if (-not [string]::IsNullOrWhiteSpace($ConnectorName)) {
             $nameKey = $ConnectorName.Trim()
@@ -599,23 +632,24 @@ function Get-LogIngestionMetrics {
                 $kql = $nameKql
                 $mappingFound = $true
                 Write-Log -Level INFO -Message "Applied KQL mapping via Name fallback (Name='$nameKey')."
-            } else {
+            }
+            else {
                 Write-Log -Level DEBUG -Message "No KQL mapping found via Name fallback (Name='$nameKey')."
             }
         }
     }
       
     $metrics = @{
-        LastLogTime   = $null
-        LogsLastHour  = 0
-        TotalLogs24h  = 0
-        QueryStatus   = 'Unknown'
-        MappingFound  = $mappingFound
-        KqlUsed       = $null
-        NoLastLog     = $false
+        LastLogTime  = $null
+        LogsLastHour = 0
+        TotalLogs24h = 0
+        QueryStatus  = 'Unknown'
+        MappingFound = $mappingFound
+        KqlUsed      = $null
+        NoLastLog    = $false
     }
     if (-not $WorkspaceCustomerId) {
-    Write-Log -Level WARN -Message 'No WorkspaceCustomerId passed to Get-LogIngestionMetrics'; return $metrics 
+        Write-Log -Level WARN -Message 'No WorkspaceCustomerId passed to Get-LogIngestionMetrics'; return $metrics 
     }
     try {
         if ($kql) {
@@ -712,7 +746,7 @@ function Get-LogIngestionMetrics {
         }
     }
     catch {
-    Write-Log -Level WARN -Message "KQL exception for connector '$ConnectorName': $($_.Exception.Message)"; $metrics.QueryStatus = 'QueryFailed'
+        Write-Log -Level WARN -Message "KQL exception for connector '$ConnectorName': $($_.Exception.Message)"; $metrics.QueryStatus = 'QueryFailed'
     }
       
     return $metrics
@@ -720,7 +754,7 @@ function Get-LogIngestionMetrics {
 
 # Pure ingestion classification helper (supports unit testing)
 function Get-IngestionStatus {
-        <#
+    <#
     .SYNOPSIS
         Classifies ingestion freshness based on last log timestamp.
     .DESCRIPTION
@@ -742,16 +776,16 @@ function Get-IngestionStatus {
         [int] $ActiveThresholdHours = 12,
         [int] $RecentThresholdHours = 24
     )
-        if (-not $LastLogTime) {
-                return [pscustomobject]@{ Status = $null; HoursSinceLastLog = $null }
-        }
-        $utc = $LastLogTime.ToUniversalTime()
-        $hours = ((Get-Date).ToUniversalTime() - $utc).TotalHours
-        $rounded = [Math]::Round($hours,2)
-        $status = if ($hours -le $ActiveThresholdHours) { 'ActivelyIngesting' }
-                elseif ($hours -le $RecentThresholdHours) { 'RecentlyActive' }
-                else { 'Stale' }
-        return [pscustomobject]@{ Status = $status; HoursSinceLastLog = $rounded }
+    if (-not $LastLogTime) {
+        return [pscustomobject]@{ Status = $null; HoursSinceLastLog = $null }
+    }
+    $utc = $LastLogTime.ToUniversalTime()
+    $hours = ((Get-Date).ToUniversalTime() - $utc).TotalHours
+    $rounded = [Math]::Round($hours, 2)
+    $status = if ($hours -le $ActiveThresholdHours) { 'ActivelyIngesting' }
+    elseif ($hours -le $RecentThresholdHours) { 'RecentlyActive' }
+    else { 'Stale' }
+    return [pscustomobject]@{ Status = $status; HoursSinceLastLog = $rounded }
 }
 
 function Get-ConnectorStatus {
@@ -907,7 +941,8 @@ function Get-ConnectorStatus {
         try {
             $sdump = ($statusInfo.StateDetails.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ';'
             Write-Log -Level DEBUG -Message "Status remained 'Unknown' for connector '$($Connector.Name)'. QueryStatus=$($statusInfo.LogMetrics.QueryStatus) LastLogTime=$($statusInfo.LogMetrics.LastLogTime) DerivedTokens=$([string]::Join(',', $derivedTokens)) StateDetails=$sdump"
-        } catch {}
+        }
+        catch {}
     }
     return $statusInfo
 }
@@ -1030,10 +1065,10 @@ function Get-StringDiagnostics {
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($Value) | ForEach-Object { $_.ToString('X2') }
     Write-Log -Level DEBUG -Message "$Label length=$($Value.Length) bytes=[$( ($bytes -join ' ') )]"
     if ($Value -match '\s$') {
-    Write-Log -Level WARN -Message "$Label has trailing whitespace." 
+        Write-Log -Level WARN -Message "$Label has trailing whitespace." 
     }
     if ($Value -match '^\s') {
-    Write-Log -Level WARN -Message "$Label has leading whitespace." 
+        Write-Log -Level WARN -Message "$Label has leading whitespace." 
     }
 }
 
@@ -1045,7 +1080,7 @@ function Invoke-AutomaticReaderRoleAssignment {
     $miObjectId = Resolve-ManagedIdentityObjectId -ClientId $UmiClientId
     Write-Log -Level WARN -Message "Attempting automatic role assignment due to access failure. Role='$roleName' ObjectId=$miObjectId Scope=$Scope"
     if ($WhatIf) {
-    Write-Log -Level INFO -Message "WhatIf: Would assign role '$roleName' to ObjectId $miObjectId at $Scope"
+        Write-Log -Level INFO -Message "WhatIf: Would assign role '$roleName' to ObjectId $miObjectId at $Scope"
         return
     }
     try {
@@ -1147,7 +1182,7 @@ else {
 if ($SubscriptionId) {
     try {
         Set-AzContext -SubscriptionId $SubscriptionId -ErrorAction Stop | Out-Null
-    Write-Log -Level INFO -Message "Context set to subscription $SubscriptionId"
+        Write-Log -Level INFO -Message "Context set to subscription $SubscriptionId"
     }
     catch {
         throw "Failed setting subscription context: $($_.Exception.Message)" 
@@ -1165,7 +1200,7 @@ foreach ($m in 'Az.Accounts', 'Az.Resources', 'Az.OperationalInsights', 'Az.Secu
 }
 Write-Log -Level DEBUG -Message 'All required modules imported.'
 if ($VerboseLogging) {
-    $modVersions = Get-Module Az.* | Sort-Object Name | Select-Object Name,Version | ForEach-Object { "$($_.Name)=$($_.Version)" }
+    $modVersions = Get-Module Az.* | Sort-Object Name | Select-Object Name, Version | ForEach-Object { "$($_.Name)=$($_.Version)" }
     Write-Log -Level DEBUG -Message "ModuleVersions: $([string]::Join(',', $modVersions))"
 }
 
@@ -1175,26 +1210,26 @@ if (-not $workspace) {
     Write-Log ERROR 'Workspace unresolved. Collecting diagnostics.' 
     try {
         $rgObj = Get-AzResourceGroup -Name $ResourceGroupName -ErrorAction Stop
-    Write-Log -Level INFO -Message "RG exists: Name=$($rgObj.ResourceGroupName) Location=$($rgObj.Location)"
+        Write-Log -Level INFO -Message "RG exists: Name=$($rgObj.ResourceGroupName) Location=$($rgObj.Location)"
     }
     catch {
-    Write-Log -Level WARN -Message "RG lookup failed: $($_.Exception.Message)" 
+        Write-Log -Level WARN -Message "RG lookup failed: $($_.Exception.Message)" 
     }
     try {
         $wsNames = Get-AzResource -ResourceGroupName $ResourceGroupName -ResourceType 'Microsoft.OperationalInsights/workspaces' -ErrorAction Stop | Select-Object -ExpandProperty Name
-    Write-Log -Level INFO -Message "Workspaces found in RG: $([string]::Join(',', $wsNames))"
+        Write-Log -Level INFO -Message "Workspaces found in RG: $([string]::Join(',', $wsNames))"
     }
     catch {
-    Write-Log -Level WARN -Message "Workspace enumeration failed: $($_.Exception.Message)" 
+        Write-Log -Level WARN -Message "Workspace enumeration failed: $($_.Exception.Message)" 
     }
     # Attempt REST call for extra context
     try {
         $restId = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.OperationalInsights/workspaces/$WorkspaceName?api-version=2022-10-01"
         $rest = Invoke-AzRestMethod -Path $restId -Method GET -ErrorAction Stop
-    Write-Log -Level INFO -Message "REST call succeeded unexpectedly during diagnostics (status $($rest.StatusCode))."
+        Write-Log -Level INFO -Message "REST call succeeded unexpectedly during diagnostics (status $($rest.StatusCode))."
     }
     catch {
-    Write-Log -Level WARN -Message "REST diagnostic call failed: $($_.Exception.Message)" 
+        Write-Log -Level WARN -Message "REST diagnostic call failed: $($_.Exception.Message)" 
     }
     throw "Workspace lookup failed RG=$ResourceGroupName Name=$WorkspaceName"
 }
@@ -1265,7 +1300,8 @@ else {
             # Ensure the resolved Kind is applied back to object prior to metrics call
             try {
                 if ($_.PSObject.Properties.Name -contains 'Kind') { $_.Kind = $resolved.Kind } else { $_ | Add-Member -NotePropertyName Kind -NotePropertyValue $resolved.Kind -Force }
-            } catch {}
+            }
+            catch {}
             $statusInfo = Get-ConnectorStatus -Connector $_ -WorkspaceCustomerId $using:WorkspaceCustomerId
             $lastLogUtc = $statusInfo.LogMetrics.LastLogTime
             $hoursSince = $statusInfo.HoursSinceLastLog
@@ -1286,53 +1322,53 @@ else {
     }
     else {
         $summary = $filteredConnectors | ForEach-Object {
-        # Iterate each connector and build a normalized record enriched with ingestion metrics
-        $connector = $_
-        $kindResolution = Resolve-ConnectorKind -Connector $connector
-        if ($kindResolution.Source -eq 'Fallback') {
-            Write-Log WARN "Connector '$($connector.Name)' Kind unresolved; using 'UnknownKind' fallback." 
-        }
-        elseif ($VerboseLogging) {
-            Write-Log -Level DEBUG -Message "Connector '$($connector.Name)' Kind resolved as '$($kindResolution.Kind)' (source=$($kindResolution.Source))." 
-        }
-        $resolvedKind = $kindResolution.Kind
-        # Always apply resolved/prompted kind to the connector object so downstream metrics use correct key
-        try {
-            if ($connector.PSObject.Properties.Name -contains 'Kind') {
-                $connector.Kind = $resolvedKind 
+            # Iterate each connector and build a normalized record enriched with ingestion metrics
+            $connector = $_
+            $kindResolution = Resolve-ConnectorKind -Connector $connector
+            if ($kindResolution.Source -eq 'Fallback') {
+                Write-Log WARN "Connector '$($connector.Name)' Kind unresolved; using 'UnknownKind' fallback." 
             }
-            else {
-                $connector | Add-Member -NotePropertyName Kind -NotePropertyValue $resolvedKind -Force 
-            } 
-        }
-        catch {
-        }
-    $statusInfo = Get-ConnectorStatus -Connector $connector -WorkspaceCustomerId $WorkspaceCustomerId
-        $lastLogUtc = $statusInfo.LogMetrics.LastLogTime
-        $hoursSince = $statusInfo.HoursSinceLastLog
-        $record = [ordered]@{
-            Name             = $connector.Name
-            Kind             = $resolvedKind
-            Status           = $statusInfo.OverallStatus
-            LastLogTime      = $lastLogUtc
-            LogsLastHour     = $statusInfo.LogMetrics.LogsLastHour
-            TotalLogs24h     = $statusInfo.LogMetrics.TotalLogs24h
-            QueryStatus      = $statusInfo.LogMetrics.QueryStatus
-            HoursSinceLastLog= $hoursSince
-            #MappingFound     = $null #$statusInfo.LogMetrics.MappingFound
-            #KqlUsed          = $null #$statusInfo.LogMetrics.KqlUsed
-            StatusDetails    = ($statusInfo.RawProperties -join '; ')
-            Workspace        = $WorkspaceName
-            Subscription     = $SubscriptionId
-            Tenant           = $TenantId
-        }
-        foreach ($key in $statusInfo.StateDetails.Keys) {
-            # Add any additional state detail properties (dynamic set per connector)
-            if (-not $record.Contains($key)) {
-                $record[$key] = $statusInfo.StateDetails[$key] 
-            } 
-        }
-        [PSCustomObject]$record
+            elseif ($VerboseLogging) {
+                Write-Log -Level DEBUG -Message "Connector '$($connector.Name)' Kind resolved as '$($kindResolution.Kind)' (source=$($kindResolution.Source))." 
+            }
+            $resolvedKind = $kindResolution.Kind
+            # Always apply resolved/prompted kind to the connector object so downstream metrics use correct key
+            try {
+                if ($connector.PSObject.Properties.Name -contains 'Kind') {
+                    $connector.Kind = $resolvedKind 
+                }
+                else {
+                    $connector | Add-Member -NotePropertyName Kind -NotePropertyValue $resolvedKind -Force 
+                } 
+            }
+            catch {
+            }
+            $statusInfo = Get-ConnectorStatus -Connector $connector -WorkspaceCustomerId $WorkspaceCustomerId
+            $lastLogUtc = $statusInfo.LogMetrics.LastLogTime
+            $hoursSince = $statusInfo.HoursSinceLastLog
+            $record = [ordered]@{
+                Name              = $connector.Name
+                Kind              = $resolvedKind
+                Status            = $statusInfo.OverallStatus
+                LastLogTime       = $lastLogUtc
+                LogsLastHour      = $statusInfo.LogMetrics.LogsLastHour
+                TotalLogs24h      = $statusInfo.LogMetrics.TotalLogs24h
+                QueryStatus       = $statusInfo.LogMetrics.QueryStatus
+                HoursSinceLastLog = $hoursSince
+                #MappingFound     = $null #$statusInfo.LogMetrics.MappingFound
+                #KqlUsed          = $null #$statusInfo.LogMetrics.KqlUsed
+                StatusDetails     = ($statusInfo.RawProperties -join '; ')
+                Workspace         = $WorkspaceName
+                Subscription      = $SubscriptionId
+                Tenant            = $TenantId
+            }
+            foreach ($key in $statusInfo.StateDetails.Keys) {
+                # Add any additional state detail properties (dynamic set per connector)
+                if (-not $record.Contains($key)) {
+                    $record[$key] = $statusInfo.StateDetails[$key] 
+                } 
+            }
+            [PSCustomObject]$record
         }
     }
 
@@ -1341,7 +1377,7 @@ else {
     # Fields: Name, Kind, Status, LastLogTime, LogsLastHour,
     #         QueryStatus, MappingFound, StatusDetails
     # Produce a clean collection prior to consolidated object.
-    $ConnectorCollection = $summary | Select-Object Name, Kind, Status, LastLogTime, LogsLastHour, TotalLogs24h, QueryStatus, HoursSinceLastLog, StatusDetails, Workspace, Subscription, @{Name='NoLastLog';Expression={ $_.LogMetrics.NoLastLog }}
+    $ConnectorCollection = $summary | Select-Object Name, Kind, Status, LastLogTime, LogsLastHour, TotalLogs24h, QueryStatus, HoursSinceLastLog, StatusDetails, Workspace, Subscription, @{Name = 'NoLastLog'; Expression = { $_.LogMetrics.NoLastLog } }
 
     # ------------------------------------------------------------------
     # Deduplication/Merge: Some connectors appear twice (GUID + friendly) for same underlying integration.
@@ -1369,7 +1405,7 @@ else {
         if ($distinctNames.Count -le 1) { continue }
         $guidRecords = $records | Where-Object { $_.Name -match $guidPattern }
         $target = if ($guidRecords) { $guidRecords | Select-Object -First 1 } else { $records | Select-Object -First 1 }
-    $allStatusDetailsTokens = ($records | ForEach-Object { ($_.StatusDetails -split ';') }) | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+        $allStatusDetailsTokens = ($records | ForEach-Object { ($_.StatusDetails -split ';') }) | ForEach-Object { $_.Trim() } | Where-Object { $_ }
         $uniqueTokens = $allStatusDetailsTokens | Select-Object -Unique
         $mergedStatusDetails = ($uniqueTokens -join '; ')
         # Determine latest LastLogTime among records
@@ -1389,13 +1425,13 @@ else {
             }
         }
         # Merge statuses preference order if they differ: ActivelyIngesting > RecentlyActive > Stale > ConfiguredButNoLogs > Disabled > Error > Unknown
-        $priority = @('ActivelyIngesting','RecentlyActive','Stale','ConfiguredButNoLogs','Disabled','Error','NoKqlAndNoLogs','Unknown')
+        $priority = @('ActivelyIngesting', 'RecentlyActive', 'Stale', 'ConfiguredButNoLogs', 'Disabled', 'Error', 'NoKqlAndNoLogs', 'Unknown')
         $bestStatus = ($records | Sort-Object { [Array]::IndexOf($priority, $_.Status) } | Select-Object -First 1).Status
         $target.Status = $bestStatus
         $target.StatusDetails = $mergedStatusDetails
         # Mark all others for removal
         foreach ($r in $records) { if ($r -ne $target) { [void]$toRemove.Add($r.Name + '|' + $r.Kind) } }
-        $merged += [pscustomobject]@{ Kind=$g.Name; KeptName=$target.Name; RemovedCount=($records.Count-1); NewStatus=$target.Status }
+        $merged += [pscustomobject]@{ Kind = $g.Name; KeptName = $target.Name; RemovedCount = ($records.Count - 1); NewStatus = $target.Status }
     }
     if ($toRemove.Count -gt 0) {
         Write-Log -Level INFO -Message "Merging duplicate connectors for non-GenericUI kinds: $($toRemove.Count) removed." 
@@ -1417,11 +1453,11 @@ else {
         if ($rec.LastLogTime -and $null -eq $rec.HoursSinceLastLog) {
             try {
                 $hrs = ((Get-Date).ToUniversalTime() - ([DateTime]$rec.LastLogTime).ToUniversalTime()).TotalHours
-                $rounded = [Math]::Round($hrs,2)
+                $rounded = [Math]::Round($hrs, 2)
                 $rec.HoursSinceLastLog = $rounded
                 $recomputed++
                 # Status upgrade logic mirrors Get-IngestionStatus thresholds (1h / 24h) if current status is placeholder
-                if ($rec.Status -in @('ConfiguredButNoLogs','Unknown','NoKqlAndNoLogs')) {
+                if ($rec.Status -in @('ConfiguredButNoLogs', 'Unknown', 'NoKqlAndNoLogs')) {
                     $newStatus = if ($hrs -le 1) { 'ActivelyIngesting' } elseif ($hrs -le 24) { 'RecentlyActive' } else { $rec.Status }
                     if ($newStatus -ne $rec.Status) { $rec.Status = $newStatus; $upgraded++ }
                 }
@@ -1493,7 +1529,7 @@ else {
     $maxHours = ($ConnectorCollection | Where-Object { $_.HoursSinceLastLog -ne $null } | Measure-Object -Property HoursSinceLastLog -Maximum).Maximum
     $noKqlAndNoLogs = ($ConnectorCollection | Where-Object { $_.Status -eq 'NoKqlAndNoLogs' })
     if ($noKqlAndNoLogs.Count -gt 0) {
-        $ratio = [math]::Round( (100.0 * $noKqlAndNoLogs.Count / [math]::Max(1,$ConnectorCollection.Count)), 2)
+        $ratio = [math]::Round( (100.0 * $noKqlAndNoLogs.Count / [math]::Max(1, $ConnectorCollection.Count)), 2)
         Write-Log WARN "NoKqlAndNoLogsCount=$($noKqlAndNoLogs.Count) Ratio=${ratio}% (no mapping + no logs)."
         if ($ratio -ge 20) {
             Write-Log WARN 'RemediationHint: High proportion of NoKqlAndNoLogs connectors; consider extending $ConnectorKql mappings or validating connector enablement.'
@@ -1502,24 +1538,24 @@ else {
 
     $durationSec = $null
     if ($RunStartUtc -is [datetime]) {
-        try { $durationSec = [Math]::Round(($runEnd - $RunStartUtc).TotalSeconds,2) } catch { $durationSec = $null }
+        try { $durationSec = [Math]::Round(($runEnd - $RunStartUtc).TotalSeconds, 2) } catch { $durationSec = $null }
     }
     else {
         Write-Log -Level WARN -Message 'RunStartUtc not a DateTime; DurationSec omitted.'
     }
 
     $summaryObj = [pscustomobject]@{
-        RunId              = $script:RunId
-        RunStartUtc        = $RunStartUtc
-        RunEndUtc          = $runEnd
-        DurationSec        = $durationSec
-        TotalConnectorsOut = $ConnectorCollection.Count
-        StatusCounts       = $statusCounts
-        QueryFailedCount   = ($ConnectorCollection | Where-Object { $_.QueryStatus -eq 'QueryFailed' }).Count
-        UnmappedCount      = ($ConnectorCollection | Where-Object { $_.QueryStatus -eq 'NoKql' }).Count
-    MaxHoursSinceLastLog = $maxHours
-    MetricsUnavailableCount = $metricsUnavailable.Count
-        NoKqlAndNoLogsCount = $noKqlAndNoLogs.Count
+        RunId                   = $script:RunId
+        RunStartUtc             = $RunStartUtc
+        RunEndUtc               = $runEnd
+        DurationSec             = $durationSec
+        TotalConnectorsOut      = $ConnectorCollection.Count
+        StatusCounts            = $statusCounts
+        QueryFailedCount        = ($ConnectorCollection | Where-Object { $_.QueryStatus -eq 'QueryFailed' }).Count
+        UnmappedCount           = ($ConnectorCollection | Where-Object { $_.QueryStatus -eq 'NoKql' }).Count
+        MaxHoursSinceLastLog    = $maxHours
+        MetricsUnavailableCount = $metricsUnavailable.Count
+        NoKqlAndNoLogsCount     = $noKqlAndNoLogs.Count
     }
     $summaryObj | ConvertTo-Json -Depth 5 | Write-Output
 }
