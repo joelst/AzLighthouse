@@ -3,8 +3,13 @@
   Microsoft Sentinel Data Connectors management & health runbook.
 
 .DESCRIPTION
-  Enumerates Sentinel data connectors, optionally assigns the 'Microsoft Sentinel Reader' role to the runbook's
+  Enumerates Sentinel data connectors with enhanced metadata, optionally assigns the 'Microsoft Sentinel Reader' role to the runbook's
   User Assigned Managed Identity (UAMI), derives connector status & ingestion metrics (KQL).
+
+    Enhanced Output Fields:
+    - Standard ingestion metrics: LastLogTime, LogsLastHour, TotalLogs24h, QueryStatus, HoursSinceLastLog
+    - Enhanced metadata from AllDataConnectorDefinitions.json: Id, Title, Publisher, ConnectivityCriteria
+    - Status classification and diagnostic information
 
     Status priority:
     ActivelyIngesting   (last log <=1h)
@@ -19,7 +24,7 @@
     Expected custom KQL columns: LastLogTime, LogsLastHour (else TimeGenerated is attempted; QueryStatus may be 'SuccessNoStandardColumns').
     Additional QueryStatus values: NoKql, MetricsUnavailable (query infra issue), QueryFailed (final failure).
 
-  Default table mappings are defined near the top for maintainability; unmapped kinds fall back to CommonSecurityLog,Syslog,SecurityEvent.
+  Enhanced connector mappings include hardcoded metadata (Id, Title, Publisher, ConnectivityCriteria) and custom KQL queries.
 
  .PARAMETER VerboseLogging
      Enables DEBUG level log output.
@@ -59,7 +64,12 @@
                     "StatusDetails": { "type": "string" },
                     "Workspace": { "type": "string" },
                     "Subscription": { "type": "string" },
-                    "Tenant": { "type": ["string","null"] }
+                    "Tenant": { "type": ["string","null"] },
+                    "NoLastLog": { "type": ["boolean","null"] },
+                    "Id": { "type": ["string","null"] },
+                    "Title": { "type": ["string","null"] },
+                    "Publisher": { "type": ["string","null"] },
+                    "IsConnected": { "type": "boolean" }
                 },
                 "required": ["Name","Kind","Status","LogsLastHour","TotalLogs24h","QueryStatus","Workspace","Subscription"]
             }
@@ -86,32 +96,52 @@ $script:RunId = [guid]::NewGuid().ToString('N')
 # Record run start timestamp (UTC) early for later duration computation
 if (-not $RunStartUtc) { $RunStartUtc = (Get-Date).ToUniversalTime() }
 
-# Per-connector KQL mappings for ingestion metrics extraction. There needs to be a mapping for each connector Kind.
-$ConnectorKql = @{
-    # Each key = connector Kind; value = KQL producing LastLogTime, LogsLastHour, TotalLogs24h
+# Enhanced Per-connector KQL mappings with hardcoded metadata from AllDataConnectorDefinitions.json
+# Each entry includes: Id, Title, Publisher, ConnectivityCriteria, and Kql for 24h usage metrics
+$ConnectorInfo = @(
+    # Each key = connector Kind/ID; value = hashtable with enhanced metadata and KQL
     # Alphabetical order maintained for readability & merge clarity.
     # Lookup order when resolving a mapping:
     #   1. Exact match on resolved Kind
     #   2. If no Kind match, exact match on connector Name (fallback)
-    'AbnormalSecurity'                          = @'
+    @{
+        Id                   = 'AbnormalSecurity'
+        Title                = 'AbnormalSecurity '
+        Publisher            = 'AbnormalSecurity'
+        ConnectivityCriteria = @(
+            'ABNORMAL_THREAT_MESSAGES_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)',
+            'ABNORMAL_CASES_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 union ABNORMAL_THREAT_MESSAGES_CL, ABNORMAL_CASES_CL
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
-| project LastLogTime, LogsLastHour, TotalLogs24h;
+| project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'AmazonWebServicesCloudTrail'               = @'
+    },
+    {
+        Id                   = 'AwsS3'
+        Title                = 'Amazon Web Services S3'
+        Publisher            = 'Amazon'
+        ConnectivityCriteria = @(
+            'AWSCloudTrail | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 AWSCloudTrail
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'AmazonWebServicesS3'                       = @'
-AWSCloudTrail
-| where TimeGenerated >= ago(24h)
-| summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
-| project LastLogTime, LogsLastHour, TotalLogs24h;
-'@
-    'AWS'                                       = @'
+    },
+    @{
+        Id                   = 'AWS'
+        Title                = 'Amazon Web Services'
+        Publisher            = 'Amazon'
+        ConnectivityCriteria = @(
+            'AWSCloudTrail | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)',
+            'AWSGuardDuty | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 let a = 
 AWSGuardDuty
 | where TimeGenerated >= ago(24h);
@@ -120,16 +150,31 @@ AWSCloudTrail
 | where TimeGenerated >= ago(24h);
 union a, b
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
-| project LastLogTime, LogsLastHour, TotalLogs24h;
+| project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'AzureActiveDirectory'                      = @'
+    },
+    @{
+        Id                   = 'AzureActiveDirectory'
+        Title                = 'Azure Active Directory'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'SigninLogs | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)',
+            'AuditLogs | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 union isfuzzy=true SigninLogs, AuditLogs, AADNonInteractiveUserSignInLogs, AADServicePrincipalSignInLogs
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
-| project LastLogTime, LogsLastHour, TotalLogs24h;
+| project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-
-    'AzureActiveDirectoryIdentityProtection'    = @'
+    }, @{
+        Id                   = 'AzureActiveDirectoryIdentityProtection'
+        Title                = 'Azure Active Directory Identity Protection'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'SecurityAlert | where ProductName == "Azure Active Directory Identity Protection" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 SecurityAlert
 | where TimeGenerated >= ago(24h)
 | where ProductName == "Azure Active Directory Identity Protection"
@@ -138,13 +183,28 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'AzureActivity'                             = @'
+    }, @{
+        Id                   = 'AzureActivity'
+        Title                = 'Azure Activity'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'AzureActivity | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 AzureActivity
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'AzureAdvancedThreatProtection'             = @'
+    },
+    @{
+        Id                   = 'AzureAdvancedThreatProtection'
+        Title                = 'Azure Advanced Threat Protection'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'SecurityAlert | where ProductName == "Azure Advanced Threat Protection" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 SecurityAlert
 | where TimeGenerated >= ago(24h)
 | where ProductName == "Azure Advanced Threat Protection"
@@ -153,86 +213,163 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-
-    'AzureSecurityCenter'                       = @'
-union isfuzzy=true SecurityAlert, SecurityRecommendation
+    }, @{
+        Id                   = 'AzureSecurityCenter'
+        Title                = 'Subscription-based Microsoft Defender for Cloud (Legacy)'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'SecurityAlert | where ProductName == "Azure Security Center" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)',
+            'SecurityRecommendation | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
+SecurityAlert
 | where TimeGenerated >= ago(24h)
 | where ProductName == "Azure Security Center"
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
-| project LastLogTime, LogsLastHour, TotalLogs24h;
+| project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-
-    'AwsS3'                                     = @'
-AWSCloudTrail
-| where TimeGenerated >= ago(24h)
-| summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
-| project LastLogTime, LogsLastHour, TotalLogs24h;
-'@
-    'CEF'                                       = @'
+    }, @{
+        Id                   = 'CEF'
+        Title                = 'Common Event Format'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'CommonSecurityLog | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 CommonSecurityLog
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'CefAma'                                    = @'
+    }, @{
+        Id                   = 'CefAma'
+        Title                = 'Common Event Format (AMA)'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'CommonSecurityLog | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 CommonSecurityLog
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-
-    'CommonSecurityLog'                         = @'
+    },
+    @{
+        Id                   = 'CommonSecurityLog'
+        Title                = 'Common Security Log'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'CommonSecurityLog | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 CommonSecurityLog
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'DNS'                                       = @'
+    }, @{
+        Id                   = 'DNS'
+        Title                = 'DNS'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'DnsEvents | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 DnsEvents
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'GCPIAMDataConnector'                       = @'
+    }, @{
+        Id                   = 'GCPIAMDataConnector'
+        Title                = 'Google Cloud Platform IAM'
+        Publisher            = 'Google'
+        ConnectivityCriteria = @(
+            'GCP_IAM_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 GCP_IAM_CL
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
-| project LastLogTime, LogsLastHour, TotalLogs24h;
+| project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'MicrosoftCloudAppSecurity'                 = @'
+    }, @{
+        Id                   = 'MicrosoftCloudAppSecurity'
+        Title                = 'Microsoft Cloud App Security'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'McasShadowItReporting | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 McasShadowItReporting
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'MicrosoftDefenderAdvancedThreatProtection' = @'
+    }, @{
+        Id                   = 'MicrosoftDefenderAdvancedThreatProtection'
+        Title                = 'Microsoft Defender Advanced Threat Protection'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'DeviceEvents | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)',
+            'DeviceFileEvents | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 union isfuzzy=true DeviceEvents, DeviceFileEvents, DeviceImageLoadEvents, DeviceLogonEvents, DeviceNetworkEvents, DeviceProcessEvents, DeviceRegistryEvents
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
-| project LastLogTime, LogsLastHour, TotalLogs24h;
+| project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-
-    'MicrosoftDefenderForCloudTenantBased'      = @'
+    }
+    , @{
+        Id                   = 'MicrosoftDefenderForCloudTenantBased'
+        Title                = 'Microsoft Defender for Cloud (Tenant-based)'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'SecurityAlert | where ProductName == "Azure Security Center" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 SecurityAlert
 | where ProductName == "Azure Security Center"
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-
-    'MicrosoftDefenderThreatIntelligence'       = @'
+    }, @{
+        Id                   = 'MicrosoftDefenderThreatIntelligence'
+        Title                = 'Microsoft Defender Threat Intelligence'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'ThreatIntelligenceIndicator | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 ThreatIntelligenceIndicator
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'MicrosoftThreatIntelligence'               = @'
+    }, @{
+        Id                   = 'MicrosoftThreatIntelligence'
+        Title                = 'Microsoft Threat Intelligence'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'ThreatIntelligenceIndicator | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 ThreatIntelligenceIndicator
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'MicrosoftThreatProtection'                 = @'
+    }, @{
+        Id                   = 'MicrosoftThreatProtection'
+        Title                = 'Microsoft Threat Protection'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'SecurityAlert | where ProductName in("Microsoft Defender Advanced Threat Protection", "Office 365 Advanced Threat Protection", "Microsoft Cloud App Security", "Microsoft 365 Defender", "Azure Active Directory Identity Protection") | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 SecurityAlert
 | where TimeGenerated >= ago(24h)
 | where ProductName in("Microsoft Defender Advanced Threat Protection", "Office 365 Advanced Threat Protection", "Microsoft Cloud App Security", "Microsoft 365 Defender", "Azure Active Directory Identity Protection")
@@ -241,13 +378,27 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'Office365'                                 = @'
+    }, @{
+        Id                   = 'Office365'
+        Title                = 'Office 365'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'OfficeActivity | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 OfficeActivity
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
-| project LastLogTime, LogsLastHour, TotalLogs24h;
+| project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'OfficeATP'                                 = @'
+    }, @{
+        Id                   = 'OfficeATP'
+        Title                = 'Office Advanced Threat Protection'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'SecurityAlert | where ProviderName == "OATP" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 SecurityAlert
 | where TimeGenerated >= ago(24h)
 | where ProviderName == "OATP"
@@ -256,7 +407,14 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'OfficeIRM'                                 = @'
+    }, @{
+        Id                   = 'OfficeIRM'
+        Title                = 'Office Insider Risk Management'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'SecurityAlert | where ProductName == "Microsoft 365 Insider Risk Management" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 SecurityAlert
 | where TimeGenerated >= ago(24h)
 | where ProductName == "Microsoft 365 Insider Risk Management"
@@ -265,55 +423,113 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'OktaSSO'                                   = @'
+    }, @{
+        Id                   = 'OktaSSO'
+        Title                = 'Okta Single Sign-On'
+        Publisher            = 'Okta'
+        ConnectivityCriteria = @(
+            'OktaV2_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 OktaV2_CL
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
-| project LastLogTime, LogsLastHour, TotalLogs24h;
+| project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'SecurityEvents'                            = @'
+    }, @{
+        Id                   = 'SecurityEvents'
+        Title                = 'Security Events'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'SecurityEvent | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 SecurityEvent
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'Syslog'                                    = @'
+    }, @{
+        Id                   = 'Syslog'
+        Title                = 'Syslog'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'Syslog | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 Syslog
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'SyslogAma'                                 = @'
+    }, @{
+        Id                   = 'SyslogAma'
+        Title                = 'Syslog (AMA)'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'Syslog | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 Syslog
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'ThreatIntelligence'                        = @'
+    }, @{
+        Id                   = 'ThreatIntelligence'
+        Title                = 'Threat Intelligence'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'ThreatIntelligenceIndicator | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 ThreatIntelligenceIndicator
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'ThreatIntelligenceTaxii'                   = @'
+    }, @{
+        Id                   = 'ThreatIntelligenceTaxii'
+        Title                = 'Threat Intelligence TAXII'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'ThreatIntelligenceIndicator | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 ThreatIntelligenceIndicator
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'ThreatIntelligenceUploadIndicatorsAPI'     = @'
+    }, @{
+        Id                   = 'ThreatIntelligenceUploadIndicatorsAPI'
+        Title                = 'Threat Intelligence Upload Indicators API'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'ThreatIntelligenceIndicator | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 ThreatIntelligenceIndicator
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    'WindowsFirewall'                           = @'
+    }, 
+    @{
+        Id                   = 'WindowsFirewall'
+        Title                = 'Windows Firewall'
+        Publisher            = 'Microsoft'
+        ConnectivityCriteria = @(
+            'WindowsFirewall | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        Kql                  = @'
 WindowsFirewall
 | where TimeGenerated >= ago(24h)
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-}
+    }
+)
 
 function Write-Log {
     # PURPOSE: Centralized logging helper with level filtering.
@@ -584,13 +800,96 @@ function Test-ModuleLoaded {
     Import-Module $Name -ErrorAction Stop
 }
 
+function Get-ConnectivityResults {
+    # PURPOSE: Execute connectivity criteria KQL queries and return overall connectivity status
+    <#
+    .SYNOPSIS
+    Executes connectivity criteria KQL queries and returns overall connectivity status.
+    .DESCRIPTION
+    Takes an array of KQL queries from ConnectivityCriteria and executes each one,
+    returning true if ANY query indicates connectivity, false otherwise.
+    .PARAMETER WorkspaceCustomerId
+    The GUID (CustomerId) of the Log Analytics workspace.
+    .PARAMETER ConnectivityCriteria
+    Array of KQL query strings to execute.
+    .PARAMETER ConnectorName
+    Friendly name for logging context.
+    .OUTPUTS
+    Boolean indicating overall connectivity status.
+    #>
+    param(
+        [string]$WorkspaceCustomerId,
+        [string[]]$ConnectivityCriteria,
+        [string]$ConnectorName
+    )
+    
+    if (-not $WorkspaceCustomerId -or -not $ConnectivityCriteria -or $ConnectivityCriteria.Count -eq 0) {
+        return $false
+    }
+    
+    $overallConnected = $false
+    
+    for ($i = 0; $i -lt $ConnectivityCriteria.Count; $i++) {
+        $kql = $ConnectivityCriteria[$i]
+        if ([string]::IsNullOrWhiteSpace($kql)) { continue }
+        
+        try {
+            Write-Log -Level DEBUG -Message "Executing connectivity criteria $i for '$ConnectorName': $($kql.Substring(0, [Math]::Min(50, $kql.Length)))..."
+            
+            $queryResult = Invoke-WithRetry -OperationName "ConnectivityKQL-$ConnectorName-$i" -ScriptBlock {
+                Invoke-AzOperationalInsightsQuery -WorkspaceId $WorkspaceCustomerId -Query $kql -Wait 60 -ErrorAction Stop
+            } -MaxAttempts 2 -InitialDelaySeconds 1
+            
+            if (-not $queryResult.Error) {
+                # Parse the result to determine connectivity
+                $isConnected = $false
+                if ($queryResult.Tables -and $queryResult.Tables.Count -gt 0) {
+                    foreach ($table in $queryResult.Tables) {
+                        if ($table.Rows.Count -gt 0) {
+                            $row = $table.Rows[0]
+                            $cols = $table.Columns.Name
+                            $isConnectedIdx = [Array]::IndexOf($cols, 'IsConnected')
+                            if ($isConnectedIdx -ge 0 -and $row[$isConnectedIdx] -is [bool]) {
+                                $isConnected = [bool]$row[$isConnectedIdx]
+                            }
+                            elseif ($isConnectedIdx -ge 0) {
+                                # Try to parse as string boolean
+                                $val = $row[$isConnectedIdx].ToString().ToLower()
+                                $isConnected = $val -eq 'true' -or $val -eq '1'
+                            }
+                        }
+                    }
+                }
+                
+                Write-Log -Level DEBUG -Message "Connectivity criteria $i for '$ConnectorName': IsConnected=$isConnected"
+                
+                # If ANY query returns true, set overall result to true
+                if ($isConnected) {
+                    $overallConnected = $true
+                    Write-Log -Level DEBUG -Message "Overall connectivity for '$ConnectorName': true (criteria $i passed)"
+                    # Continue checking remaining queries for completeness but result is already true
+                }
+            }
+            else {
+                Write-Log -Level WARN -Message "Connectivity criteria $i for '$ConnectorName' failed: $($queryResult.Error.Message)"
+            }
+        }
+        catch {
+            Write-Log -Level WARN -Message "Connectivity criteria $i for '$ConnectorName' exception: $($_.Exception.Message)"
+        }
+    }
+    
+    Write-Log -Level DEBUG -Message "Final connectivity status for '$ConnectorName': $overallConnected"
+    return $overallConnected
+}
+
 function Get-LogIngestionMetrics {
     # PURPOSE: Run (if available) a canned KQL query for a connector kind and extract ingestion timestamps/counts.
     <#
       .SYNOPSIS
   Executes a single KQL query (default mapping only) to derive ingestion metrics (KQL-only mode).
       .DESCRIPTION
-  Determines query mode (DefaultKql or NoKql) using the in-script $ConnectorKql dictionary.
+  Determines query mode (DefaultKql or NoKql) using the in-script $ConnectorInfo array.
   If no mapping exists for the resolved Kind, QueryStatus becomes NoKql. Returns LastLogTime, LogsLastHour,
   QueryStatus, MappingFound and KqlUsed (for transparency / troubleshooting).
       .PARAMETER WorkspaceCustomerId
@@ -614,24 +913,28 @@ function Get-LogIngestionMetrics {
       
     $kql = $null
     $mappingFound = $false
+    $connectorMetadata = $null
     $ConnectorKind = ($ConnectorKind | ForEach-Object { $_.ToString().Trim() })
-    # 1. Attempt mapping by Kind
-    $defaultKql = $ConnectorKql[$ConnectorKind]
-    if ($defaultKql) {
-        $kql = $defaultKql
+    
+    # 1. Attempt mapping by Kind - search ConnectorInfo array for matching Id
+    $defaultMapping = $ConnectorInfo | Where-Object { $_.Id -eq $ConnectorKind } | Select-Object -First 1
+    if ($defaultMapping) {
+        $connectorMetadata = $defaultMapping
+        $kql = $defaultMapping.Kql
         $mappingFound = $true
-        Write-Log -Level DEBUG -Message "Default KQL mapping applied for Kind='$ConnectorKind'"
+        Write-Log -Level DEBUG -Message "Enhanced KQL mapping applied for Kind='$ConnectorKind' (Id=$($defaultMapping.Id), Title=$($defaultMapping.Title), Publisher=$($defaultMapping.Publisher))"
     }
     else {
         Write-Log -Level DEBUG -Message "No default KQL mapping found for Kind='$ConnectorKind' — attempting Name fallback ('$ConnectorName')."
-        # 2. Fallback: attempt connector Name (exact key)
+        # 2. Fallback: attempt connector Name - search ConnectorInfo array for matching Id
         if (-not [string]::IsNullOrWhiteSpace($ConnectorName)) {
             $nameKey = $ConnectorName.Trim()
-            $nameKql = $ConnectorKql[$nameKey]
-            if ($nameKql) {
-                $kql = $nameKql
+            $nameMapping = $ConnectorInfo | Where-Object { $_.Id -eq $nameKey } | Select-Object -First 1
+            if ($nameMapping) {
+                $connectorMetadata = $nameMapping
+                $kql = $nameMapping.Kql
                 $mappingFound = $true
-                Write-Log -Level INFO -Message "Applied KQL mapping via Name fallback (Name='$nameKey')."
+                Write-Log -Level INFO -Message "Applied enhanced KQL mapping via Name fallback (Name='$nameKey', Id=$($nameMapping.Id), Title=$($nameMapping.Title))"
             }
             else {
                 Write-Log -Level DEBUG -Message "No KQL mapping found via Name fallback (Name='$nameKey')."
@@ -640,13 +943,23 @@ function Get-LogIngestionMetrics {
     }
       
     $metrics = @{
-        LastLogTime  = $null
-        LogsLastHour = 0
-        TotalLogs24h = 0
-        QueryStatus  = 'Unknown'
-        MappingFound = $mappingFound
-        KqlUsed      = $null
-        NoLastLog    = $false
+        LastLogTime        = $null
+        LogsLastHour       = 0
+        TotalLogs24h       = 0
+        QueryStatus        = 'Unknown'
+        MappingFound       = $mappingFound
+        KqlUsed            = $null
+        NoLastLog          = $false
+        # Enhanced metadata from AllDataConnectorDefinitions.json
+        Id                 = if ($connectorMetadata -and $connectorMetadata.Id) { $connectorMetadata.Id } else { $null }
+        Title              = if ($connectorMetadata -and $connectorMetadata.Title) { $connectorMetadata.Title } else { $null }
+        Publisher          = if ($connectorMetadata -and $connectorMetadata.Publisher) { $connectorMetadata.Publisher } else { $null }
+        IsConnected        = $false  # Overall connectivity status
+    }
+    
+    # Execute connectivity criteria if available
+    if ($connectorMetadata -and $connectorMetadata.ConnectivityCriteria -and $connectorMetadata.ConnectivityCriteria.Count -gt 0 -and $WorkspaceCustomerId) {
+        $metrics.IsConnected = Get-ConnectivityResults -WorkspaceCustomerId $WorkspaceCustomerId -ConnectivityCriteria $connectorMetadata.ConnectivityCriteria -ConnectorName $ConnectorName
     }
     if (-not $WorkspaceCustomerId) {
         Write-Log -Level WARN -Message 'No WorkspaceCustomerId passed to Get-LogIngestionMetrics'; return $metrics 
@@ -890,7 +1203,7 @@ function Get-ConnectorStatus {
         }
         if ($null -ne $boolVal) {
             if ($keyName -match '(enabled|connected|active)') {
-                $derivedTokens += ($boolVal ? 'enabled' : 'disabled')
+                $derivedTokens += if ($boolVal) { 'enabled' } else { 'disabled' }
             }
             elseif ($keyName -match '(disabled|inactive|disconnected)') {
                 # If key contains a negative state indicator and flag is true, treat as disabled
@@ -1355,8 +1668,8 @@ else {
                 TotalLogs24h      = $statusInfo.LogMetrics.TotalLogs24h
                 QueryStatus       = $statusInfo.LogMetrics.QueryStatus
                 HoursSinceLastLog = $hoursSince
-                #MappingFound     = $null #$statusInfo.LogMetrics.MappingFound
-                #KqlUsed          = $null #$statusInfo.LogMetrics.KqlUsed
+                # TODO send this
+                DataTypeStatus    = @()
                 StatusDetails     = ($statusInfo.RawProperties -join '; ')
                 Workspace         = $WorkspaceName
                 Subscription      = $SubscriptionId
@@ -1377,7 +1690,12 @@ else {
     # Fields: Name, Kind, Status, LastLogTime, LogsLastHour,
     #         QueryStatus, MappingFound, StatusDetails
     # Produce a clean collection prior to consolidated object.
-    $ConnectorCollection = $summary | Select-Object Name, Kind, Status, LastLogTime, LogsLastHour, TotalLogs24h, QueryStatus, HoursSinceLastLog, StatusDetails, Workspace, Subscription, @{Name = 'NoLastLog'; Expression = { $_.LogMetrics.NoLastLog } }
+    $ConnectorCollection = $summary | Select-Object Name, Kind, Status, LastLogTime, LogsLastHour, TotalLogs24h, QueryStatus, HoursSinceLastLog, StatusDetails, Workspace, Subscription, `
+    @{Name = 'NoLastLog'; Expression = { $_.LogMetrics.NoLastLog } }, `
+    @{Name = 'Id'; Expression = { $_.LogMetrics.Id } }, `
+    @{Name = 'Title'; Expression = { $_.LogMetrics.Title } }, `
+    @{Name = 'Publisher'; Expression = { $_.LogMetrics.Publisher } }, `
+    @{Name = 'IsConnected'; Expression = { $_.LogMetrics.IsConnected } }
 
     # ------------------------------------------------------------------
     # Deduplication/Merge: Some connectors appear twice (GUID + friendly) for same underlying integration.
@@ -1532,7 +1850,7 @@ else {
         $ratio = [math]::Round( (100.0 * $noKqlAndNoLogs.Count / [math]::Max(1, $ConnectorCollection.Count)), 2)
         Write-Log WARN "NoKqlAndNoLogsCount=$($noKqlAndNoLogs.Count) Ratio=${ratio}% (no mapping + no logs)."
         if ($ratio -ge 20) {
-            Write-Log WARN 'RemediationHint: High proportion of NoKqlAndNoLogs connectors; consider extending $ConnectorKql mappings or validating connector enablement.'
+            Write-Log WARN 'RemediationHint: High proportion of NoKqlAndNoLogs connectors; consider extending $ConnectorInfo mappings or validating connector enablement.'
         }
     }
 
@@ -1583,3 +1901,4 @@ if ($FailOnQueryErrors -and $ConnectorCollection -and ($ConnectorCollection | Wh
 }
 
 Write-Log INFO 'Runbook completed successfully.' 
+Write-Log -Level INFO -Message "Total execution time: $([Math]::Round((Get-Date).ToUniversalTime().Subtract($RunStartUtc).TotalSeconds, 2)) seconds."

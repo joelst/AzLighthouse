@@ -1,2 +1,5 @@
 .vscode/settings.json
 azure-automate/*Testing.ps1
+
+.fake
+.vscode/tasks.json
