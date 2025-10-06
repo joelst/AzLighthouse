@@ -1,14 +1,37 @@
-# Azure Automation Credential Check - Testing Guide
+# Azure Automation Scripts - Testing Guide
 
-This directory contains comprehensive testing infrastructure for the Azure Automation credential check script.
+This directory contains testing infrastructure for Azure Automation scripts.
+
+## Test Suites
+
+### 1. App Registration Credential Check Tests
+Tests for `New-AppRegistrationCredentialCheck.ps1`
+- **Test File**: `New-AppRegistrationCredentialCheck.Tests.ps1`
+- **Config**: `PesterConfig.psd1`
+- **Runner**: `Run-Tests.ps1`
+- **Documentation**: This file (sections below)
+
+### 2. Data Connector Status Tests
+Tests for `Get-MsspDataConnectorStatus.ps1`
+- **Test File**: `Get-MsspDataConnectorStatus.Tests.ps1`
+- **Config**: `PesterConfig-DataConnector.psd1`
+- **Runner**: `Run-DataConnectorTests.ps1`
+- **Documentation**: `Testing-DataConnector-README.md`
 
 ## Files Overview
 
-- `New-AppRegistrationCredentialCheck.ps1` - Main Azure Automation script
+### App Registration Tests
+- `New-AppRegistrationCredentialCheck.ps1` - Main credential check script
 - `New-AppRegistrationCredentialCheck.Tests.ps1` - Pester 5 test suite
 - `PesterConfig.psd1` - Pester configuration file
 - `Run-Tests.ps1` - Test runner script
-- `Testing-README.md` - This documentation
+
+### Data Connector Tests
+- `Get-MsspDataConnectorStatus.ps1` - Sentinel connector monitoring script
+- `Get-MsspDataConnectorStatus.Tests.ps1` - Pester 5 test suite
+- `PesterConfig-DataConnector.psd1` - Pester configuration file
+- `Run-DataConnectorTests.ps1` - Test runner script
+- `Testing-DataConnector-README.md` - Detailed test documentation
 
 ## Prerequisites
 
@@ -25,7 +48,7 @@ Install-Module -Name Microsoft.Graph.Applications -Force
 ```
 
 ### PowerShell Version
-- PowerShell 5.1 or higher required
+- PowerShell 7+ required
 - PowerShell 7.x recommended for best performance
 
 ## Running Tests

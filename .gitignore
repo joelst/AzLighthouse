@@ -3,3 +3,5 @@ azure-automate/*Testing.ps1
 
 .fake
 .vscode/tasks.json
+azure-automate/.vscode/launch.json
+.vscode/launch.json

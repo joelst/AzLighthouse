@@ -39,7 +39,7 @@
  .PARAMETER ExcludeStatus
      One or more final status values to exclude from emitted collection (e.g. Disabled,ConfiguredButNoLogs).
  .PARAMETER Parallel
-     When specified, process connectors concurrently using ForEach-Object -Parallel (PowerShell 7+ only).
+     When specified, process connectors concurrently using ForEach-Object -Parallel.
  .PARAMETER ThrottleLimit
      Maximum number of concurrent connector queries when -Parallel is used. Default 4.
 .NOTES
@@ -78,6 +78,7 @@
 #>
 # Requires Az.Accounts, Az.Resources, Az.Monitor, Az.SecurityInsights modules (latest versions recommended).
 # Tested in Azure Automation with PowerShell 7.4 runtime.
+# Can also be run locally by providing SubscriptionId, ResourceGroupName, and WorkspaceName parameters.
 param(
     [switch] $VerboseLogging,
     [switch] $WhatIf,
@@ -86,7 +87,13 @@ param(
     [string[]] $NameFilter,
     [string[]] $ExcludeStatus,
     [switch] $Parallel,
-    [int] $ThrottleLimit = 4
+    [int] $ThrottleLimit = 4,
+    
+    # Local execution parameters (override automation variables)
+    [string] $SubscriptionId,
+    [string] $ResourceGroupName,
+    [string] $WorkspaceName,
+    [string] $LogicAppUri
 )
 
 # This provides a way to collect all logs for a single run via the RunId correlation id.
@@ -106,8 +113,8 @@ $ConnectorInfo = @(
     #   2. If no Kind match, exact match on connector Name (fallback)
     @{
         Id                   = 'AbnormalSecurity'
-        Title                = 'AbnormalSecurity '
-        Publisher            = 'AbnormalSecurity'
+        Title                = 'Abnormal Security '
+        Publisher            = 'Abnormal Security'
         ConnectivityCriteria = @(
             'ABNORMAL_THREAT_MESSAGES_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)',
             'ABNORMAL_CASES_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
@@ -611,19 +618,20 @@ function Resolve-ConnectorKind {
     $candidates = @()
     if ($Connector.PSObject.Properties.Name -contains 'Kind' -and $Connector.Kind) {
         # Direct top-level Kind property
-        $candidates += [pscustomobject]@{Kind = $Connector.Kind; Source = 'Connector.Kind' } 
+        $candidates += [pscustomobject]@{Kind = $Connector.Kind; Source = 'Connector.Kind'; Title = $Connector.ConnectorUiConfigTitle; Publisher = $Connector.ConnectorUiConfigPublisher; } 
     }
     if ($Connector.Properties -and ($Connector.Properties.PSObject.Properties.Name -contains 'Kind') -and $Connector.Properties.Kind) {
-        $candidates += [pscustomobject]@{Kind = $Connector.Properties.Kind; Source = 'Connector.Properties.Kind' } 
+        $candidates += [pscustomobject]@{Kind = $Connector.Properties.Kind; Source = 'Connector.Properties.Kind'; Title = $Connector.ConnectorUiConfigTitle; Publisher = $Connector.ConnectorUiConfigPublisher; } 
     }
     if ($Connector.PSObject.Properties.Name -contains 'DataConnectorKind' -and $Connector.DataConnectorKind) {
-        $candidates += [pscustomobject]@{Kind = $Connector.DataConnectorKind; Source = 'Connector.DataConnectorKind' } 
+        $candidates += [pscustomobject]@{Kind = $Connector.DataConnectorKind; Source = 'Connector.DataConnectorKind'; Title = $Connector.ConnectorUiConfigTitle; Publisher = $Connector.ConnectorUiConfigPublisher; } 
     }
     foreach ($p in $Connector.PSObject.Properties) {
         # Generic scan of any property whose name includes 'kind'
         if ($p.Name -match 'kind' -and $p.Value -and -not ($candidates.Kind -contains $p.Value)) {
-            $candidates += [pscustomobject]@{Kind = $p.Value; Source = $p.Name } 
-        } 
+            $candidates += [pscustomobject]@{Kind = $p.Value; Source = $p.Name; Title = $p.Title; Publisher = $p.Publisher  } 
+        }
+        
     }
     $chosen = $null
     if ($candidates.Count -gt 0) {
@@ -656,9 +664,9 @@ function Resolve-ConnectorKind {
         $name = $Connector.Name
         $isGuid = ($name -match '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$')
         if (-not $isGuid -and $name -match '^[A-Za-z][A-Za-z0-9]+' ) {
-            return [pscustomobject]@{Kind = $name; Source = 'NameInference' } 
+            return [pscustomobject]@{Kind = $name; Source = 'NameInference';Title = $Connector.Title; Publisher = $Connector.Publisher } 
         }
-        return [pscustomobject]@{Kind = 'UnknownKind'; Source = 'Fallback' }
+        return [pscustomobject]@{Kind = 'UnknownKind'; Source = 'Fallback'; Title = 'UnknownTitle'; Publisher ='Unknown Publisher' }
     }
     # If resolved kind is the placeholder 'StaticUI', always promote the connector Name (if not a GUID)
     # to serve as the effective Kind so downstream KQL mapping or future mappings can key off it.
@@ -666,10 +674,10 @@ function Resolve-ConnectorKind {
         $name = $Connector.Name
         $isGuid = ($name -match '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$')
         if (-not $isGuid -and -not [string]::IsNullOrWhiteSpace($name)) {
-            return [pscustomobject]@{ Kind = $name; Source = 'NameFromStaticUI' }
+            return [pscustomobject]@{ Kind = $name; Source = 'NameFromStaticUI'; Title = $Connector.Title; Publisher = $Connector.Publisher }
         }
     }
-    return [pscustomobject]@{Kind = $kindString; Source = $chosen.Source }
+    return [pscustomobject]@{Kind = $kindString; Source = $chosen.Source; Title = $chosen.Title; Publisher = $chosen.Publisher }
 }
 
 function Test-SubscriptionIdFormat {
@@ -908,7 +916,10 @@ function Get-LogIngestionMetrics {
     param(
         [string]$WorkspaceCustomerId,
         [string]$ConnectorKind,
-        [string]$ConnectorName
+        [string]$ConnectorName,
+        [string]$ConnectorId,
+        [string]$ConnectorTitle,
+        [string]$ConnectorPublisher
     )
       
     $kql = $null
@@ -916,30 +927,40 @@ function Get-LogIngestionMetrics {
     $connectorMetadata = $null
     $ConnectorKind = ($ConnectorKind | ForEach-Object { $_.ToString().Trim() })
     
-    # 1. Attempt mapping by Kind - search ConnectorInfo array for matching Id
-    $defaultMapping = $ConnectorInfo | Where-Object { $_.Id -eq $ConnectorKind } | Select-Object -First 1
-    if ($defaultMapping) {
-        $connectorMetadata = $defaultMapping
-        $kql = $defaultMapping.Kql
-        $mappingFound = $true
-        Write-Log -Level DEBUG -Message "Enhanced KQL mapping applied for Kind='$ConnectorKind' (Id=$($defaultMapping.Id), Title=$($defaultMapping.Title), Publisher=$($defaultMapping.Publisher))"
-    }
-    else {
-        Write-Log -Level DEBUG -Message "No default KQL mapping found for Kind='$ConnectorKind' — attempting Name fallback ('$ConnectorName')."
-        # 2. Fallback: attempt connector Name - search ConnectorInfo array for matching Id
-        if (-not [string]::IsNullOrWhiteSpace($ConnectorName)) {
-            $nameKey = $ConnectorName.Trim()
-            $nameMapping = $ConnectorInfo | Where-Object { $_.Id -eq $nameKey } | Select-Object -First 1
-            if ($nameMapping) {
-                $connectorMetadata = $nameMapping
-                $kql = $nameMapping.Kql
-                $mappingFound = $true
-                Write-Log -Level INFO -Message "Applied enhanced KQL mapping via Name fallback (Name='$nameKey', Id=$($nameMapping.Id), Title=$($nameMapping.Title))"
-            }
-            else {
-                Write-Log -Level DEBUG -Message "No KQL mapping found via Name fallback (Name='$nameKey')."
-            }
+    Write-Log -Level DEBUG -Message "Looking up connector: Id='$ConnectorId', Name='$ConnectorName', Kind='$ConnectorKind'"
+    
+    # 1. Primary lookup: Match connector's Id property against $ConnectorInfo[].Id (case-insensitive)
+    if (-not [string]::IsNullOrWhiteSpace($ConnectorId)) {
+        $idMapping = $ConnectorInfo | Where-Object { $_.Id -ieq $ConnectorId } | Select-Object -First 1
+        if ($idMapping) {
+            $connectorMetadata = $idMapping
+            $kql = $idMapping.Kql
+            $mappingFound = $true
+            Write-Log -Level DEBUG -Message "✓ Found KQL mapping by Id='$ConnectorId' (Title=$($idMapping.Title), Publisher=$($idMapping.Publisher))"
         }
+        else {
+            Write-Log -Level DEBUG -Message "✗ No KQL mapping found for Id='$ConnectorId' — attempting Name fallback"
+        }
+    }
+    
+    # 2. Fallback: Match connector's Name property against $ConnectorInfo[].Id (case-insensitive)
+    if (-not $mappingFound -and -not [string]::IsNullOrWhiteSpace($ConnectorName)) {
+        $nameKey = $ConnectorName.Trim()
+        $nameMapping = $ConnectorInfo | Where-Object { $_.Id -ieq $nameKey } | Select-Object -First 1
+        if ($nameMapping) {
+            $connectorMetadata = $nameMapping
+            $kql = $nameMapping.Kql
+            $mappingFound = $true
+            Write-Log -Level INFO -Message "✓ Found KQL mapping via Name fallback (Name='$nameKey', Id=$($nameMapping.Id), Title=$($nameMapping.Title), Publisher=$($nameMapping.Publisher))"
+        }
+        else {
+            Write-Log -Level WARN -Message "✗ No KQL mapping found for Name='$nameKey'. This connector will have null Id/Title/Publisher in output."
+        }
+    }
+    
+    # 3. If still no match, log the failure
+    if (-not $mappingFound) {
+        Write-Log -Level WARN -Message "✗ No $ConnectorInfo mapping found for connector Id='$ConnectorId', Name='$ConnectorName'. This connector will have null Title/Publisher in output."
     }
       
     $metrics = @{
@@ -950,10 +971,12 @@ function Get-LogIngestionMetrics {
         MappingFound       = $mappingFound
         KqlUsed            = $null
         NoLastLog          = $false
-        # Enhanced metadata from AllDataConnectorDefinitions.json
-        Id                 = if ($connectorMetadata -and $connectorMetadata.Id) { $connectorMetadata.Id } else { $null }
-        Title              = if ($connectorMetadata -and $connectorMetadata.Title) { $connectorMetadata.Title } else { $null }
-        Publisher          = if ($connectorMetadata -and $connectorMetadata.Publisher) { $connectorMetadata.Publisher } else { $null }
+        # Enhanced metadata: Use connector's actual Id, lookup Title/Publisher from $ConnectorInfo
+        Id                 = if (-not [string]::IsNullOrWhiteSpace($ConnectorId)) { $ConnectorId } elseif ($connectorMetadata -and $connectorMetadata.Id) { $connectorMetadata.Id } else { $null }
+        # Title: Primary = ConnectorUiConfigTitle from connector object, Fallback = $ConnectorInfo lookup
+        Title              = if (-not [string]::IsNullOrWhiteSpace($ConnectorTitle)) { $ConnectorTitle } elseif ($connectorMetadata -and $connectorMetadata.Title) { $connectorMetadata.Title } else { $null }
+        # Publisher: Primary = ConnectorUiConfigPublisher from connector object, Fallback = $ConnectorInfo lookup
+        Publisher          = if (-not [string]::IsNullOrWhiteSpace($ConnectorPublisher)) { $ConnectorPublisher } elseif ($connectorMetadata -and $connectorMetadata.Publisher) { $connectorMetadata.Publisher } else { $null }
         IsConnected        = $false  # Overall connectivity status
     }
     
@@ -1165,7 +1188,7 @@ function Get-ConnectorStatus {
   
     # Get log ingestion metrics (defensive try/catch to avoid null property errors)
     try {
-        $statusInfo.LogMetrics = Get-LogIngestionMetrics -WorkspaceCustomerId $WorkspaceCustomerId -ConnectorKind $Connector.Kind -ConnectorName $Connector.Name
+        $statusInfo.LogMetrics = Get-LogIngestionMetrics -WorkspaceCustomerId $WorkspaceCustomerId -ConnectorKind $Connector.Kind -ConnectorName $Connector.Name -ConnectorId $Connector.Id -ConnectorTitle $Connector.ConnectorUiConfigTitle -ConnectorPublisher $Connector.ConnectorUiConfigPublisher
         if (-not $statusInfo.LogMetrics) {
             $statusInfo.LogMetrics = @{ QueryStatus = 'MetricsUnavailable'; NoLastLog = $true }
         }
@@ -1349,7 +1372,6 @@ function Get-Var {
     return $v
 }
 
-
 # Normalize & diagnose possible hidden characters in names
 function Get-StringDiagnostics {
     # PURPOSE: Help detect invisible characters in resource names (common source of lookup failures).
@@ -1418,21 +1440,36 @@ if ($env:MSP_SKIP_CONNECTOR_RUN -eq '1') {
 Write-Log -Level INFO -Message 'Starting Sentinel Data Connectors management runbook.'
 Write-Log -Level INFO -Message "RunId=$script:RunId"
 
-# ---------- Retrieve Automation Variables ----------
-# UMI_ID (preferred) should be the CLIENT ID (ApplicationId) of the User-Assigned Managed Identity.
-# Optionally allow UMI_OBJECT_ID variable if available to avoid directory lookup.
-$UmiClientId = Get-Var -Name 'UMI_ID'                            # UAMI (client) id (preferred)
-$AutoSubId = Get-Var -Name 'SUBSCRIPTION_ID'                      # Target subscription GUID
-$AutoRg = Get-Var -Name 'RESOURCE_GROUP_NAME'                     # Resource group name
-$AutoWorkspaceName = Get-Var -Name 'WORKSPACE_NAME'               # Log Analytics workspace name
-$LogicAppUri = Get-Var -Name 'DATACONNECTOR_LA_URI'                     # Optional Logic App endpoint
+# ---------- Detect Execution Environment ----------
+$IsAzureAutomation = $env:AUTOMATION_ASSET_ACCOUNTID -or (Test-Path Variable:\AutomationAccountId)
+Write-Log -Level INFO -Message "Execution environment: $(if ($IsAzureAutomation) { 'Azure Automation' } else { 'Local/Manual' })"
 
-Write-Log -Level INFO -Message "Variables loaded: RG=$AutoRg Workspace=$AutoWorkspaceName LogicAppUri=$LogicAppUri UmiClientId=$UmiClientId" 
-
-# use automation variables directly
-$SubscriptionId = $AutoSubId
-$ResourceGroupName = $AutoRg
-$WorkspaceName = $AutoWorkspaceName
+# ---------- Retrieve Configuration (Automation Variables or Parameters) ----------
+# In Azure Automation: Use automation variables
+# In Local execution: Use provided parameters
+if ($IsAzureAutomation) {
+    Write-Log -Level INFO -Message 'Loading configuration from Azure Automation variables...'
+    # UMI_ID (preferred) should be the CLIENT ID (ApplicationId) of the User-Assigned Managed Identity.
+    $UmiClientId = Get-Var -Name 'UMI_ID'                            # UAMI (client) id
+    
+    # Override with parameters if explicitly provided (allows testing in automation)
+    if (-not $SubscriptionId) { $SubscriptionId = Get-Var -Name 'SUBSCRIPTION_ID' }
+    if (-not $ResourceGroupName) { $ResourceGroupName = Get-Var -Name 'RESOURCE_GROUP_NAME' }
+    if (-not $WorkspaceName) { $WorkspaceName = Get-Var -Name 'WORKSPACE_NAME' }
+    if (-not $LogicAppUri) { $LogicAppUri = Get-Var -Name 'DATACONNECTOR_LA_URI' -Optional }
+    
+    Write-Log -Level INFO -Message "Variables loaded: RG=$ResourceGroupName Workspace=$WorkspaceName LogicAppUri=$LogicAppUri UmiClientId=$UmiClientId"
+} else {
+    Write-Log -Level INFO -Message 'Using parameters provided for local execution...'
+    $UmiClientId = $null  # Not used in local execution
+    
+    # Validate required parameters for local execution
+    if (-not $SubscriptionId) { throw 'SubscriptionId parameter is required for local execution' }
+    if (-not $ResourceGroupName) { throw 'ResourceGroupName parameter is required for local execution' }
+    if (-not $WorkspaceName) { throw 'WorkspaceName parameter is required for local execution' }
+    
+    Write-Log -Level INFO -Message "Parameters: RG=$ResourceGroupName Workspace=$WorkspaceName SubscriptionId=$SubscriptionId"
+}
 
 # Post-resolution validation
 foreach ($pair in @([pscustomobject]@{N = 'ResourceGroupName'; V = $ResourceGroupName }, [pscustomobject]@{N = 'WorkspaceName'; V = $WorkspaceName })) {
@@ -1471,24 +1508,52 @@ if (-not $SubscriptionId) {
     Write-Log -Level WARN -Message 'No subscription id variable provided; will rely on current context after connect.' 
 }
 
-# ---------- Authenticate with Managed Identity ----------
-if (-not $UmiClientId) {
-    # Fall back to system-assigned or default identity
-    Write-Log -Level WARN -Message 'UMI_ID variable not supplied; attempting system-assigned or default identity login (Connect-AzAccount -Identity).'
+# ---------- Authenticate ----------
+if ($IsAzureAutomation) {
+    # Azure Automation: Use Managed Identity
+    if (-not $UmiClientId) {
+        # Fall back to system-assigned or default identity
+        Write-Log -Level WARN -Message 'UMI_ID variable not supplied; attempting system-assigned or default identity login (Connect-AzAccount -Identity).'
+        try {
+            Connect-AzAccount -Identity -ErrorAction Stop | Out-Null 
+        }
+        catch {
+            throw "Managed identity login failed (no clientId provided): $($_.Exception.Message)" 
+        }
+    }
+    else {
+        Write-Log -Level INFO -Message "Connecting with User-Assigned Managed Identity (ClientId=$UmiClientId)"
+        try {
+            Connect-AzAccount -Identity -AccountId $UmiClientId -ErrorAction Stop | Out-Null 
+        }
+        catch {
+            throw "Failed to authenticate with managed identity clientId=$UmiClientId : $($_.Exception.Message)" 
+        }
+    }
+} else {
+    # Local execution: Use existing context or prompt for interactive login
+    Write-Log -Level INFO -Message 'Local execution: Checking for existing Azure authentication...'
     try {
-        Connect-AzAccount -Identity -ErrorAction Stop | Out-Null 
+        $context = Get-AzContext -ErrorAction Stop
+        if ($context -and $context.Account) {
+            Write-Log -Level INFO -Message "Using existing authentication: Account=$($context.Account.Id) Tenant=$($context.Tenant.Id)"
+        } else {
+            Write-Log -Level INFO -Message 'No existing context found. Initiating interactive login...'
+            Connect-AzAccount -ErrorAction Stop | Out-Null
+            $context = Get-AzContext
+            Write-Log -Level INFO -Message "Authenticated interactively: Account=$($context.Account.Id)"
+        }
     }
     catch {
-        throw "Managed identity login failed (no clientId provided): $($_.Exception.Message)" 
-    }
-}
-else {
-    Write-Log -Level INFO -Message "Connecting with User-Assigned Managed Identity (ClientId=$UmiClientId)"
-    try {
-        Connect-AzAccount -Identity -AccountId $UmiClientId -ErrorAction Stop | Out-Null 
-    }
-    catch {
-        throw "Failed to authenticate with managed identity clientId=$UmiClientId : $($_.Exception.Message)" 
+        Write-Log -Level WARN -Message 'No existing context found. Initiating interactive login...'
+        try {
+            Connect-AzAccount -ErrorAction Stop | Out-Null
+            $context = Get-AzContext
+            Write-Log -Level INFO -Message "Authenticated interactively: Account=$($context.Account.Id)"
+        }
+        catch {
+            throw "Failed to authenticate: $($_.Exception.Message)" 
+        }
     }
 }
 
@@ -1563,8 +1628,6 @@ else {
     $WorkspaceCustomerId = $null
 }
 
-
-
 # ---------- Retrieve Data Connectors ----------
 Write-Log INFO 'Retrieving Sentinel Data Connectors for workspace...'
 try {
@@ -1606,7 +1669,7 @@ else {
         } | Where-Object { $KindFilter -contains $_._ResolvedKindPreFilter }
     }
 
-    if ($Parallel -and $PSVersionTable.PSEdition -eq 'Core' -and $PSVersionTable.PSVersion.Major -ge 7) {
+    if ($Parallel) {
         Write-Log INFO "Parallel mode enabled (ThrottleLimit=$ThrottleLimit)"
         $summary = $filteredConnectors | ForEach-Object -Parallel {
             $resolved = Resolve-ConnectorKind -Connector $_
@@ -1620,6 +1683,9 @@ else {
             $hoursSince = $statusInfo.HoursSinceLastLog
             [pscustomobject]@{
                 Name              = $_.Name
+                Id                = $_.Name
+                Title             = $statusInfo.ConnectorUiConfigTitle
+                Publisher         = $statusInfo.ConnectorUiConfigPublisher
                 Kind              = $resolved.Kind
                 Status            = $statusInfo.OverallStatus
                 LastLogTime       = $lastLogUtc
@@ -1660,8 +1726,11 @@ else {
             $lastLogUtc = $statusInfo.LogMetrics.LastLogTime
             $hoursSince = $statusInfo.HoursSinceLastLog
             $record = [ordered]@{
-                Name              = $connector.Name
-                Kind              = $resolvedKind
+                Name              = $_.Name
+                Kind              = $_.Kind
+                Id                = $resolvedKind
+                Title             = $connector.ConnectorUiConfigTitle
+                Publisher         = $connector.ConnectorUiConfigPublisher
                 Status            = $statusInfo.OverallStatus
                 LastLogTime       = $lastLogUtc
                 LogsLastHour      = $statusInfo.LogMetrics.LogsLastHour
@@ -1692,10 +1761,11 @@ else {
     # Produce a clean collection prior to consolidated object.
     $ConnectorCollection = $summary | Select-Object Name, Kind, Status, LastLogTime, LogsLastHour, TotalLogs24h, QueryStatus, HoursSinceLastLog, StatusDetails, Workspace, Subscription, `
     @{Name = 'NoLastLog'; Expression = { $_.LogMetrics.NoLastLog } }, `
-    @{Name = 'Id'; Expression = { $_.LogMetrics.Id } }, `
-    @{Name = 'Title'; Expression = { $_.LogMetrics.Title } }, `
-    @{Name = 'Publisher'; Expression = { $_.LogMetrics.Publisher } }, `
-    @{Name = 'IsConnected'; Expression = { $_.LogMetrics.IsConnected } }
+    Id, Title, Publisher
+    # @{Name = 'Id'; Expression = { $_.LogMetrics.Id } }, `
+    # @{Name = 'Title'; Expression = { $_.LogMetrics.Title } }, `
+    # @{Name = 'Publisher'; Expression = { $_.LogMetrics.Publisher } }, `
+    # @{Name = 'IsConnected'; Expression = { $_.LogMetrics.IsConnected } }
 
     # ------------------------------------------------------------------
     # Deduplication/Merge: Some connectors appear twice (GUID + friendly) for same underlying integration.
