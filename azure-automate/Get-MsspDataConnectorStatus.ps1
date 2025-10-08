@@ -126,7 +126,7 @@ union ABNORMAL_THREAT_MESSAGES_CL, ABNORMAL_CASES_CL
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
     },
-    {
+    @{
         Id                   = 'AwsS3'
         Title                = 'Amazon Web Services S3'
         Publisher            = 'Amazon'
@@ -174,7 +174,8 @@ union isfuzzy=true SigninLogs, AuditLogs, AADNonInteractiveUserSignInLogs, AADSe
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'AzureActiveDirectoryIdentityProtection'
         Title                = 'Azure Active Directory Identity Protection'
         Publisher            = 'Microsoft'
@@ -190,7 +191,8 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'AzureActivity'
         Title                = 'Azure Activity'
         Publisher            = 'Microsoft'
@@ -220,7 +222,8 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'AzureSecurityCenter'
         Title                = 'Subscription-based Microsoft Defender for Cloud (Legacy)'
         Publisher            = 'Microsoft'
@@ -235,7 +238,8 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'CEF'
         Title                = 'Common Event Format'
         Publisher            = 'Microsoft'
@@ -248,7 +252,8 @@ CommonSecurityLog
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'CefAma'
         Title                = 'Common Event Format (AMA)'
         Publisher            = 'Microsoft'
@@ -275,7 +280,8 @@ CommonSecurityLog
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'DNS'
         Title                = 'DNS'
         Publisher            = 'Microsoft'
@@ -288,7 +294,8 @@ DnsEvents
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'GCPIAMDataConnector'
         Title                = 'Google Cloud Platform IAM'
         Publisher            = 'Google'
@@ -301,7 +308,8 @@ GCP_IAM_CL
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'MicrosoftCloudAppSecurity'
         Title                = 'Microsoft Cloud App Security'
         Publisher            = 'Microsoft'
@@ -314,7 +322,8 @@ McasShadowItReporting
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'MicrosoftDefenderAdvancedThreatProtection'
         Title                = 'Microsoft Defender Advanced Threat Protection'
         Publisher            = 'Microsoft'
@@ -328,8 +337,8 @@ union isfuzzy=true DeviceEvents, DeviceFileEvents, DeviceImageLoadEvents, Device
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }
-    , @{
+    }, 
+    @{
         Id                   = 'MicrosoftDefenderForCloudTenantBased'
         Title                = 'Microsoft Defender for Cloud (Tenant-based)'
         Publisher            = 'Microsoft'
@@ -343,7 +352,8 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'MicrosoftDefenderThreatIntelligence'
         Title                = 'Microsoft Defender Threat Intelligence'
         Publisher            = 'Microsoft'
@@ -356,7 +366,8 @@ ThreatIntelligenceIndicator
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'MicrosoftThreatIntelligence'
         Title                = 'Microsoft Threat Intelligence'
         Publisher            = 'Microsoft'
@@ -369,7 +380,8 @@ ThreatIntelligenceIndicator
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'MicrosoftThreatProtection'
         Title                = 'Microsoft Threat Protection'
         Publisher            = 'Microsoft'
@@ -385,7 +397,8 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'Office365'
         Title                = 'Office 365'
         Publisher            = 'Microsoft'
@@ -398,7 +411,8 @@ OfficeActivity
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'OfficeATP'
         Title                = 'Office Advanced Threat Protection'
         Publisher            = 'Microsoft'
@@ -414,7 +428,8 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'OfficeIRM'
         Title                = 'Office Insider Risk Management'
         Publisher            = 'Microsoft'
@@ -430,7 +445,8 @@ SecurityAlert
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    },
+    @{
         Id                   = 'OktaSSO'
         Title                = 'Okta Single Sign-On'
         Publisher            = 'Okta'
@@ -443,7 +459,8 @@ OktaV2_CL
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'SecurityEvents'
         Title                = 'Security Events'
         Publisher            = 'Microsoft'
@@ -456,7 +473,8 @@ SecurityEvent
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'Syslog'
         Title                = 'Syslog'
         Publisher            = 'Microsoft'
@@ -469,7 +487,8 @@ Syslog
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'SyslogAma'
         Title                = 'Syslog (AMA)'
         Publisher            = 'Microsoft'
@@ -482,7 +501,8 @@ Syslog
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'ThreatIntelligence'
         Title                = 'Threat Intelligence'
         Publisher            = 'Microsoft'
@@ -495,7 +515,8 @@ ThreatIntelligenceIndicator
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'ThreatIntelligenceTaxii'
         Title                = 'Threat Intelligence TAXII'
         Publisher            = 'Microsoft'
@@ -508,7 +529,8 @@ ThreatIntelligenceIndicator
 | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
-    }, @{
+    }, 
+    @{
         Id                   = 'ThreatIntelligenceUploadIndicatorsAPI'
         Title                = 'Threat Intelligence Upload Indicators API'
         Publisher            = 'Microsoft'
@@ -620,19 +642,16 @@ function Resolve-ConnectorKind {
         # Direct top-level Kind property
         $candidates += [pscustomobject]@{Kind = $Connector.Kind; Source = 'Connector.Kind'; Title = $Connector.ConnectorUiConfigTitle; Publisher = $Connector.ConnectorUiConfigPublisher; } 
     }
-    if ($Connector.Properties -and ($Connector.Properties.PSObject.Properties.Name -contains 'Kind') -and $Connector.Properties.Kind) {
-        $candidates += [pscustomobject]@{Kind = $Connector.Properties.Kind; Source = 'Connector.Properties.Kind'; Title = $Connector.ConnectorUiConfigTitle; Publisher = $Connector.ConnectorUiConfigPublisher; } 
-    }
     if ($Connector.PSObject.Properties.Name -contains 'DataConnectorKind' -and $Connector.DataConnectorKind) {
         $candidates += [pscustomobject]@{Kind = $Connector.DataConnectorKind; Source = 'Connector.DataConnectorKind'; Title = $Connector.ConnectorUiConfigTitle; Publisher = $Connector.ConnectorUiConfigPublisher; } 
     }
-    foreach ($p in $Connector.PSObject.Properties) {
-        # Generic scan of any property whose name includes 'kind'
-        if ($p.Name -match 'kind' -and $p.Value -and -not ($candidates.Kind -contains $p.Value)) {
-            $candidates += [pscustomobject]@{Kind = $p.Value; Source = $p.Name; Title = $p.Title; Publisher = $p.Publisher  } 
-        }
+    # foreach ($p in $Connector.PSObject.Properties) {
+    #     # Generic scan of any property whose name includes 'kind'
+    #     if ($p.Name -match 'kind' -and $p.Value -and -not ($candidates.Kind -contains $p.Value)) {
+    #         $candidates += [pscustomobject]@{Kind = $p.Value; Source = $p.Name; Title = $p.Title; Publisher = $p.Publisher } 
+    #     }
         
-    }
+    # }
     $chosen = $null
     if ($candidates.Count -gt 0) {
         $chosen = $candidates | Where-Object { $_.Kind -and $_.Kind -ne 'DataConnector' } | Select-Object -First 1
@@ -640,6 +659,8 @@ function Resolve-ConnectorKind {
             $chosen = $candidates | Select-Object -First 1 
         }
     }
+    
+    # Normalize Kind to string for processing
     $kindString = $null
     if ($chosen -and $chosen.Kind) {
         switch -Regex ($chosen.Kind.GetType().FullName) {
@@ -659,25 +680,43 @@ function Resolve-ConnectorKind {
             }
         }
     }
-    if (-not $kindString) {
-        # Last attempt: infer from Name if it is not a GUID
-        $name = $Connector.Name
-        $isGuid = ($name -match '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$')
-        if (-not $isGuid -and $name -match '^[A-Za-z][A-Za-z0-9]+' ) {
-            return [pscustomobject]@{Kind = $name; Source = 'NameInference';Title = $Connector.Title; Publisher = $Connector.Publisher } 
-        }
-        return [pscustomobject]@{Kind = 'UnknownKind'; Source = 'Fallback'; Title = 'UnknownTitle'; Publisher ='Unknown Publisher' }
+    
+    # Determine best Id value for lookup in $ConnectorInfo
+    # Priority: 1) Kind if meaningful, 2) Name if not a GUID
+    $idValue = $null
+    $idSource = 'None'
+    
+    if ($kindString -and $kindString -notin @('StaticUI', 'GenericUI', 'DataConnector', 'UnknownKind')) {
+        # Use Kind as Id if it's a meaningful value
+        $idValue = $kindString
+        $idSource = if ($chosen) { $chosen.Source } else { 'KindString' }
     }
-    # If resolved kind is the placeholder 'StaticUI', always promote the connector Name (if not a GUID)
-    # to serve as the effective Kind so downstream KQL mapping or future mappings can key off it.
-    if ($kindString -eq 'StaticUI') {
+    
+    # Fallback to Name if Kind is not useful or missing
+    if (-not $idValue) {
         $name = $Connector.Name
         $isGuid = ($name -match '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$')
         if (-not $isGuid -and -not [string]::IsNullOrWhiteSpace($name)) {
-            return [pscustomobject]@{ Kind = $name; Source = 'NameFromStaticUI'; Title = $Connector.Title; Publisher = $Connector.Publisher }
+            $idValue = $name
+            $idSource = 'ConnectorName'
         }
     }
-    return [pscustomobject]@{Kind = $kindString; Source = $chosen.Source; Title = $chosen.Title; Publisher = $chosen.Publisher }
+    
+    # Final fallback: use Name even if it's a GUID
+    if (-not $idValue) {
+        $idValue = $Connector.Name
+        $idSource = 'ConnectorNameFallback'
+    }
+    
+    # Return object with Name and Kind preserved as-is from connector
+    return [pscustomobject]@{
+        Name = $Connector.Name
+        Kind = if ($kindString) { $kindString } else { 'UnknownKind' }
+        Id = $idValue
+        Source = $idSource
+        Title = $Connector.ConnectorUiConfigTitle
+        Publisher = $Connector.ConnectorUiConfigPublisher
+    }
 }
 
 function Test-SubscriptionIdFormat {
@@ -936,10 +975,10 @@ function Get-LogIngestionMetrics {
             $connectorMetadata = $idMapping
             $kql = $idMapping.Kql
             $mappingFound = $true
-            Write-Log -Level DEBUG -Message "✓ Found KQL mapping by Id='$ConnectorId' (Title=$($idMapping.Title), Publisher=$($idMapping.Publisher))"
+            Write-Log -Level DEBUG -Message "Found KQL mapping by Id='$ConnectorId' (Title=$($idMapping.Title), Publisher=$($idMapping.Publisher))"
         }
         else {
-            Write-Log -Level DEBUG -Message "✗ No KQL mapping found for Id='$ConnectorId' — attempting Name fallback"
+            Write-Log -Level DEBUG -Message "No KQL mapping found for Id='$ConnectorId' — attempting Name fallback"
         }
     }
     
@@ -951,33 +990,33 @@ function Get-LogIngestionMetrics {
             $connectorMetadata = $nameMapping
             $kql = $nameMapping.Kql
             $mappingFound = $true
-            Write-Log -Level INFO -Message "✓ Found KQL mapping via Name fallback (Name='$nameKey', Id=$($nameMapping.Id), Title=$($nameMapping.Title), Publisher=$($nameMapping.Publisher))"
+            Write-Log -Level INFO -Message "Found KQL mapping via Name fallback (Name='$nameKey', Id=$($nameMapping.Id), Title=$($nameMapping.Title), Publisher=$($nameMapping.Publisher))"
         }
         else {
-            Write-Log -Level WARN -Message "✗ No KQL mapping found for Name='$nameKey'. This connector will have null Id/Title/Publisher in output."
+            Write-Log -Level WARN -Message "No KQL mapping found for Name='$nameKey'. This connector will have null Id/Title/Publisher in output."
         }
     }
     
     # 3. If still no match, log the failure
     if (-not $mappingFound) {
-        Write-Log -Level WARN -Message "✗ No $ConnectorInfo mapping found for connector Id='$ConnectorId', Name='$ConnectorName'. This connector will have null Title/Publisher in output."
+        Write-Log -Level WARN -Message "No $ConnectorInfo mapping found for connector Id='$ConnectorId', Name='$ConnectorName'. This connector will have null Title/Publisher in output."
     }
       
     $metrics = @{
-        LastLogTime        = $null
-        LogsLastHour       = 0
-        TotalLogs24h       = 0
-        QueryStatus        = 'Unknown'
-        MappingFound       = $mappingFound
-        KqlUsed            = $null
-        NoLastLog          = $false
+        LastLogTime  = $null
+        LogsLastHour = 0
+        TotalLogs24h = 0
+        QueryStatus  = 'Unknown'
+        MappingFound = $mappingFound
+        KqlUsed      = $null
+        NoLastLog    = $false
         # Enhanced metadata: Use connector's actual Id, lookup Title/Publisher from $ConnectorInfo
-        Id                 = if (-not [string]::IsNullOrWhiteSpace($ConnectorId)) { $ConnectorId } elseif ($connectorMetadata -and $connectorMetadata.Id) { $connectorMetadata.Id } else { $null }
+        Id           = if (-not [string]::IsNullOrWhiteSpace($ConnectorId)) { $ConnectorId } elseif ($connectorMetadata -and $connectorMetadata.Id) { $connectorMetadata.Id } else { $null }
         # Title: Primary = ConnectorUiConfigTitle from connector object, Fallback = $ConnectorInfo lookup
-        Title              = if (-not [string]::IsNullOrWhiteSpace($ConnectorTitle)) { $ConnectorTitle } elseif ($connectorMetadata -and $connectorMetadata.Title) { $connectorMetadata.Title } else { $null }
+        Title        = if (-not [string]::IsNullOrWhiteSpace($ConnectorTitle)) { $ConnectorTitle } elseif ($connectorMetadata -and $connectorMetadata.Title) { $connectorMetadata.Title } else { $null }
         # Publisher: Primary = ConnectorUiConfigPublisher from connector object, Fallback = $ConnectorInfo lookup
-        Publisher          = if (-not [string]::IsNullOrWhiteSpace($ConnectorPublisher)) { $ConnectorPublisher } elseif ($connectorMetadata -and $connectorMetadata.Publisher) { $connectorMetadata.Publisher } else { $null }
-        IsConnected        = $false  # Overall connectivity status
+        Publisher    = if (-not [string]::IsNullOrWhiteSpace($ConnectorPublisher)) { $ConnectorPublisher } elseif ($connectorMetadata -and $connectorMetadata.Publisher) { $connectorMetadata.Publisher } else { $null }
+        IsConnected  = $false  # Overall connectivity status
     }
     
     # Execute connectivity criteria if available
@@ -1459,7 +1498,8 @@ if ($IsAzureAutomation) {
     if (-not $LogicAppUri) { $LogicAppUri = Get-Var -Name 'DATACONNECTOR_LA_URI' -Optional }
     
     Write-Log -Level INFO -Message "Variables loaded: RG=$ResourceGroupName Workspace=$WorkspaceName LogicAppUri=$LogicAppUri UmiClientId=$UmiClientId"
-} else {
+}
+else {
     Write-Log -Level INFO -Message 'Using parameters provided for local execution...'
     $UmiClientId = $null  # Not used in local execution
     
@@ -1530,14 +1570,16 @@ if ($IsAzureAutomation) {
             throw "Failed to authenticate with managed identity clientId=$UmiClientId : $($_.Exception.Message)" 
         }
     }
-} else {
+}
+else {
     # Local execution: Use existing context or prompt for interactive login
     Write-Log -Level INFO -Message 'Local execution: Checking for existing Azure authentication...'
     try {
         $context = Get-AzContext -ErrorAction Stop
         if ($context -and $context.Account) {
             Write-Log -Level INFO -Message "Using existing authentication: Account=$($context.Account.Id) Tenant=$($context.Tenant.Id)"
-        } else {
+        }
+        else {
             Write-Log -Level INFO -Message 'No existing context found. Initiating interactive login...'
             Connect-AzAccount -ErrorAction Stop | Out-Null
             $context = Get-AzContext
@@ -1761,7 +1803,7 @@ else {
     # Produce a clean collection prior to consolidated object.
     $ConnectorCollection = $summary | Select-Object Name, Kind, Status, LastLogTime, LogsLastHour, TotalLogs24h, QueryStatus, HoursSinceLastLog, StatusDetails, Workspace, Subscription, `
     @{Name = 'NoLastLog'; Expression = { $_.LogMetrics.NoLastLog } }, `
-    Id, Title, Publisher
+        Id, Title, Publisher
     # @{Name = 'Id'; Expression = { $_.LogMetrics.Id } }, `
     # @{Name = 'Title'; Expression = { $_.LogMetrics.Title } }, `
     # @{Name = 'Publisher'; Expression = { $_.LogMetrics.Publisher } }, `
