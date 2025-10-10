@@ -181,6 +181,13 @@ $ConnectorInfo = @(
         ActivityKql     = 'SecurityAlert | where TimeGenerated >= ago(24h) | where ProductName == "Azure Security Center" | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
     },
     @{
+        Id              = 'BoxDataConnector'
+        Title           = 'Box'
+        Publisher       = 'Box'
+        ConnectivityKql = @('BoxEvents_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)')
+        ActivityKql     = 'BoxEvents_CL | where TimeGenerated >= ago(24h) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
+    @{
         Id              = 'CEF'
         Title           = 'Common Event Format'
         Publisher       = 'Microsoft'
@@ -214,6 +221,13 @@ $ConnectorInfo = @(
         Publisher       = 'Microsoft'
         ConnectivityKql = 'DnsEvents | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
         ActivityKql     = 'DnsEvents | where TimeGenerated >= ago(24h) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    }, 
+        @{
+        Id              = 'ESI-ExchangeAdminAuditLogEvents'
+        Title           = '[Deprecated] Microsoft Exchange Logs and Events'
+        Publisher       = 'Microsoft'
+        ConnectivityKql = 'Event | where EventLog == "MSExchange Management" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        ActivityKql     = 'Event | where TimeGenerated >= ago(24h) | where EventLog == "MSExchange Management" | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
     }, 
     @{
         Id              = 'GCPIAMDataConnector'
@@ -424,6 +438,7 @@ function Invoke-WithRetry {
         catch {
             $lastError = $_
             # Use interpolated string with subexpressions for clarity & safe colon delimiter
+
             Write-Log -Level WARN -Message "$OperationName failed attempt $($attempt): $($_.Exception.Message)"
             if ($attempt -ge $MaxAttempts) { break }
             Start-Sleep -Seconds $delay
@@ -747,6 +762,58 @@ function Test-ModuleLoaded {
     Import-Module $Name -ErrorAction Stop
 }
 
+function Get-KqlErrorDetails {
+    # PURPOSE: Extract detailed error information from KQL query result including inner errors
+    <#
+    .SYNOPSIS
+    Extracts detailed error message including inner error information from a query result.
+    .DESCRIPTION
+    Checks for Error.Message and Error.InnerError to provide comprehensive error details.
+    Inner errors often contain helpful information like "Failed to resolve table expression named..."
+    .PARAMETER QueryResult
+    The result object from Invoke-AzOperationalInsightsQuery.
+    .OUTPUTS
+    String containing detailed error message.
+    .EXAMPLE
+    Get-KqlErrorDetails -QueryResult $result
+    #>
+    param([object]$QueryResult)
+    
+    if (-not $QueryResult -or -not $QueryResult.Error) {
+        return $null
+    }
+    
+    $errorParts = @()
+    
+    # Add main error message
+    if ($QueryResult.Error.Message) {
+        $errorParts += $QueryResult.Error.Message
+    }
+    
+    # Check for inner error which often has more details
+    if ($QueryResult.Error.InnerError) {
+        $innerError = $QueryResult.Error.InnerError
+        
+        # InnerError might be a string or an object
+        if ($innerError -is [string]) {
+            $errorParts += "InnerError: $innerError"
+        }
+        elseif ($innerError.Message) {
+            $errorParts += "InnerError: $($innerError.Message)"
+        }
+        elseif ($innerError.ToString() -ne 'System.Object') {
+            $errorParts += "InnerError: $($innerError.ToString())"
+        }
+    }
+    
+    # Check for Code which might provide additional context
+    if ($QueryResult.Error.Code) {
+        $errorParts += "Code: $($QueryResult.Error.Code)"
+    }
+    
+    return ($errorParts -join ' | ')
+}
+
 function Get-ConnectivityResults {
     # PURPOSE: Execute connectivity criteria KQL queries and return overall connectivity status
     <#
@@ -818,7 +885,8 @@ function Get-ConnectivityResults {
                 }
             }
             else {
-                Write-Log -Level WARN -Message "Connectivity criteria $i for '$ConnectorName' failed: $($queryResult.Error.Message)"
+                $errorDetails = Get-KqlErrorDetails -QueryResult $queryResult
+                Write-Log -Level WARN -Message "Connectivity criteria $i for '$ConnectorName' failed: $errorDetails"
             }
         }
         catch {
@@ -895,15 +963,15 @@ function Get-LogIngestionMetrics {
     }
     
     # Normalize $ConnectivityKql to array
-    $connectivityQueries = @()
+    [array]$connectivityQueries = @()
     if ($ConnectivityKql) {
         if ($ConnectivityKql -is [string]) {
             if (-not [string]::IsNullOrWhiteSpace($ConnectivityKql)) {
-                $connectivityQueries = @($ConnectivityKql)
+                [array]$connectivityQueries = @($ConnectivityKql)
             }
         }
         elseif ($ConnectivityKql -is [array]) {
-            $connectivityQueries = $ConnectivityKql | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+            [array]$connectivityQueries = $ConnectivityKql | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
         }
     }
     
@@ -920,7 +988,7 @@ function Get-LogIngestionMetrics {
         }
     }
     
-    if ($connectivityQueries.Count -eq 0 -and $activityQueries.Count -eq 0) {
+    if ([array]$connectivityQueries.Count -eq 0 -and $activityQueries.Count -eq 0) {
         $metrics.QueryStatus = 'NoKql'
         Write-Log -Level WARN -Message "No KQL available for connector '$ConnectorName' (Kind=$ConnectorKind)."
         return $metrics
@@ -928,57 +996,58 @@ function Get-LogIngestionMetrics {
     
     Write-Log -Level DEBUG -Message "Processing $($connectivityQueries.Count) ConnectivityKql and $($activityQueries.Count) ActivityKql queries for connector '$ConnectorName'"
     
-    try {
-        # ===== PART 1: Execute ConnectivityKql queries to determine IsConnected status =====
-        if ($connectivityQueries.Count -gt 0) {
-            Write-Log -Level DEBUG -Message "Executing $($connectivityQueries.Count) ConnectivityKql quer(y/ies) for '$ConnectorName'"
+    # ===== PART 1: Execute ConnectivityKql queries to determine IsConnected status =====
+    if ($connectivityQueries.Count -gt 0) {
+        Write-Log -Level DEBUG -Message "Executing $($connectivityQueries.Count) ConnectivityKql quer(y/ies) for '$ConnectorName'"
+        
+        for ($i = 0; $i -lt $connectivityQueries.Count; $i++) {
+            $kqlQuery = $connectivityQueries[$i]
+            $queryLabel = if ($connectivityQueries.Count -gt 1) { "[Connectivity $($i+1)/$($connectivityQueries.Count)]" } else { "[Connectivity]" }
+            $queryPreview = ($kqlQuery -split "`n" | Select-Object -First 2) -join ' | '
             
-            for ($i = 0; $i -lt $connectivityQueries.Count; $i++) {
-                $kqlQuery = $connectivityQueries[$i]
-                $queryLabel = if ($connectivityQueries.Count -gt 1) { "[Connectivity $($i+1)/$($connectivityQueries.Count)]" } else { "[Connectivity]" }
-                $queryPreview = ($kqlQuery -split "`n" | Select-Object -First 2) -join ' | '
+            Write-Log -Level DEBUG -Message "KQL start $queryLabel Connector='$ConnectorName' Preview='$queryPreview'"
+            
+            try {
+                $result = Invoke-WithRetry -OperationName "ConnectivityKQL-$ConnectorName-$i" -ScriptBlock { 
+                    Invoke-AzOperationalInsightsQuery -WorkspaceId $WorkspaceCustomerId -Query $kqlQuery -Wait 60 -ErrorAction Stop 
+                } -MaxAttempts 2 -InitialDelaySeconds 1
                 
-                Write-Log -Level DEBUG -Message "KQL start $queryLabel Connector='$ConnectorName' Preview='$queryPreview'"
-                
-                try {
-                    $result = Invoke-WithRetry -OperationName "ConnectivityKQL-$ConnectorName-$i" -ScriptBlock { 
-                        Invoke-AzOperationalInsightsQuery -WorkspaceId $WorkspaceCustomerId -Query $kqlQuery -Wait 60 -ErrorAction Stop 
-                    } -MaxAttempts 2 -InitialDelaySeconds 1
-                    
-                    if ($result -and -not $result.Error) {
-                        # Parse IsConnected column
-                        $isConnected = $false
-                        if ($result.Results -and $result.Results.Count -gt 0) {
-                            foreach ($table in $result.Results) {
-                                if ($table.IsConnected) {
-                                    $isConnected = $true
-                                }
-                                else {
-                                    $isConnected = $false
-                                }
+                if ($result -and -not $result.Error) {
+                    # Parse IsConnected column
+                    $isConnected = $false
+                    if ($result.Results -and $result.Results.Count -gt 0) {
+                        foreach ($table in $result.Results) {
+                            if ($table.IsConnected) {
+                                $isConnected = $true
+                            }
+                            else {
+                                $isConnected = $false
                             }
                         }
-                        
-                        Write-Log -Level DEBUG -Message "$queryLabel for '$ConnectorName': IsConnected=$isConnected"
-                        
-                        # If ANY connectivity query returns true, set IsConnected to true
-                        if ($isConnected) {
-                            $metrics.IsConnected = $true
-                            Write-Log -Level DEBUG -Message "Connectivity established for '$ConnectorName' via query $($i+1)"
-                        }
                     }
-                    else {
-                        Write-Log -Level WARN -Message "$queryLabel for '$ConnectorName' returned error: $($result.Error.Message)"
+                    
+                    Write-Log -Level DEBUG -Message "$queryLabel for '$ConnectorName': IsConnected=$isConnected"
+                    
+                    # If ANY connectivity query returns true, set IsConnected to true
+                    if ($isConnected) {
+                        $metrics.IsConnected = $true
+                        Write-Log -Level DEBUG -Message "Connectivity established for '$ConnectorName' via query $($i+1)"
                     }
                 }
-                catch {
-                    Write-Log -Level WARN -Message "$queryLabel for '$ConnectorName' exception: $($_.Exception.Message)"
+                else {
+                    $errorDetails = Get-KqlErrorDetails -QueryResult $result
+                    Write-Log -Level WARN -Message "$queryLabel for '$ConnectorName' returned error: $errorDetails"
                 }
             }
+            catch {
+                Write-Log -Level WARN -Message "$queryLabel for '$ConnectorName' exception: $($_.Exception.Message)"
+            }
         }
-        
-        # ===== PART 2: Execute ActivityKql queries to get activity metrics =====
-        if ($activityQueries.Count -gt 0) {
+    }
+    
+    # ===== PART 2: Execute ActivityKql queries to get activity metrics =====
+    if ($activityQueries.Count -gt 0) {
+        try {
             Write-Log -Level DEBUG -Message "Executing $($activityQueries.Count) ActivityKql quer(y/ies) for '$ConnectorName'"
             
             $allExtracted = $false
@@ -1016,7 +1085,8 @@ function Get-LogIngestionMetrics {
                 }
             
                 if ($result.Error) {
-                    Write-Log -Level WARN -Message "KQL error $($queryLabel) for '${ConnectorName}' (DurationMs=$($sw.ElapsedMilliseconds)): $($result.Error.Message)"
+                    $errorDetails = Get-KqlErrorDetails -QueryResult $result
+                    Write-Log -Level WARN -Message "KQL error $queryLabel for '${ConnectorName}' (DurationMs=$($sw.ElapsedMilliseconds)): $errorDetails"
                     $anyFailure = $true
                     continue
                 }
@@ -1128,14 +1198,15 @@ function Get-LogIngestionMetrics {
             
             Write-Log -Level INFO -Message "Activity KQL summary: Connector='$ConnectorName' TotalQueries=$($activityQueries.Count) TotalRows=$totalRowsAll LastLogTime=$($metrics.LastLogTime) LogsLastHour=$($metrics.LogsLastHour) TotalLogs24h=$($metrics.TotalLogs24h) Status=$($metrics.QueryStatus)"
         }
-        else {
-            # No activity queries provided
-            $metrics.QueryStatus = 'NoActivityKql'
-            Write-Log -Level DEBUG -Message "No ActivityKql provided for connector '$ConnectorName'"
+        catch {
+            Write-Log -Level WARN -Message "Activity KQL exception for connector '$ConnectorName': $($_.Exception.Message)"
+            $metrics.QueryStatus = 'QueryFailed'
         }
     }
-    catch {
-        Write-Log -Level WARN -Message "KQL exception for connector '$ConnectorName': $($_.Exception.Message)"; $metrics.QueryStatus = 'QueryFailed'
+    else {
+        # No activity queries provided
+        $metrics.QueryStatus = 'NoActivityKql'
+        Write-Log -Level DEBUG -Message "No ActivityKql provided for connector '$ConnectorName'"
     }
       
     return $metrics
