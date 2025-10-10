@@ -268,6 +268,19 @@ CommonSecurityLog
 | project LastLogTime, LogsLastHour, TotalLogs24h
 '@
     }, 
+        @{
+        Id              = 'DDOS'
+        Title           = 'Azure DDoS Protection'
+        Publisher       = 'Microsoft'
+        ConnectivityKql = 'AzureDiagnostics | where ResourceType == "PUBLICIPADDRESSES" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        ActivityKql     = @'
+AzureDiagnostics
+| where TimeGenerated >= ago(24h)
+| where ResourceType == "PUBLICIPADDRESSES"
+| summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count()
+| project LastLogTime, LogsLastHour, TotalLogs24h
+'@
+    }, 
     @{
         Id              = 'DNS'
         Title           = 'DNS'
