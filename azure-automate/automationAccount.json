@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-  "contentVersion": "1.0.0.0",
+  "contentVersion": "1.202510.10.0",
   "metadata": {
     "description": "Deploys an Azure Automation account with a runbook to manage service principals for the MSSP."
   },
