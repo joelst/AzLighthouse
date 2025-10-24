@@ -4,7 +4,7 @@
 
 Disclaimer: This script is provided "as-is" without any warranties.
 
-Updated: 2025-09-19
+Updated: 2025-10-24
 
 .SYNOPSIS
     Monitors and rotates Azure AD application credentials.
@@ -70,7 +70,7 @@ if ([string]::IsNullOrWhiteSpace($UMIId)) {
   $UMIId = Get-AutomationVariable -Name 'UMI_ID'
 }
 if ([string]::IsNullOrWhiteSpace($SecretLAUri)) {
-  $SecretLAUri = Get-AutomationVariable -Name 'SECRET_LA_URI'
+  $SecretLAUri = Get-AutomationVariable -Name 'SECRET_API'
   # fallback to old name for compatibility
   if ([string]::IsNullOrWhiteSpace($SecretLAUri)) {
     $SecretLAUri = Get-AutomationVariable -Name 'SECRET_API_URI'
@@ -373,8 +373,8 @@ try {
   $azureContext = Set-AzContext -SubscriptionName $azureAutomationContext.Subscription `
     -DefaultProfile $azureAutomationContext
 
-  # Connect to Graph
-  Connect-MgGraph -Identity -ClientId $UmiId -NoWelcome
+# Connect to Graph
+Connect-MgGraph -Identity -ClientId $UmiId -NoWelcome
 }
 catch {
   Write-Error "Failed to authenticate to Azure or Microsoft Graph: $($_.Exception.Message)"
@@ -895,7 +895,7 @@ Write-Output 'Detailed Application Status:'
 function Write-AppGroupSummary {
   param(
     [string]$Title,
-    [System.Collections.IEnumerable]$Items,
+    [object[]]$Items,
     [string[]]$SelectProps
   )
   Write-Output "-- $Title --"
@@ -908,14 +908,10 @@ function Write-AppGroupSummary {
   Write-Output ''
 }
 
-Write-AppGroupSummary -Title 'Expired / Expiring Applications (failed to create new credential)' `
-  -Items ($script:ExpiredUnresolvedApps | Sort-Object AppId) -SelectProps DisplayName,AppId,ApplicationId,LastKnownEndDate
+Write-AppGroupSummary -Title 'Expired / Expiring Applications (failed to create new credential)' -Items ($script:ExpiredUnresolvedApps | Sort-Object AppId) -SelectProps DisplayName,AppId,ApplicationId,LastKnownEndDate
 
-Write-AppGroupSummary -Title 'Applications where new credentials created this run' `
-  -Items ($script:NewCredentialApps | Sort-Object AppId) -SelectProps DisplayName,AppId,ApplicationId,NewSecretEndDate
+Write-AppGroupSummary -Title 'Applications where new credentials created this run' -Items ($script:NewCredentialApps | Sort-Object AppId) -SelectProps DisplayName,AppId,ApplicationId,NewSecretEndDate
 
-Write-AppGroupSummary -Title 'Applications With At Least One Valid Credential (post-run)' `
-  -Items ($script:ValidApps | Sort-Object AppId) -SelectProps DisplayName,AppId,ApplicationId,MaxValidEndDateUtc
-
+Write-AppGroupSummary -Title 'Applications With At Least One Valid Credential (post-run)' -Items ($script:ValidApps | Sort-Object AppId) -SelectProps DisplayName,AppId,ApplicationId,MaxValidEndDateUtc
 
 Write-Output '=================================================================='

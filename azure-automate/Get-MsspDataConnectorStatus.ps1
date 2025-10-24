@@ -1593,7 +1593,7 @@ if ($IsAzureAutomation) {
     if (-not $SubscriptionId) { $SubscriptionId = Get-Var -Name 'SUBSCRIPTION_ID' }
     if (-not $ResourceGroupName) { $ResourceGroupName = Get-Var -Name 'RESOURCE_GROUP_NAME' }
     if (-not $WorkspaceName) { $WorkspaceName = Get-Var -Name 'WORKSPACE_NAME' }
-    if (-not $LogicAppUri) { $LogicAppUri = Get-Var -Name 'DATACONNECTOR_LA_URI' -Optional }
+    if (-not $LogicAppUri) { $LogicAppUri = Get-Var -Name 'DATACONNECTOR_API' -Optional }
     
     Write-Log -Level INFO -Message "Variables loaded: RG=$ResourceGroupName Workspace=$WorkspaceName LogicAppUri=$LogicAppUri UmiClientId=$UmiClientId"
 }
@@ -2145,10 +2145,10 @@ else {
         MetricsUnavailableCount = $metricsUnavailable.Count
         NoKqlAndNoLogsCount     = $noKqlAndNoLogs.Count
     }
-    #$summaryObj | ConvertTo-Json -Depth 5 | Write-Information
+    $summaryObj | ConvertTo-Json -Depth 5 | Write-Information
 }
 
-# Logic App posting: already resolved from automation variable earlier (DATACONNECTOR_LA_URI)
+# Logic App posting: already resolved from automation variable earlier (DATACONNECTOR_API)
 if ($LogicAppUri) {
     # Optional outbound push of results to Logic App (if uri provided)
     try {

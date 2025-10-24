@@ -382,11 +382,11 @@
     {
       "type": "Microsoft.Automation/automationAccounts/variables",
       "apiVersion": "2023-11-01",
-      "name": "[concat(parameters('automationAccountName'), '/SECRET_LA_URI')]",
+      "name": "[concat(parameters('automationAccountName'), '/SECRET_API')]",
       "properties": {
         "isEncrypted": false,
         "value": "[parameters('servicePrincipalCredentialLogicAppUri')]",
-        "description": "URI for the service principal credential update Logic App"
+        "description": "URI for the service principal credential update to Logic App endpoint"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
@@ -408,7 +408,7 @@
     {
       "type": "Microsoft.Automation/automationAccounts/variables",
       "apiVersion": "2023-11-01",
-      "name": "[concat(parameters('automationAccountName'), '/DATACONNECTOR_LA_URI')]",
+      "name": "[concat(parameters('automationAccountName'), '/DATACONNECTOR_API')]",
       "properties": {
         "isEncrypted": false,
         "value": "[parameters('dataConnectorLogicAppUri')]",
