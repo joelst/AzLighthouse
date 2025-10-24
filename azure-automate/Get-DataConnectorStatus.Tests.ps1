@@ -5,7 +5,7 @@
 BeforeAll {
     # Ensure script is dot-sourced with skip flag to avoid executing the runbook logic
     $env:MSP_SKIP_CONNECTOR_RUN = '1'
-    . "$PSScriptRoot\Get-MsspDataConnectorStatus.ps1"
+    . "$PSScriptRoot\Get-DataConnectorStatus.ps1"
 }
 
 Describe 'Resolve-ConnectorKind' {

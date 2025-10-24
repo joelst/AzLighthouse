@@ -12,8 +12,6 @@ Updated: 2025-10-24
 .DESCRIPTION
     This script checks App Registrations for expiring credentials and creates
     new ones when needed. It also reports credential status to a notification endpoint.
-    Additionally, it ensures the service principal created for the managed application has the monitoring metrics publisher
-    role assigned at the subscription level for proper monitoring capabilities.
 
 .PARAMETER UMIId
     The User Managed Identity Client ID. This is the ID of the user-assigned managed identity that will
@@ -39,13 +37,6 @@ Updated: 2025-10-24
      Microsoft.Graph.DirectoryObjects, Microsoft.Graph.Identity.DirectoryManagement PowerShell modules.
     The script uses the Az module to interact with Azure resources and the Microsoft Graph API to manage
     application registrations and credentials.
-    
-    The User Managed Identity must have sufficient permissions to:
-    - Read and manage Application Registrations
-    - Assign roles at the subscription level
-
-    The service principal created for the managed application must have the following permissions:
-    - The script automatically assigns the monitoring metrics publisher role (3913510d-42f4-4e42-8a64-420c390055eb) at the subscription level.
 #>
 
 [CmdletBinding()]

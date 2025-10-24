@@ -1,181 +1,106 @@
-# 🧪 Test Suite Documentation
+# 🧪 Test Suite Reference
 
-## Quick Start
-
-### Run All Tests
-```powershell
-cd C:git\AzLighthouse\azure-automate
-Invoke-Pester -Path .\Get-MsspDataConnectorStatus.Tests.ps1
-```
-
-**Expected Result**: ✅ 45 tests passing in ~340ms
-
----
-
-## 🎯 What's Tested
-
-### ⭐ New Connector Lookup Logic (10 tests)
-The primary focus of this test suite validates the updated metadata lookup:
+## Quick Commands
 
 ```powershell
-# Primary: Match connector Id → $ConnectorInfo[].Id
-# Fallback: Match connector Name → $ConnectorInfo[].Id
-# Always: Preserve connector's actual Id
+# All tests
+.\Run-Tests.ps1                    # App registration tests  
+.\Run-DataConnectorTests.ps1       # Data connector tests
+
+# Specific categories
+Invoke-Pester -FullNameFilter '*Lookup Logic*'     # Connector lookup
+Invoke-Pester -FullNameFilter '*Validation*'       # Input validation
+Invoke-Pester -FullNameFilter '*Credential*'       # Credential tests
 ```
 
-**Test Coverage:**
-- ✅ Primary lookup by ConnectorId (exact and case-insensitive)
-- ✅ Fallback lookup by ConnectorName
-- ✅ Id preservation when no match found
-- ✅ KQL query execution based on match
+## Test Suites
 
-### 🔗 Integration Tests (5 tests)
-Validates end-to-end scenarios:
-- ✅ ConnectorId parameter passing
-- ✅ Title/Publisher population
-- ✅ Status determination with missing data
+### App Registration Tests (15+ tests)
+**File**: `Update-AppRegistrationCredential.ps1.Tests.ps1`
 
-### ✔️ Validation Functions (14 tests)
-Tests input validation:
-- ✅ Subscription ID format
-- ✅ Resource group names
-- ✅ Workspace names
+**Key Areas**:
+- ✅ Credential rotation and expiration
+- ✅ Write-AppGroupSummary parameter handling (FIXED)
+- ✅ Secret notification to Logic App
+- ✅ Error handling and authentication
 
-### 🔧 Helper Functions (12 tests)
-Tests utility functions:
-- ✅ Connector kind resolution
-- ✅ Ingestion status classification
-- ✅ Retry logic
-- ✅ Connectivity results
+### Data Connector Tests (45+ tests)
+**File**: `Get-DataConnectorStatus.Tests.ps1`
 
-### 📊 Data Structure (4 tests)
-Validates $ConnectorInfo array:
-- ✅ Array structure
-- ✅ Required properties
-- ✅ Known connectors (Office365, AAD)
-
----
-
-## 🚀 Common Commands
-
-### Development
+**Primary Focus - Connector Lookup Logic**:
 ```powershell
-# Run all tests
-Invoke-Pester -Path .\Get-MsspDataConnectorStatus.Tests.ps1
-
-# Detailed output
-Invoke-Pester -Path .\Get-MsspDataConnectorStatus.Tests.ps1 -Output Detailed
-
-# Watch mode (continuous)
-Invoke-Pester -Path .\Get-MsspDataConnectorStatus.Tests.ps1 -Watch
+# Primary: connector.Id → $ConnectorInfo[].Id
+# Fallback: connector.Name → $ConnectorInfo[].Id  
+# Always: preserve actual connector.Id
 ```
 
-### Specific Tests
+**Test Categories**:
+- ✅ Metadata lookup (10 tests) ⭐ Primary focus
+- ✅ Validation functions (14 tests)
+- ✅ Helper functions (12 tests)  
+- ✅ Integration scenarios (5 tests)
+- ✅ Data structures (4 tests)
+
+## Recent Updates (Oct 24, 2025)
+
+### App Registration Tests
+- **Parameter Type Fix**: Write-AppGroupSummary now handles single objects
+- **Enhanced Error Handling**: Better error scenario coverage
+
+### Data Connector Tests
+- **Lookup Logic**: Comprehensive connector metadata matching
+- **Status Classification**: ActivelyIngesting, RecentlyActive, Stale
+- **Integration Testing**: End-to-end scenario validation
+
+## Expected Results
+
+```
+✅ App Registration Tests: 15+ passing
+✅ Data Connector Tests:   45+ passing  
+⏱️ Total Execution Time:   < 1 minute
+📊 Code Coverage:          > 75%
+🎯 Pass Rate:              100%
+```
+
+## Troubleshooting
+
 ```powershell
-# Just lookup logic
-Invoke-Pester -FullNameFilter '*Lookup Logic*'
-
-# Just validation
-Invoke-Pester -FullNameFilter '*Validation*'
-
-# Just integration
-Invoke-Pester -FullNameFilter '*Integration*'
-```
-
-### CI/CD
-```powershell
-# Exit code 0=pass, 1=fail
-Invoke-Pester -Path .\Get-MsspDataConnectorStatus.Tests.ps1 -CI
-```
-
----
-
-## 📊 Current Status
-
-```
-✅ Tests Passed: 45
-❌ Tests Failed: 0
-⏱️ Execution Time: ~340ms
-🎯 Test Framework: Pester 5.7.1
-```
-
----
-
-## 🔍 Test Structure
-
-```
-Get-MsspDataConnectorStatus.Tests.ps1 (45 tests)
-│
-├── Resolve-ConnectorKind (3 tests)
-├── Get-IngestionStatus (4 tests)
-├── Invoke-WithRetry (2 tests)
-├── Validation Functions (14 tests)
-│   ├── Test-SubscriptionIdFormat (4)
-│   ├── Test-ResourceGroupName (4)
-│   └── Test-WorkspaceName (6)
-├── Get-ConnectivityResults (4 tests)
-├── Get-LogIngestionMetrics Lookup Logic (10 tests) ⭐
-│   ├── Primary lookup by ConnectorId (3)
-│   ├── Fallback lookup by ConnectorName (2)
-│   ├── No match found (2)
-│   └── KQL query execution (2)
-├── Get-ConnectorStatus Integration (3 tests)
-├── Get-ConnectorStatus missing metrics (2 tests)
-└── ConnectorInfo Array Structure (4 tests)
-```
-
----
-
-## 💡 Pro Tips
-
-1. **Before committing code**: Always run tests
-2. **After making changes**: Run related test category
-3. **Debugging failures**: Use `-Output Detailed`
-4. **Finding specific tests**: Use `-FullNameFilter`
-5. **CI/CD integration**: Use `-CI` flag
-
-
----
-
-## 🐛 Troubleshooting
-
-### Tests won't run
-```powershell
-# Check Pester is installed
-Get-Module -Name Pester -ListAvailable
-
 # Install/update Pester
-Install-Module -Name Pester -Force -SkipPublisherCheck
+Install-Module -Name Pester -MinimumVersion 5.0.0 -Force -SkipPublisherCheck
+
+# Execution policy
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# Debug mode
+$DebugPreference = 'Continue'
+.\Run-Tests.ps1 -Detailed
 ```
 
-### Script executes during test load
-```powershell
-# Verify environment variable is set in BeforeAll
-$env:MSP_SKIP_CONNECTOR_RUN = '1'
+## CI/CD Integration
+
+**Output Files**:
+- `TestResults.xml` - NUnit format
+- `coverage.xml` - JaCoCo coverage
+
+**Azure DevOps**:
+```yaml
+- task: PowerShell@2
+  inputs:
+    filePath: 'azure-automate/Run-Tests.ps1'
 ```
 
-### Mock not working
-```powershell
-# Ensure mock is in BeforeAll block
-BeforeAll {
-    Mock Invoke-AzOperationalInsightsQuery { ... }
-}
+**GitHub Actions**:
+```yaml
+- shell: pwsh
+  run: .\azure-automate\Run-Tests.ps1
 ```
 
 ---
 
-## 📈 Success Metrics
+**Key Points**:
+- No Azure authentication required (fully mocked)
+- Focus on business logic, not Azure API behavior
+- Comprehensive error scenario coverage
+- Performance optimized for CI/CD pipelines
 
-| Metric | Target | Current | Status |
-|--------|--------|---------|--------|
-| Test Count | 40+ | 45 | ✅ |
-| Pass Rate | 100% | 100% | ✅ |
-| Execution Time | <500ms | ~340ms | ✅ |
-| Code Coverage | >70% | ~78% | ✅ |
-| Lookup Logic Tests | 8+ | 10 | ✅ |
-
----
-
-**Last Updated**: October 3, 2025  
-**Test Suite Version**: 1.0  
-**Status**: ✅ Production Ready
+**Last Updated**: October 24, 2025

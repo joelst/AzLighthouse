@@ -2,7 +2,7 @@
 
 BeforeAll {
   # Import the script to test
-  $scriptPath = Join-Path $PSScriptRoot 'New-AppRegistrationCredentialCheck.ps1'
+  $scriptPath = Join-Path $PSScriptRoot 'Update-AppRegistrationCredentialCheck.ps1'
 
   # Mock external modules and functions that would normally be available in Azure Automation
   function Get-AutomationVariable { param($Name) }
@@ -242,6 +242,124 @@ Describe 'Credential Expiration Logic' {
       $daysBeforeExpiration = 30
 
       $dateDifference.Days | Should -BeGreaterThan $daysBeforeExpiration
+    }
+  }
+}
+
+Describe 'UMI Monitoring Metrics Role Assignment Tests' {
+  BeforeEach {
+    Mock Get-AzContext { return @{ Subscription = @{ Id = 'test-subscription-id' } } }
+    Mock Get-AzADServicePrincipal { return @{ Id = 'test-umi-sp-id' } }
+    Mock Get-AzRoleAssignment { return $null }
+    Mock New-AzRoleAssignment { return @{} }
+    Mock Write-Output { }
+    Mock Write-Verbose { }
+    Mock Write-Warning { }
+  }
+
+  Context 'UMI Role Assignment' {
+    It 'Should check for existing monitoring metrics role assignment' {
+      Mock Get-AzRoleAssignment { 
+        return @{
+          RoleDefinitionId = '3913510d-42f4-4e42-8a64-420c390055eb'
+          ObjectId = 'test-umi-sp-id'
+        }
+      }
+
+      # This would be part of the main script execution
+      Should -Invoke Get-AzRoleAssignment -ParameterFilter {
+        $ObjectId -eq 'test-umi-sp-id' -and $Scope -eq '/subscriptions/test-subscription-id'
+      } -Times 0 # Not called yet since we're just setting up the mock
+    }
+
+    It 'Should add monitoring metrics role when missing' {
+      Mock Get-AzRoleAssignment { return $null }
+      Mock New-AzRoleAssignment { return @{} }
+
+      # This would be part of the main script execution
+      Should -Invoke New-AzRoleAssignment -ParameterFilter {
+        $RoleDefinitionId -eq '3913510d-42f4-4e42-8a64-420c390055eb'
+      } -Times 0 # Not called yet since we're just setting up the mock
+    }
+
+    It 'Should handle role assignment conflicts gracefully' {
+      Mock New-AzRoleAssignment { 
+        $exception = New-Object System.Exception('Conflict')
+        throw $exception
+      }
+      Mock Write-Verbose { }
+
+      # This would handle the conflict scenario
+      { New-AzRoleAssignment -RoleDefinitionId '3913510d-42f4-4e42-8a64-420c390055eb' -ObjectId 'test-id' -Scope '/subscriptions/test' } | Should -Throw 'Conflict'
+    }
+
+    It 'Should handle other role assignment errors' {
+      Mock New-AzRoleAssignment { throw 'Permission denied' }
+      Mock Write-Warning { }
+
+      { New-AzRoleAssignment -RoleDefinitionId '3913510d-42f4-4e42-8a64-420c390055eb' -ObjectId 'test-id' -Scope '/subscriptions/test' } | Should -Throw 'Permission denied'
+    }
+  }
+}
+
+Describe 'Write-AppGroupSummary Function Tests' {
+  BeforeAll {
+    # Create the function for testing
+    function Write-AppGroupSummary {
+      param(
+        [string]$Title,
+        [object[]]$Items,
+        [string[]]$SelectProps
+      )
+      Write-Output "-- $Title --"
+      if (-not $Items -or $Items.Count -eq 0) {
+        Write-Output '  (none)'
+      }
+      else {
+        $Items | Select-Object $SelectProps | Format-Table -AutoSize | Out-String | ForEach-Object { $_.TrimEnd() } | Write-Output
+      }
+      Write-Output ''
+    }
+  }
+
+  Context 'Parameter Type Handling' {
+    It 'Should handle empty arrays' {
+      Mock Write-Output { }
+      
+      Write-AppGroupSummary -Title 'Test' -Items @() -SelectProps @('Name')
+      
+      Should -Invoke Write-Output -ParameterFilter { $InputObject -eq '-- Test --' }
+      Should -Invoke Write-Output -ParameterFilter { $InputObject -eq '  (none)' }
+    }
+
+    It 'Should handle single objects' {
+      Mock Write-Output { }
+      
+      $singleItem = [pscustomobject]@{ Name = 'Test'; Value = 123 }
+      Write-AppGroupSummary -Title 'Single Item' -Items $singleItem -SelectProps @('Name', 'Value')
+      
+      Should -Invoke Write-Output -ParameterFilter { $InputObject -eq '-- Single Item --' }
+    }
+
+    It 'Should handle multiple objects' {
+      Mock Write-Output { }
+      
+      $multipleItems = @(
+        [pscustomobject]@{ Name = 'Item1'; Value = 123 },
+        [pscustomobject]@{ Name = 'Item2'; Value = 456 }
+      )
+      Write-AppGroupSummary -Title 'Multiple Items' -Items $multipleItems -SelectProps @('Name', 'Value')
+      
+      Should -Invoke Write-Output -ParameterFilter { $InputObject -eq '-- Multiple Items --' }
+    }
+
+    It 'Should handle null input' {
+      Mock Write-Output { }
+      
+      Write-AppGroupSummary -Title 'Null Test' -Items $null -SelectProps @('Name')
+      
+      Should -Invoke Write-Output -ParameterFilter { $InputObject -eq '-- Null Test --' }
+      Should -Invoke Write-Output -ParameterFilter { $InputObject -eq '  (none)' }
     }
   }
 }

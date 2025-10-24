@@ -2,7 +2,7 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.202510.10.0",
   "metadata": {
-    "description": "Deploys an Azure Automation account with a runbook to manage service principals for the MSSP."
+    "description": "Deploys an Azure Automation account with a runbook to manage service principals for the MSSP SOC."
   },
   "parameters": {
     "automationAccountName": {
@@ -10,35 +10,49 @@
       "metadata": {
         "description": "Name of the new automation account"
       },
-      "defaultValue": "MSSP-Automation"
+      "defaultValue": "SOC-Automation"
     },
     "servicePrincipalCredentialRunbookContentUri": {
       "type": "string",
       "metadata": {
         "description": "URL for the service principal credential runbook content"
       },
-      "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/azure-automate/Update-MsspAppRegistrationCredential.ps1"
+      "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/azure-automate/Update-AppRegistrationCredential.ps1"
     },
     "servicePrincipalCredentialRunbookName": {
       "type": "string",
       "metadata": {
         "description": "Name of the service principal credential runbook"
       },
-      "defaultValue": "Update-MsspAppRegistrationCredential"
+      "defaultValue": "Update-AppRegistrationCredential"
     },
     "connectorRunbookContentUri": {
       "type": "string",
       "metadata": {
         "description": "URL for the data connector runbook content"
       },
-      "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/azure-automate/Get-MsspDataConnectorStatus.ps1"
+      "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/azure-automate/Get-DataConnectorStatus.ps1"
     },
     "connectorRunbookName": {
       "type": "string",
       "metadata": {
         "description": "Name of the data connector runbook"
       },
-      "defaultValue": "Get-MsspDataConnectorStatus"
+      "defaultValue": "Get-DataConnectorStatus"
+    },
+    "pricingRunbookContentUri": {
+      "type": "string",
+      "metadata": {
+        "description": "URL for the pricing runbook content"
+      },
+      "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/azure-automate/Get-DataConnectorStatus.ps1"
+    },
+    "pricingRunbookName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the pricing runbook"
+      },
+      "defaultValue": "Get-SentinelPricing"
     },
     "userAssignedIdentityName": {
       "type": "string",
@@ -103,6 +117,13 @@
       },
       "defaultValue": "\"https://logicapp.azure.com/\""
     },
+    "PricingTierApiUri": {
+      "type": "string",
+      "metadata": {
+        "description": "URI for the pricing tier API used for cost estimation of sentinel workspaces"
+      },
+      "defaultValue": "\"https://logicapp.azure.com/\""
+    },
     "scheduleStartDate": {
       "type": "string",
       "defaultValue": "[dateTimeAdd(utcNow(), 'PT90M')]",
@@ -121,8 +142,9 @@
   "variables": {
     "pwshRuntimeName": "PowerShell_74_Plus",
     "runbookScheduleName": "SP_daily_8am",
-    "servicePrincipalCredentialRunbookDescription": "Runbook to manage service principal credentials for the MSSP",
-    "dataConnectorRunbookDescription": "Runbook to report the data connector status for the MSSP"
+    "servicePrincipalCredentialRunbookDescription": "Runbook to manage service principal credentials on behalf of the SOC",
+    "dataConnectorRunbookDescription": "Runbook to report the data connector status for Sentinel",
+    "pricingRunbookDescription": "Runbook to retrieve pricing tier information for Sentinel"
   },
   "resources": [
     {
@@ -183,6 +205,28 @@
         "description": "[variables('dataConnectorRunbookDescription')]",
         "publishContentLink": {
           "uri": "[parameters('connectorRunbookContentUri')]",
+          "version": "1.0.0.0"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+        {
+      "type": "Microsoft.Automation/automationAccounts/runbooks",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('pricingRunbookName'))]",
+      "location": "[resourceGroup().location]",
+      "tags": {},
+      "properties": {
+        "runbookType": "PowerShell",
+        "runtimeEnvironment": "[variables('pwshRuntimeName')]",
+        "logProgress": false,
+        "logVerbose": false,
+        "description": "[variables('pricingRunbookDescription')]",
+        "publishContentLink": {
+          "uri": "[parameters('pricingRunbookContentUri')]",
           "version": "1.0.0.0"
         }
       },
@@ -452,6 +496,19 @@
         "isEncrypted": false,
         "value": "[parameters('SentinelWorkspaceName')]",
         "description": "Name of the Sentinel Log Analytics workspace"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[concat(parameters('automationAccountName'), '/PRICINGTIER_API')]",
+      "properties": {
+        "isEncrypted": false,
+        "value": "[parameters('PricingTierApiUri')]",
+        "description": "URI for the pricing tier API used for cost estimation of new service principals"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"

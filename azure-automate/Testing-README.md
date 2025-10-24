@@ -1,348 +1,161 @@
-# Azure Automation Scripts - Testing Guide
+# 🧪 Azure Automation Testing Guide
 
-This directory contains testing infrastructure for Azure Automation scripts.
+## Quick Start
+
+```powershell
+# Install Pester (if needed)
+Install-Module -Name Pester -MinimumVersion 7.0.0 -Force -SkipPublisherCheck
+
+# Run all tests
+cd X:\git\AzLighthouse\azure-automate
+.\Run-Tests.ps1                    # App Registration tests
+.\Run-DataConnectorTests.ps1       # Data Connector tests
+```
 
 ## Test Suites
 
-### 1. App Registration Credential Check Tests
-Tests for `New-AppRegistrationCredentialCheck.ps1`
-- **Test File**: `New-AppRegistrationCredentialCheck.Tests.ps1`
-- **Config**: `PesterConfig.psd1`
-- **Runner**: `Run-Tests.ps1`
-- **Documentation**: This file (sections below)
+### 1. App Registration Credential Management
+**Script**: `Update-AppRegistrationCredential.ps1`  
+**Tests**: `Update-RegistrationCredential.ps1.Tests.ps1`  
+**Runner**: `Run-Tests.ps1`
 
-### 2. Data Connector Status Tests
-Tests for `Get-MsspDataConnectorStatus.ps1`
-- **Test File**: `Get-MsspDataConnectorStatus.Tests.ps1`
-- **Config**: `PesterConfig-DataConnector.psd1`
-- **Runner**: `Run-DataConnectorTests.ps1`
-- **Documentation**: `Testing-DataConnector-README.md`
+**What's Tested**:
+- ✅ Credential rotation and expiration logic
+- ✅ Secret notification to Logic App
+- ✅ Write-AppGroupSummary parameter handling (FIXED)
+- ✅ Error handling and authentication
+- ✅ Summary statistics tracking
 
-## Files Overview
+### 2. Sentinel Data Connector Monitoring
+**Script**: `Get-DataConnectorStatus.ps1`  
+**Tests**: `Get-DataConnectorStatus.Tests.ps1`  
+**Runner**: `Run-DataConnectorTests.ps1`
 
-### App Registration Tests
-- `New-AppRegistrationCredentialCheck.ps1` - Main credential check script
-- `New-AppRegistrationCredentialCheck.Tests.ps1` - Pester 5 test suite
-- `PesterConfig.psd1` - Pester configuration file
-- `Run-Tests.ps1` - Test runner script
-
-### Data Connector Tests
-- `Get-MsspDataConnectorStatus.ps1` - Sentinel connector monitoring script
-- `Get-MsspDataConnectorStatus.Tests.ps1` - Pester 5 test suite
-- `PesterConfig-DataConnector.psd1` - Pester configuration file
-- `Run-DataConnectorTests.ps1` - Test runner script
-- `Testing-DataConnector-README.md` - Detailed test documentation
-
-## Prerequisites
-
-### Required Modules
-```powershell
-# Install Pester 5 (required)
-Install-Module -Name Pester -MinimumVersion 5.0.0 -Force -SkipPublisherCheck
-
-# Azure modules (for integration testing)
-Install-Module -Name Az.Accounts -Force
-Install-Module -Name Az.Resources -Force
-Install-Module -Name Microsoft.Graph.Authentication -Force
-Install-Module -Name Microsoft.Graph.Applications -Force
-```
-
-### PowerShell Version
-- PowerShell 7+ required
-- PowerShell 7.x recommended for best performance
+**What's Tested**:
+- ✅ Connector metadata lookup logic (primary focus)
+- ✅ Ingestion status classification
+- ✅ KQL query execution
+- ✅ Integration scenarios
+- ✅ Validation functions
 
 ## Running Tests
 
-### Quick Start
+### Basic Commands
 ```powershell
-# Run all tests with default configuration
+# All app registration tests
 .\Run-Tests.ps1
+
+# All data connector tests  
+.\Run-DataConnectorTests.ps1
+
+# With detailed output
+.\Run-Tests.ps1 -Detailed
+
+# With code coverage
+.\Run-DataConnectorTests.ps1 -Coverage
 ```
 
 ### Advanced Usage
 ```powershell
-# Run tests without code coverage
-.\Run-Tests.ps1 -CodeCoverage:$false
+# Specific test categories
+Invoke-Pester -FullNameFilter '*Lookup Logic*'     # Connector lookup
+Invoke-Pester -FullNameFilter '*Validation*'       # Input validation
+Invoke-Pester -FullNameFilter '*Credential*'       # Credential tests
 
-# Run tests with minimal output
-.\Run-Tests.ps1 -Detailed:$false
-
-# Run tests with custom configuration
-.\Run-Tests.ps1 -ConfigPath ".\CustomConfig.psd1"
-
-# Run specific test file
-.\Run-Tests.ps1 -TestPath ".\New-AppRegistrationCredentialCheck.Tests.ps1"
+# Direct Pester execution
+Invoke-Pester -Path ".\*.Tests.ps1" -Output Detailed
 ```
 
-### Direct Pester Execution
+## Test Results
+
+### Expected Outcomes
+```
+App Registration Tests:     15+ tests passing
+Data Connector Tests:       45+ tests passing
+Execution Time:             < 1 minute total
+Code Coverage:              > 75%
+```
+
+### Output Files
+- `TestResults.xml` - NUnit format (CI/CD compatible)
+- `coverage.xml` - JaCoCo coverage report
+- Console output with pass/fail summary
+
+## Key Test Areas
+
+### Recently Added (2024-10-24)
+- **Write-AppGroupSummary**: Tests parameter type handling fix
+- **Enhanced Error Handling**: Improved authentication and error scenarios
+
+### Core Functionality
+- **Credential Rotation**: Expiration detection, secret creation, cleanup
+- **Connector Monitoring**: Metadata lookup, status classification, KQL execution
+- **Integration**: Logic App posting, summary reporting, error recovery
+
+## Troubleshooting
+
+### Common Issues
 ```powershell
-# Using configuration file
-$Config = Import-PowerShellDataFile -Path ".\PesterConfig.psd1"
-$PesterConfig = New-PesterConfiguration -Hashtable $Config
-Invoke-Pester -Configuration $PesterConfig
+# Pester version conflicts
+Get-Module Pester -ListAvailable | Where-Object Version -lt '5.0.0' | 
+    ForEach-Object { Uninstall-Module -Name $_.Name -RequiredVersion $_.Version -Force }
+Install-Module -Name Pester -MinimumVersion 5.0.0 -Force -SkipPublisherCheck
 
-# Quick test run without configuration
-Invoke-Pester -Path ".\New-AppRegistrationCredentialCheck.Tests.ps1"
+# Execution policy
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# Module loading
+Import-Module -Name Pester -MinimumVersion 5.0.0 -Force
 ```
 
-## Test Structure
-
-### Test Categories
-
-1. **Function Tests**
-   - `New-SecretNotification` function validation
-   - `New-AppRegCredential` function validation
-   - Parameter validation and error handling
-
-2. **Parameter Validation Tests**
-   - Required parameter validation
-   - Value range validation
-   - Type validation
-
-3. **Error Handling Tests**
-   - Authentication failures
-   - API call failures
-   - Invalid parameter scenarios
-
-4. **Integration Simulation Tests**
-   - End-to-end workflow simulation
-   - Summary statistics validation
-   - Multi-application scenarios
-
-5. **Security Tests**
-   - Secret handling validation
-   - Partial secret exposure verification
-   - Secure credential creation
-
-### Mock Strategy
-
-The tests use extensive mocking to avoid dependencies on actual Azure resources:
-
-- **Azure Authentication**: Mocked `Connect-AzAccount`, `Get-AzContext`
-- **Graph API**: Mocked `Connect-MgGraph`, `Get-MgApplication`, `New-MgApplicationPassword`
-- **Azure Resources**: Mocked `Get-AzRoleAssignment`, `Get-AzADServicePrincipal`
-- **Automation Variables**: Mocked `Get-AutomationVariable`
-
-## Output and Reports
-
-### Test Results
-- **Console Output**: Real-time test execution feedback
-- **NUnit XML**: `TestResults.xml` - Standard test result format
-- **Code Coverage**: `coverage.xml` - JaCoCo format coverage report
-
-### Test Result Analysis
+### Debug Mode
 ```powershell
-# View test results
-[xml]$Results = Get-Content ".\TestResults.xml"
-$Results.'test-results'.'test-suite'.results.'test-case' |
-    Where-Object { $_.result -eq 'Failure' } |
-    Select-Object name, message
-
-# View code coverage summary
-[xml]$Coverage = Get-Content ".\coverage.xml"
-$Coverage.report.counter | Where-Object { $_.type -eq 'LINE' }
+$DebugPreference = 'Continue'
+.\Run-Tests.ps1 -Detailed
 ```
 
-## Configuration Options
+## CI/CD Integration
 
-### Pester Configuration (`PesterConfig.psd1`)
-
-```powershell
-@{
-    Run = @{
-        Path = @('.\New-AppRegistrationCredentialCheck.Tests.ps1')
-        PassThru = $true
-        Exit = $false
-    }
-    TestResult = @{
-        Enabled = $true
-        OutputFormat = 'NUnitXml'
-        OutputPath = '.\TestResults.xml'
-    }
-    CodeCoverage = @{
-        Enabled = $true
-        Path = @('.\New-AppRegistrationCredentialCheck.ps1')
-        OutputFormat = 'JaCoCo'
-        OutputPath = '.\coverage.xml'
-    }
-}
-```
-
-### Customizing Configuration
-
-1. **Change Output Paths**
-   ```powershell
-   $Config.TestResult.OutputPath = 'C:\TestResults\MyResults.xml'
-   $Config.CodeCoverage.OutputPath = 'C:\TestResults\MyCoverage.xml'
-   ```
-
-2. **Disable Code Coverage**
-   ```powershell
-   $Config.CodeCoverage.Enabled = $false
-   ```
-
-3. **Change Verbosity**
-   ```powershell
-   $Config.Output.Verbosity = 'Normal'  # or 'Minimal', 'Detailed', 'Diagnostic'
-   ```
-
-## Continuous Integration
-
-### Azure DevOps Pipeline
+### Azure DevOps
 ```yaml
 steps:
 - task: PowerShell@2
-  displayName: 'Run Pester Tests'
+  displayName: 'Run Tests'
   inputs:
     targetType: 'filePath'
     filePath: '$(Build.SourcesDirectory)/azure-automate/Run-Tests.ps1'
-    arguments: '-OutputPath "$(Agent.TempDirectory)"'
 
 - task: PublishTestResults@2
-  displayName: 'Publish Test Results'
   inputs:
     testResultsFormat: 'NUnit'
-    testResultsFiles: '$(Agent.TempDirectory)/TestResults.xml'
-
-- task: PublishCodeCoverageResults@1
-  displayName: 'Publish Code Coverage'
-  inputs:
-    codeCoverageTool: 'JaCoCo'
-    summaryFileLocation: '$(Agent.TempDirectory)/coverage.xml'
+    testResultsFiles: '**/TestResults.xml'
 ```
 
 ### GitHub Actions
 ```yaml
 steps:
-- name: Run Pester Tests
+- name: Run Tests
   shell: pwsh
   run: |
-    .\azure-automate\Run-Tests.ps1 -OutputPath "${{ runner.temp }}"
-
-- name: Publish Test Results
-  uses: dorny/test-reporter@v1
-  if: always()
-  with:
-    name: Pester Tests
-    path: '${{ runner.temp }}/TestResults.xml'
-    reporter: java-junit
+    .\azure-automate\Run-Tests.ps1
+    .\azure-automate\Run-DataConnectorTests.ps1
 ```
 
-## Troubleshooting
+## Test Structure
 
-### Common Issues
-
-1. **Pester Version Conflicts**
-   ```powershell
-   # Remove old Pester versions
-   Get-Module Pester -ListAvailable | Where-Object Version -lt '5.0.0' |
-       ForEach-Object { Uninstall-Module -Name $_.Name -RequiredVersion $_.Version -Force }
-
-   # Install Pester 5
-   Install-Module -Name Pester -MinimumVersion 5.0.0 -Force -SkipPublisherCheck
-   ```
-
-2. **Module Import Issues**
-   ```powershell
-   # Force import Pester 5
-   Import-Module -Name Pester -MinimumVersion 5.0.0 -Force
-   ```
-
-3. **Path Resolution Issues**
-   ```powershell
-   # Ensure working directory is correct
-   Set-Location "f:\git\AzLighthouse\azure-automate"
-   .\Run-Tests.ps1
-   ```
-
-4. **Execution Policy Issues**
-   ```powershell
-   # Temporarily allow script execution
-   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-   ```
-
-### Debug Mode
-
-Run tests with debug information:
-```powershell
-$DebugPreference = 'Continue'
-.\Run-Tests.ps1 -Detailed:$true
-```
-
-### Manual Test Execution
-
-For debugging specific tests:
-```powershell
-# Run specific test blocks
-Invoke-Pester -Path ".\New-AppRegistrationCredentialCheck.Tests.ps1" -Tag "Function"
-
-# Run with breakpoints
-Invoke-Pester -Path ".\New-AppRegistrationCredentialCheck.Tests.ps1" -EnableExit:$false
-```
-
-## Test Maintenance
-
-### Adding New Tests
-
-1. **Create new Describe block**
-   ```powershell
-   Describe "New Feature Tests" {
-       Context "When testing new functionality" {
-           It "Should perform expected behavior" {
-               # Test implementation
-           }
-       }
-   }
-   ```
-
-2. **Add appropriate mocks**
-   ```powershell
-   BeforeAll {
-       Mock New-Function { return $MockObject }
-   }
-   ```
-
-3. **Update configuration if needed**
-   - Add new test files to `PesterConfig.psd1`
-   - Update code coverage paths
+### Mocking Strategy
+- **Azure Authentication**: All Azure/Graph calls mocked
+- **External APIs**: Logic App posts mocked
+- **Resource Operations**: Role assignments, app registrations mocked
+- **Test Isolation**: Each test independent, no shared state
 
 ### Best Practices
+- Tests run without Azure dependencies
+- Comprehensive error scenario coverage
+- Performance optimized (< 1 minute execution)
+- CI/CD ready with standard output formats
 
-1. **Test Organization**
-   - Group related tests in Context blocks
-   - Use descriptive test names
-   - Include both positive and negative test cases
+---
 
-2. **Mock Management**
-   - Mock external dependencies
-   - Use parameterized mocks for different scenarios
-   - Verify mock calls with `Should -Invoke`
-
-3. **Assertions**
-   - Use specific assertions (`Should -Be`, `Should -Match`)
-   - Test both success and failure paths
-   - Validate error messages and types
-
-## Performance Considerations
-
-### Test Execution Time
-- Average test run: 30-60 seconds
-- Code coverage adds ~20% overhead
-- Parallel execution not recommended due to mocking
-
-### Resource Usage
-- Memory: ~100MB during execution
-- Disk: Test results ~1-5MB
-- CPU: Moderate during mock setup
-
-## Security Notes
-
-### Test Data
-- No real credentials used in tests
-- Mock data only for Azure resources
-- Test outputs safe for CI/CD logs
-
-### Credential Handling
-- Tests validate secure credential creation
-- Verify partial secret exposure functionality
-- No actual secrets generated during testing
+**For detailed test specifications**: See `TESTS-README.md`  
+**Last Updated**: October 24, 2025

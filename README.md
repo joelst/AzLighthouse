@@ -1,6 +1,35 @@
-# MSSP SOC Azure Lighthouse Onboarding
+# SOC Azure Lighthouse Onboarding
 
-Managing Microsoft Sentinel at scale with Lighthouse for distributed IT teams. This process is specifically meant for organizations that are using Lighthouse to manage tenants where different IT organizations control each tenant. It is also for when the SOC will have a separate subscription for its services that will be billed back to them.
+## Repository Summary
+
+This repository provides an automated onboarding solution for managing Microsoft Sentinel across multiple Azure tenants using Azure Lighthouse. It's designed for Managed Security Service Providers (MSSPs) and Security Operations Centers (SOCs) that need to provide centralized security monitoring and incident response across distributed customer environments.
+
+### Key Features
+
+- **Azure Lighthouse Deployment**: Enables cross-tenant management without requiring direct access to customer Entra tenant.
+- **Identity Management**: User Managed Identity (UMI) and Service Principal automation for secure authentication
+- **Sentinel Deployment**: Customized Sentinel-All-In-One templates with pre-configured connectors and analytics rules
+- **Secret Rotation**: Azure Automation runbooks for automatic credential management
+- **Data Connector Status**: Collect data connector status from multiple tenants.
+
+### Use Cases
+
+- Multi-tenant SOC operations managing security across multiple customer organizations
+- Enterprise IT teams providing centralized security services to business units
+
+The repository includes deployment templates, PowerShell scripts, and step-by-step documentation to streamline the entire onboarding process from Lighthouse delegation to fully operational Sentinel workspace.
+
+## Disclaimer
+
+This project is provided as-is, without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and noninfringement. In no event shall the authors or copyright holders be liable for any claim, damages, or other liability, whether in an action of contract, tort, or otherwise, arising from, out of, or in connection with the software or the use or other dealings in the software.
+
+The sample code and templates provided in this repository are for demonstration purposes only and should be thoroughly tested and reviewed before use in production environments. Always follow your organization's security and compliance requirements when implementing these solutions.
+
+## Contributing
+
+This project welcomes contributions and feedback from the community. If you'd like to contribute, please feel free to submit a pull request or open an issue on GitHub. We especially encourage reporting any security concerns or vulnerabilities—please open a security advisory or contact the maintainers directly for sensitive issues. Your input helps improve the security and reliability of this project for everyone.
+
+> **This project is only a partial solution for key rotation and data connctor status collection. Since I did not create the Logic Apps or the Pricing Tier runbook, they are not included.**
 
 ## 1. Create SOC subscription in tenant
 
@@ -56,7 +85,7 @@ These tasks can also be completed in the Azure Portal using Cloud Shell. Open th
 
 ```PowerShell
 # Name of the service principal
-$servicePrincipalName = "MsspNameSOC-Sentinel-LogIngest"
+$servicePrincipalName = "SOC-Sentinel-LogIngest"
 $subscriptionId = (Get-AzContext).Subscription.Id
 $sp = New-AzAdServicePrincipal -DisplayName $servicePrincipalName
 $scope = "/subscriptions/$($subscriptionId)"

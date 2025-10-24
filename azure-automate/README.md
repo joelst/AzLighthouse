@@ -4,6 +4,9 @@
 
 This solution deploys an Azure Automation account with runbooks to manage Microsoft Sentinel data connectors and service principal credentials for MSSP (Managed Security Service Provider) environments. The automation enables centralized monitoring of Sentinel data connector health and automated credential rotation.
 
+> **I did not create the Logic Apps nor the pricing tier runbook so they are not included in this repo.**
+
+
 ## Architecture
 
 The deployment includes:
@@ -70,7 +73,7 @@ Click the button below to deploy directly to your Azure subscription:
 
 ```powershell
 # Set variables
-$resourceGroupName = "MSSP-Automation-RG"
+$resourceGroupName = "SOC-Automation-RG"
 $location = "eastus"
 $templateFile = ".\automationAccount.json"
 
@@ -81,8 +84,8 @@ New-AzResourceGroup -Name $resourceGroupName -Location $location -Force
 New-AzResourceGroupDeployment `
   -ResourceGroupName $resourceGroupName `
   -TemplateFile $templateFile `
-  -automationAccountName "MSSP-Automation" `
-  -userAssignedIdentityName "MSSP-Sentinel-Ingestion-UMI" `
+  -automationAccountName "SOC-Automation" `
+  -userAssignedIdentityName "SOC-Sentinel-Ingestion-UMI" `
   -userAssignedIdentityClientId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
   -userAssignedIdentityResourceGroupName "Sentinel-Prod" `
   -sentinelResourceGroupName "Sentinel-Prod" `
@@ -95,7 +98,7 @@ New-AzResourceGroupDeployment `
 
 ```bash
 # Set variables
-RESOURCE_GROUP="MSSP-Automation-RG"
+RESOURCE_GROUP="SOC-Automation-RG"
 LOCATION="eastus"
 TEMPLATE_FILE="./automationAccount.json"
 
@@ -108,7 +111,7 @@ az deployment group create \
   --template-file $TEMPLATE_FILE \
   --parameters \
     automationAccountName="MSSP-Automation" \
-    userAssignedIdentityName="MSSP-Sentinel-Ingestion-UMI" \
+    userAssignedIdentityName="SOC-Sentinel-Ingestion-UMI" \
     userAssignedIdentityClientId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
     userAssignedIdentityResourceGroupName="Sentinel-Prod" \
     sentinelResourceGroupName="Sentinel-Prod" \
@@ -179,10 +182,25 @@ Test the runbooks manually before relying on automated schedules:
 **Purpose:** Automates service principal credential rotation for enhanced security.
 
 **Key Features:**
-- Creates new client secret for app registration
-- Updates secrets in Key Vault
-- Sends notification to MSSP Logic App
-- Removes expired credentials automatically
+- Monitors app registration credential expiration (configurable threshold)
+- Creates new client secrets with configurable validity periods
+- Automatically removes expired credentials
+- Sends credential notifications to MSSP Logic App endpoint
+- Provides comprehensive execution summary with statistics
+- Handles both existing app registrations and creates new ones when needed
+
+**Recent Updates (2024-10-24):**
+- Fixed Write-AppGroupSummary parameter type issue for better object handling
+- Enhanced error handling for role assignment conflicts
+- Improved summary reporting with detailed application status
+
+**Parameters:**
+- `-UMIId` - User Managed Identity Client ID for authentication
+- `-DaysBeforeExpiration` - Days before expiration to trigger rotation (default: 30)
+- `-CredentialValidDays` - How long new credentials remain valid (default: 180)
+- `-SecretLAUri` - Logic App endpoint for credential notifications
+- `-AppRegName` - Application registration name pattern to manage
+- `-CreateNewAppReg` - Force creation of new app registration
 
 ## Troubleshooting
 
@@ -217,7 +235,7 @@ Check workspace query throttling limits
 
 ```powershell
 # Enable diagnostic logs for Automation Account
-$automationAccount = Get-AzAutomationAccount -ResourceGroupName "MSSP-Automation-RG" -Name "MSSP-Automation"
+$automationAccount = Get-AzAutomationAccount -ResourceGroupName "SOC-Automation-RG" -Name "SOC-Automation"
 $workspaceId = "/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.OperationalInsights/workspaces/<name>"
 
 Set-AzDiagnosticSetting `
@@ -248,16 +266,16 @@ View job history and logs:
 ```powershell
 # Get recent job history
 Get-AzAutomationJob `
-  -ResourceGroupName "MSSP-Automation-RG" `
-  -AutomationAccountName "MSSP-Automation" `
-  -RunbookName "Get-MsspDataConnectorStatus" | 
+  -ResourceGroupName "SOC-Automation-RG" `
+  -AutomationAccountName "SOC-Automation" `
+  -RunbookName "Get-DataConnectorStatus" | 
   Select-Object -First 10
 
 # Get job output
-$job = Get-AzAutomationJob -ResourceGroupName "MSSP-Automation-RG" `
-  -AutomationAccountName "MSSP-Automation" -Id <job-id>
-Get-AzAutomationJobOutput -ResourceGroupName "MSSP-Automation-RG" `
-  -AutomationAccountName "MSSP-Automation" -Id $job.JobId -Stream Output
+$job = Get-AzAutomationJob -ResourceGroupName "SOC-Automation-RG" `
+  -AutomationAccountName "SOC-Automation" -Id <job-id>
+Get-AzAutomationJobOutput -ResourceGroupName "SOC-Automation-RG" `
+  -AutomationAccountName "SOC-Automation" -Id $job.JobId -Stream Output
 ```
 
 ## Security Best Practices
