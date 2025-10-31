@@ -141,7 +141,7 @@ $ConnectorInfo = @(
     },
     @{
         Id              = 'AzureActiveDirectory'
-        Title           = 'Azure Active Directory'
+        Title           = 'Microsoft Entra ID'
         Publisher       = 'Microsoft'
         ConnectivityKql = @(
             'SigninLogs | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)',
@@ -151,7 +151,7 @@ $ConnectorInfo = @(
     }, 
     @{
         Id              = 'AzureActiveDirectoryIdentityProtection'
-        Title           = 'Azure Active Directory Identity Protection'
+        Title           = 'Microsoft Entra ID Protection'
         Publisher       = 'Microsoft'
         ConnectivityKql = 'SecurityAlert | where ProductName == "Azure Active Directory Identity Protection" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
 
@@ -166,7 +166,7 @@ $ConnectorInfo = @(
     },
     @{
         Id              = 'AzureAdvancedThreatProtection'
-        Title           = 'Azure Advanced Threat Protection'
+        Title           = 'Microsoft Defender for Identity'
         Publisher       = 'Microsoft'
         ConnectivityKql = 'SecurityAlert | where ProductName == "Azure Advanced Threat Protection" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
         ActivityKql     = 'SecurityAlert | where TimeGenerated >= ago(7d) | where ProductName == "Azure Advanced Threat Protection" | extend alertWasCustomized = bag_has_key(todynamic(ExtendedProperties), "OriginalProductName") | where alertWasCustomized == false | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
@@ -239,14 +239,14 @@ $ConnectorInfo = @(
     }, 
     @{
         Id              = 'MicrosoftCloudAppSecurity'
-        Title           = 'Microsoft Cloud App Security'
+        Title           = 'Microsoft Defender for Cloud Apps'
         Publisher       = 'Microsoft'
         ConnectivityKql = 'McasShadowItReporting | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
         ActivityKql     = 'McasShadowItReporting | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
     }, 
     @{
         Id              = 'MicrosoftDefenderAdvancedThreatProtection'
-        Title           = 'Microsoft Defender Advanced Threat Protection'
+        Title           = 'Microsoft Defender for Endpoint'
         Publisher       = 'Microsoft'
         ConnectivityKql = @(
             'DeviceEvents | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)',
@@ -284,14 +284,14 @@ $ConnectorInfo = @(
     }, 
     @{
         Id              = 'MicrosoftThreatProtection'
-        Title           = 'Microsoft Threat Protection'
+        Title           = 'Microsoft Defender XDR'
         Publisher       = 'Microsoft'
         ConnectivityKql = 'SecurityAlert | where ProductName in("Microsoft Defender Advanced Threat Protection", "Office 365 Advanced Threat Protection", "Microsoft Cloud App Security", "Microsoft 365 Defender", "Azure Active Directory Identity Protection") | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'        
         ActivityKql     = 'SecurityAlert | where TimeGenerated >= ago(7d) | where ProductName in("Microsoft Defender Advanced Threat Protection", "Office 365 Advanced Threat Protection", "Microsoft Cloud App Security", "Microsoft 365 Defender", "Azure Active Directory Identity Protection") | extend alertWasCustomized = bag_has_key(todynamic(ExtendedProperties), "OriginalProductName") | where alertWasCustomized == false | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
     }, 
     @{
         Id              = 'Office365'
-        Title           = 'Office 365'
+        Title           = 'Microsoft 365 (formerly, Office 365)'
         Publisher       = 'Microsoft'
         ConnectivityKql = 'OfficeActivity | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
         ActivityKql     = 'OfficeActivity | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
@@ -305,7 +305,7 @@ $ConnectorInfo = @(
     }, 
     @{
         Id              = 'OfficeIRM'
-        Title           = 'Office Insider Risk Management'
+        Title           = 'Microsoft 365 Insider Risk Management'
         Publisher       = 'Microsoft'
         ConnectivityKql = 'SecurityAlert | where ProductName == "Microsoft 365 Insider Risk Management" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
         ActivityKql     = 'SecurityAlert | where TimeGenerated >= ago(7d) | where ProductName == "Microsoft 365 Insider Risk Management" | extend alertWasCustomized = bag_has_key(todynamic(ExtendedProperties), "OriginalProductName") | where alertWasCustomized == false | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
