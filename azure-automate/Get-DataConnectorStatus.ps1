@@ -286,7 +286,7 @@ $ConnectorInfo = @(
         Id              = 'MicrosoftThreatProtection'
         Title           = 'Microsoft Defender XDR'
         Publisher       = 'Microsoft'
-        ConnectivityKql = 'SecurityAlert | where ProductName in("Microsoft Defender Advanced Threat Protection", "Office 365 Advanced Threat Protection", "Microsoft Cloud App Security", "Microsoft 365 Defender", "Azure Active Directory Identity Protection") | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'        
+        ConnectivityKql = 'union isfuzzy=true DeviceEvents, DeviceFileEvents, DeviceLogonEvents, DeviceInfo, EmailEvents, EmailUrlInfo, EmailAttachmentInfo, CloudAppEvents, IdentityLogonEvents, AlertEvidence| summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'  
         ActivityKql     = 'SecurityAlert | where TimeGenerated >= ago(7d) | where ProductName in("Microsoft Defender Advanced Threat Protection", "Office 365 Advanced Threat Protection", "Microsoft Cloud App Security", "Microsoft 365 Defender", "Azure Active Directory Identity Protection") | extend alertWasCustomized = bag_has_key(todynamic(ExtendedProperties), "OriginalProductName") | where alertWasCustomized == false | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
     }, 
     @{
