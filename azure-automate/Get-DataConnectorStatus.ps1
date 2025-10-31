@@ -319,9 +319,9 @@ $ConnectorInfo = @(
     },
     @{
         Id              = 'PremiumMicrosoftDefenderForThreatIntelligence'
-        Title           = 'PremiumMicrosoftDefenderForThreatIntelligence'
+        Title           = 'Premium Microsoft Defender Threat Intelligence'
         Publisher       = 'Microsoft'
-        ConnectivityKql = 'ThreatIntelligenceIndicator | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        ConnectivityKql = 'ThreatIntelligenceIndicator | where SourceSystem == "Premium Microsoft Defender Threat Intelligence" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
         ActivityKql     = 'ThreatIntelligenceIndicator | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
     },
     @{
