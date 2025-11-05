@@ -8,23 +8,51 @@ BeforeAll {
     . "$PSScriptRoot\Get-DataConnectorStatus.ps1"
 }
 
-Describe 'Resolve-ConnectorKind' {
-    It 'Returns Name inference for StaticUI' {
-        $connector = [pscustomobject]@{ Name='FriendlyName'; Kind='StaticUI' }
-        $r = Resolve-ConnectorKind -Connector $connector
-        $r.Kind | Should -Be 'FriendlyName'
-        $r.Source | Should -Be 'NameFromStaticUI'
+Describe 'Resolve-Connector' {
+    It 'Falls back to connector name when kind is StaticUI' {
+        $connector = [pscustomobject]@{ Name = 'FriendlyName'; Kind = 'StaticUI' }
+        $resolved = Resolve-Connector -Connector $connector
+        $resolved.Kind | Should -Be 'StaticUI'
+        $resolved.Id | Should -Be 'FriendlyName'
+        $resolved.Source | Should -Be 'ConnectorName'
     }
-    It 'Handles unknown kinds and falls back to UnknownKind when name is GUID' {
+
+    It 'Uses connector name even when it is a GUID' {
         $guid = [guid]::NewGuid().ToString()
-        $connector = [pscustomobject]@{ Name=$guid }
-        $r = Resolve-ConnectorKind -Connector $connector
-        $r.Kind | Should -Be 'UnknownKind'
+        $connector = [pscustomobject]@{ Name = $guid }
+        $resolved = Resolve-Connector -Connector $connector
+        $resolved.Kind | Should -Be 'UnknownKind'
+        $resolved.Id | Should -Be $guid
+        $resolved.Source | Should -Be 'ConnectorNameFallback'
     }
-    It 'Collapses array kinds into comma list' {
-        $connector = [pscustomobject]@{ Name='X'; Kind=@('A','B') }
-        $r = Resolve-ConnectorKind -Connector $connector
-        $r.Kind | Should -Be 'A,B'
+
+    It 'Collapses array kinds into comma separated string' {
+        $connector = [pscustomobject]@{ Name = 'TestConnector'; Kind = @('A', 'B', 'C') }
+        $resolved = Resolve-Connector -Connector $connector
+        $resolved.Kind | Should -Be 'A,B,C'
+        $resolved.Id | Should -Be 'A,B,C'
+    }
+
+    It 'Enriches title and publisher from connector info when missing' {
+        $connector = [pscustomobject]@{
+            Name                       = 'Unused'
+            Kind                       = 'Office365'
+            ConnectorUiConfigTitle     = $null
+            ConnectorUiConfigPublisher = $null
+        }
+        $resolved = Resolve-Connector -Connector $connector
+        $resolved.Title | Should -Be 'Office 365'
+        $resolved.Publisher | Should -Be 'Microsoft'
+    }
+
+    It 'Returns connectivity KQL from connector info when not provided on connector' {
+        $connector = [pscustomobject]@{
+            Name                                   = 'SecurityEvents'
+            Kind                                   = 'SecurityEvents'
+            ConnectorUiConfigConnectivityCriterion = $null
+        }
+        $resolved = Resolve-Connector -Connector $connector
+        $resolved.ConnectivityKQL | Should -Not -BeNullOrEmpty
     }
 }
 
@@ -53,7 +81,9 @@ Describe 'Invoke-WithRetry' {
         $attempts = 0
         $result = Invoke-WithRetry -OperationName 'TestOp' -ScriptBlock {
             $script:attempts++
-            if ($script:attempts -lt 3) { throw 'Fail' }
+            if ($script:attempts -lt 3) {
+                throw 'Fail' 
+            }
             return 'OK'
         } -MaxAttempts 5 -InitialDelaySeconds 0 6>&1 | Where-Object { $_ -notlike '*WARN*' } | Select-Object -Last 1
         $result | Should -Be 'OK'
@@ -149,16 +179,16 @@ Describe 'Get-ConnectivityResults' {
                     Tables = @(
                         @{
                             Columns = @{ Name = @('IsConnected') }
-                            Rows = @(@($true))
+                            Rows    = @(@($true))
                         }
                     )
-                    Error = $null
+                    Error  = $null
                 }
             }
             # Return empty results
             return @{ 
                 Tables = @()
-                Error = $null
+                Error  = $null
             }
         }
     }
@@ -186,104 +216,60 @@ Describe 'Get-ConnectivityResults' {
     }
 }
 
-Describe 'Get-LogIngestionMetrics Lookup Logic' {
-    BeforeAll {
-        # Mock Invoke-AzOperationalInsightsQuery to avoid actual Azure calls
-        Mock Invoke-AzOperationalInsightsQuery { 
+Describe 'Get-LogIngestionMetrics' {
+    BeforeEach {
+        Mock Invoke-WithRetry {
+            param($OperationName, $ScriptBlock, $MaxAttempts, $InitialDelaySeconds)
+            & $ScriptBlock
+        }
+    }
+
+    It 'Preserves metadata properties when no KQL supplied' {
+        $wsId = [guid]::NewGuid().ToString()
+        $result = Get-LogIngestionMetrics -WorkspaceCustomerId $wsId -ConnectorKind 'Kind' -ConnectorName 'Name' -ConnectorId 'ConnectorId' -ConnectorTitle 'Title' -ConnectorPublisher 'Publisher'
+        $result.Id | Should -Be 'ConnectorId'
+        $result.Title | Should -Be 'Title'
+        $result.Publisher | Should -Be 'Publisher'
+        $result.QueryStatus | Should -Be 'NoKql'
+    }
+
+    It 'Sets IsConnected when connectivity query returns true' {
+        $wsId = [guid]::NewGuid().ToString()
+        Mock Invoke-AzOperationalInsightsQuery {
+            param($WorkspaceId, $Query)
+            if ($Query -eq 'connect') {
+                return @{ Results = @(@{ IsConnected = $true }) }
+            }
             return @{ Results = @() }
         }
+
+        $result = Get-LogIngestionMetrics -WorkspaceCustomerId $wsId -ConnectorKind 'Kind' -ConnectorName 'Name' -ConnectorId 'ConnectorId' -ConnectivityKql 'connect'
+
+        $result.IsConnected | Should -BeTrue
+        $result.QueryStatus | Should -Be 'Unknown'
     }
 
-    Context 'Primary lookup by ConnectorId' {
-        It 'Matches connector Id against ConnectorInfo Id (exact match)' {
-            $wsId = [guid]::NewGuid().ToString()
-            $result = Get-LogIngestionMetrics -WorkspaceCustomerId $wsId -ConnectorKind 'SomeKind' -ConnectorName 'SomeName' -ConnectorId 'Office365'
-            
-            $result.Id | Should -Be 'Office365'
-            $result.Title | Should -Be 'Office 365'
-            $result.Publisher | Should -Be 'Microsoft'
-            $result.MappingFound | Should -BeTrue
+    It 'Aggregates activity query metrics and marks success' {
+        $wsId = [guid]::NewGuid().ToString()
+        $lastLog = (Get-Date).AddMinutes(-30)
+        Mock Invoke-AzOperationalInsightsQuery {
+            param($WorkspaceId, $Query)
+            if ($Query -eq 'activity') {
+                $table = [pscustomobject]@{
+                    Columns = [pscustomobject]@{ Name = @('LastLogTime', 'LogsLastHour', 'TotalLogs24h') }
+                    Rows    = @([object[]]@($lastLog, 5, 42))
+                }
+                return @{ Tables = @($table); Error = $null }
+            }
+            return @{ Tables = @(); Error = $null }
         }
 
-        It 'Matches connector Id case-insensitively' {
-            $wsId = [guid]::NewGuid().ToString()
-            $result = Get-LogIngestionMetrics -WorkspaceCustomerId $wsId -ConnectorKind 'SomeKind' -ConnectorName 'SomeName' -ConnectorId 'office365'
-            
-            $result.Id | Should -Be 'office365'
-            $result.Title | Should -Be 'Office 365'
-            $result.Publisher | Should -Be 'Microsoft'
-        }
+        $result = Get-LogIngestionMetrics -WorkspaceCustomerId $wsId -ConnectorKind 'Kind' -ConnectorName 'Name' -ConnectorId 'ConnectorId' -ActivityKql 'activity'
 
-        It 'Uses actual connector Id when no mapping found' {
-            $wsId = [guid]::NewGuid().ToString()
-            $testId = 'aa944eec-f345-4c85-8760-5a4adc5abd4a'
-            $result = Get-LogIngestionMetrics -WorkspaceCustomerId $wsId -ConnectorKind 'Office365' -ConnectorName 'SomeGuidName' -ConnectorId $testId
-            
-            $result.Id | Should -Be $testId
-            $result.Title | Should -BeNullOrEmpty
-            $result.Publisher | Should -BeNullOrEmpty
-            $result.MappingFound | Should -BeFalse
-        }
-    }
-
-    Context 'Fallback lookup by ConnectorName' {
-        It 'Falls back to Name when Id does not match' {
-            $wsId = [guid]::NewGuid().ToString()
-            $result = Get-LogIngestionMetrics -WorkspaceCustomerId $wsId -ConnectorKind 'SomeKind' -ConnectorName 'AzureActiveDirectory' -ConnectorId 'non-matching-id'
-            
-            $result.Id | Should -Be 'non-matching-id'  # Preserves actual connector Id
-            $result.Title | Should -Be 'Azure Active Directory'
-            $result.Publisher | Should -Be 'Microsoft'
-            $result.MappingFound | Should -BeTrue
-        }
-
-        It 'Matches Name case-insensitively' {
-            $wsId = [guid]::NewGuid().ToString()
-            $result = Get-LogIngestionMetrics -WorkspaceCustomerId $wsId -ConnectorKind 'SomeKind' -ConnectorName 'azureactivedirectory' -ConnectorId 'no-match'
-            
-            $result.Title | Should -Be 'Azure Active Directory'
-            $result.Publisher | Should -Be 'Microsoft'
-        }
-    }
-
-    Context 'No match found' {
-        It 'Returns null Title and Publisher when neither Id nor Name match' {
-            $wsId = [guid]::NewGuid().ToString()
-            $testId = [guid]::NewGuid().ToString()
-            $result = Get-LogIngestionMetrics -WorkspaceCustomerId $wsId -ConnectorKind 'UnknownKind' -ConnectorName 'UnknownName' -ConnectorId $testId
-            
-            $result.Id | Should -Be $testId
-            $result.Title | Should -BeNullOrEmpty
-            $result.Publisher | Should -BeNullOrEmpty
-            $result.MappingFound | Should -BeFalse
-            $result.QueryStatus | Should -Be 'NoKql'
-        }
-
-        It 'Preserves connector Id even when no mapping exists' {
-            $wsId = [guid]::NewGuid().ToString()
-            $customId = 'custom-connector-id-123'
-            $result = Get-LogIngestionMetrics -WorkspaceCustomerId $wsId -ConnectorKind 'Custom' -ConnectorName 'CustomConnector' -ConnectorId $customId
-            
-            $result.Id | Should -Be $customId
-        }
-    }
-
-    Context 'KQL query execution' {
-        It 'Uses KQL from matched ConnectorInfo entry' {
-            $wsId = [guid]::NewGuid().ToString()
-            $result = Get-LogIngestionMetrics -WorkspaceCustomerId $wsId -ConnectorKind 'Test' -ConnectorName 'Test' -ConnectorId 'SecurityEvents'
-            
-            $result.MappingFound | Should -BeTrue
-            $result.KqlUsed | Should -Not -BeNullOrEmpty
-        }
-
-        It 'Sets QueryStatus to NoKql when no mapping found' {
-            $wsId = [guid]::NewGuid().ToString()
-            $result = Get-LogIngestionMetrics -WorkspaceCustomerId $wsId -ConnectorKind 'NoMatch' -ConnectorName 'NoMatch' -ConnectorId 'NoMatch'
-            
-            $result.QueryStatus | Should -Be 'NoKql'
-            $result.MappingFound | Should -BeFalse
-        }
+        $result.LastLogTime.ToString('u') | Should -Be $lastLog.ToString('u')
+        $result.LogsLastHour | Should -Be 5
+        $result.TotalLogs24h | Should -Be 42
+        $result.QueryStatus | Should -Be 'Success'
     }
 }
 
@@ -297,9 +283,9 @@ Describe 'Get-ConnectorStatus Integration' {
     Context 'Connector with Id property' {
         It 'Passes ConnectorId to Get-LogIngestionMetrics' {
             $connector = [pscustomobject]@{ 
-                Name = 'TestConnector'
-                Kind = 'Office365'
-                Id = 'aa944eec-f345-4c85-8760-5a4adc5abd4a'
+                Name       = 'TestConnector'
+                Kind       = 'Office365'
+                Id         = 'aa944eec-f345-4c85-8760-5a4adc5abd4a'
                 Properties = $null
             }
             $wsId = [guid]::NewGuid().ToString()
@@ -311,9 +297,9 @@ Describe 'Get-ConnectorStatus Integration' {
 
         It 'Populates Title and Publisher when Id matches' {
             $connector = [pscustomobject]@{ 
-                Name = 'Office365Connector'
-                Kind = 'Office365'
-                Id = 'Office365'
+                Name       = 'Office365Connector'
+                Kind       = 'Office365'
+                Id         = 'Office365'
                 Properties = $null
             }
             $wsId = [guid]::NewGuid().ToString()
@@ -327,9 +313,9 @@ Describe 'Get-ConnectorStatus Integration' {
 
         It 'Preserves Id and uses Name fallback for Title/Publisher' {
             $connector = [pscustomobject]@{ 
-                Name = 'AzureActiveDirectory'
-                Kind = 'AzureActiveDirectory'
-                Id = 'different-guid-value'
+                Name       = 'AzureActiveDirectory'
+                Kind       = 'AzureActiveDirectory'
+                Id         = 'different-guid-value'
                 Properties = $null
             }
             $wsId = [guid]::NewGuid().ToString()
@@ -352,9 +338,9 @@ Describe 'Get-ConnectorStatus missing metrics behavior' {
     Context 'Mapping found but LastLogTime missing' {
         It 'Sets appropriate status when no logs found' {
             $connector = [pscustomobject]@{ 
-                Name = 'Office365'
-                Kind = 'Office365'
-                Id = 'Office365'
+                Name       = 'Office365'
+                Kind       = 'Office365'
+                Id         = 'Office365'
                 Properties = [pscustomobject]@{ dataTypes = [pscustomobject]@{ enabled = [pscustomobject]@{ state = 'enabled' } } }
             }
             $wsId = [guid]::NewGuid().ToString()
@@ -368,9 +354,9 @@ Describe 'Get-ConnectorStatus missing metrics behavior' {
     Context 'No mapping found and no logs' {
         It 'Sets status to NoKqlAndNoLogs' {
             $connector = [pscustomobject]@{ 
-                Name = 'UnknownConnector'
-                Kind = 'UnknownKind'
-                Id = 'unknown-id-123'
+                Name       = 'UnknownConnector'
+                Kind       = 'UnknownKind'
+                Id         = 'unknown-id-123'
                 Properties = $null
             }
             $wsId = [guid]::NewGuid().ToString()
@@ -392,7 +378,7 @@ Describe 'ConnectorInfo Array Structure' {
         # Test that entries have the expected structure (some may have empty values)
         $testEntries = @($ConnectorInfo[0], $ConnectorInfo[2], $ConnectorInfo[3], $ConnectorInfo[4])
         foreach ($entry in $testEntries) {
-            $entry.Id | Should -Not -BeNullOrEmpty -Because "Each entry must have an Id"
+            $entry.Id | Should -Not -BeNullOrEmpty -Because 'Each entry must have an Id'
             # Kql should exist (most entries have it, some may be empty)
             { $entry.Kql } | Should -Not -Throw
             # Title and Publisher exist as properties (verified by accessing them - may be empty/null)

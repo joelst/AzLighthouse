@@ -75,9 +75,9 @@
                 "required": ["Name","Kind","Status","LogsLastHour","TotalLogs24h","QueryStatus","Workspace","Subscription"]
             }
         }
-    In the Logic App you can parse JSON then iterate over each item for downstream actions.
+    The Logic App parses JSON then iterate over each item for downstream actions.
 #>
-# Requires Az.Accounts, Az.Resources, Az.Monitor, Az.SecurityInsights modules (latest versions recommended).
+# Requires Az.Accounts, Az.Resources, Az.Monitor, Az.SecurityInsights modules.
 # Tested in Azure Automation with PowerShell 7.4 runtime.
 # Can also be run locally by providing SubscriptionId, ResourceGroupName, and WorkspaceName parameters.
 param(
@@ -104,11 +104,8 @@ $script:RunId = [guid]::NewGuid().ToString('N')
 # Record run start timestamp (UTC) early for later duration computatio
 if (-not $RunStartUtc) { $RunStartUtc = (Get-Date).ToUniversalTime() }
 
-# Enhanced Per-connector KQL mappings with hardcoded metadata from AllDataConnectorDefinitions.json
 # Each entry includes: Id, Title, Publisher, ConnectivityCriteria, and Kql for 24h usage metrics
 $ConnectorInfo = @(
-    # Each key = connector Kind/ID; value = hashtable with enhanced metadata and KQL
-    # Alphabetical order maintained for readability & merge clarity.
     # Lookup order when resolving a mapping:
     #   1. Exact match on resolved Kind
     #   2. If no Kind match, exact match on connector Name (fallback)
@@ -390,7 +387,6 @@ $ConnectorInfo = @(
 )
 
 function Write-Log {
-    # PURPOSE: Centralized logging helper with level filtering.
     <#
   .SYNOPSIS
   Writes a structured log line with timestamp and level.
@@ -419,8 +415,25 @@ function Write-Log {
     Write-Information "[$ts][$Level]$cid $Message"
 }
 
-# Simple exponential backoff retry helper (for transient KQL failures, etc.)
 function Invoke-WithRetry {
+    <#
+    .SYNOPSIS
+    Simple exponential backoff retry helper (for transient KQL failures, etc.)
+    .DESCRIPTION
+    Executes the provided script block, retrying on failure with exponential backoff delays.
+    .PARAMETER ScriptBlock
+    The script block to execute.
+    .PARAMETER OperationName
+    Friendly name of the operation for logging purposes. Default 'Operation'.
+    .PARAMETER MaxAttempts
+    Maximum number of attempts. Default 3.
+    .PARAMETER InitialDelaySeconds
+    Initial delay in seconds before first retry. Default 2.
+    .OUTPUTS
+    The result of the script block if successful.
+    .EXAMPLE
+    Invoke-WithRetry -ScriptBlock { Get-SomeResource } -OperationName 'Get Resource' -MaxAttempts 5 -InitialDelaySeconds 3
+    #>
     param(
         [Parameter(Mandatory)][scriptblock]$ScriptBlock,
         [string]$OperationName = 'Operation',
@@ -438,8 +451,6 @@ function Invoke-WithRetry {
         }
         catch {
             $lastError = $_
-            # Use interpolated string with subexpressions for clarity & safe colon delimiter
-
             Write-Log -Level WARN -Message "$OperationName failed attempt $($attempt): $($_.Exception.Message)"
             if ($attempt -ge $MaxAttempts) { break }
             Start-Sleep -Seconds $delay
@@ -449,10 +460,8 @@ function Invoke-WithRetry {
     if ($lastError) { throw "${OperationName} failed after $MaxAttempts attempts: $($lastError.Exception.Message)" }
 }
 
-# Helper to robustly resolve connector Kind with source tracking
 function Resolve-Connector {
-    # PURPOSE: Determine the best Id value for a connector to use in Logic App payload and $ConnectorInfo lookups.
-    <#
+<#
   .SYNOPSIS
   Resolves the appropriate Id value for a connector based on Kind, DataConnectorKind, or Name.
   .DESCRIPTION
@@ -476,13 +485,7 @@ function Resolve-Connector {
     if ([string]::IsNullOrWhiteSpace($Connector.DataConnectorKind) -eq $false ) {
         [void]($candidates += [pscustomobject]@{Kind = $Connector.DataConnectorKind; Title = $Connector.ConnectorUiConfigTitle; Publisher = $Connector.ConnectorUiConfigPublisher; })
     }
-    # foreach ($p in $Connector.PSObject.Properties) {
-    #     # Generic scan of any property whose name includes 'kind'
-    #     if ($p.Name -match 'kind' -and $p.Value -and -not ($candidates.Kind -contains $p.Value)) {
-    #         $candidates += [pscustomobject]@{Kind = $p.Value; Source = $p.Name; Title = $p.Title; Publisher = $p.Publisher } 
-    #     }
-        
-    # }
+
     $chosen = $null
     if ($candidates.Count -gt 0) {
         $chosen = $candidates | Where-Object { $_.Kind -and $_.Kind -ne 'DataConnector' } | Select-Object -First 1
@@ -491,7 +494,6 @@ function Resolve-Connector {
         }
     }
     
-    # Normalize Kind to string for processing
     $kindString = $null
     if ($chosen -and $chosen.Kind) {
         switch -Regex ($chosen.Kind.GetType().FullName) {
@@ -636,7 +638,6 @@ function Resolve-Connector {
 }
 
 function Test-SubscriptionIdFormat {
-    # PURPOSE: Simple GUID pattern validation (no ARM lookup performed).
     <#
 .SYNOPSIS
 Validates a subscription id string.
@@ -657,7 +658,7 @@ Test-SubscriptionIdFormat '11111111-1111-1111-1111-111111111111'
 }
 
 function Test-ResourceGroupName {
-    # PURPOSE: Validate RG name locally to fail fast before API calls.
+
     <#
 .SYNOPSIS
 Validates an Azure resource group name.
@@ -682,7 +683,6 @@ Test-ResourceGroupName 'rg-security-prod'
 }
 
 function Test-WorkspaceName {
-    # PURPOSE: Validate Log Analytics workspace naming rules.
     <#
 .SYNOPSIS
 Validates a Log Analytics workspace name.
@@ -706,7 +706,6 @@ Test-WorkspaceName 'law-prod-eus'
 }
 
 function Resolve-ManagedIdentityObjectId {
-    # PURPOSE: Obtain principal ObjectId for UAMI (order: parameter > variable > directory lookup).
     <#
   .SYNOPSIS
   Resolves the object id (principal id) for the managed identity.
@@ -738,7 +737,6 @@ function Resolve-ManagedIdentityObjectId {
 }
 
 function Test-ModuleLoaded {
-    # PURPOSE: Ensure required Az.* module is available (tries install when missing - may be blocked in sandbox).
     <#
   .SYNOPSIS
   Ensures an Az module is available and imports it.
@@ -764,7 +762,7 @@ function Test-ModuleLoaded {
 }
 
 function Get-KqlErrorDetails {
-    # PURPOSE: Extract detailed error information from KQL query result including inner errors
+
     <#
     .SYNOPSIS
     Extracts detailed error message including inner error information from a query result.
@@ -816,7 +814,6 @@ function Get-KqlErrorDetails {
 }
 
 function Get-ConnectivityResults {
-    # PURPOSE: Execute connectivity criteria KQL queries and return overall connectivity status
     <#
     .SYNOPSIS
     Executes connectivity criteria KQL queries and returns overall connectivity status.
@@ -900,7 +897,7 @@ function Get-ConnectivityResults {
 }
 
 function Get-LogIngestionMetrics {
-    # PURPOSE: Execute KQL queries for a connector and extract ingestion timestamps/counts.
+
     <#
       .SYNOPSIS
   Executes KQL query/queries to derive ingestion metrics.
@@ -1213,7 +1210,6 @@ function Get-LogIngestionMetrics {
     return $metrics
 }
 
-# Pure ingestion classification helper (supports unit testing)
 function Get-IngestionStatus {
     <#
     .SYNOPSIS
@@ -1273,7 +1269,13 @@ function Get-ConnectorStatus {
         [Parameter(Mandatory)][string]$WorkspaceCustomerId
     )
 
-    $resolved = Resolve-Connector -Connector $Connector
+    try {
+        $resolved = Resolve-Connector -Connector $Connector
+    }
+    catch {
+        Write-Log -Level ERROR -Message "Resolve-Connector failed for connector '$($Connector.Name)': $($_.Exception.Message)"
+        return $null
+    }
   
     $statusInfo = @{
         OverallStatus     = 'Unknown'
@@ -1428,7 +1430,6 @@ function Get-ConnectorStatus {
     return $statusInfo
 }
 
-# ---------- Resolve Workspace Resource (multi-strategy) ----------
 function Resolve-Workspace {
     param([string]$RG, [string]$Name)
     <#
@@ -1467,7 +1468,7 @@ function Resolve-Workspace {
 }
 
 function Get-Var {
-    # PURPOSE: Safely fetch Automation variables (with optional requirement enforcement).
+
     <#
   .SYNOPSIS
   Retrieves an Azure Automation variable.
@@ -1517,9 +1518,7 @@ function Get-Var {
     return $v
 }
 
-# Normalize & diagnose possible hidden characters in names
 function Get-StringDiagnostics {
-    # PURPOSE: Help detect invisible characters in resource names (common source of lookup failures).
     <#
   .SYNOPSIS
   Emits debug diagnostics for a string value including length and raw byte hex.
@@ -1552,9 +1551,18 @@ function Get-StringDiagnostics {
     }
 }
 
-# ---------- Automatic Role Assignment Helper ----------
 function Invoke-AutomaticReaderRoleAssignment {
-    # PURPOSE: If connector retrieval fails (likely RBAC), attempt to grant Sentinel Reader to MI.
+    <#
+    .SYNOPSIS
+        Attempts to assign 'Microsoft Sentinel Reader' role to the UAMI at the specified scope.
+    .DESCRIPTION
+        Used to automatically remediate access failures by granting read permissions
+        to the User-Assigned Managed Identity (UAMI) executing this runbook.
+    .PARAMETER Scope
+        The scope (resourceId) at which to assign the Reader role.
+    .EXAMPLE
+        Invoke-AutomaticReaderRoleAssignment -Scope '/subscriptions/xxxx/resourceGroups/rg-sec/providers/Microsoft.OperationalInsights/workspaces/law-sec'
+    #>
     param([string]$Scope)
     $roleName = 'Microsoft Sentinel Reader'
     $miObjectId = Resolve-ManagedIdentityObjectId -ClientId $UmiClientId
@@ -1585,11 +1593,11 @@ if ($env:MSP_SKIP_CONNECTOR_RUN -eq '1') {
 Write-Log -Level INFO -Message 'Starting Sentinel Data Connectors management runbook.'
 Write-Log -Level INFO -Message "RunId=$script:RunId"
 
-# ---------- Detect Execution Environment ----------
+
 $IsAzureAutomation = $env:AUTOMATION_ASSET_ACCOUNTID -or (Test-Path Variable:\AutomationAccountId)
 Write-Log -Level INFO -Message "Execution environment: $(if ($IsAzureAutomation) { 'Azure Automation' } else { 'Local/Manual' })"
 
-# ---------- Retrieve Configuration (Automation Variables or Parameters) ----------
+# --- Retrieve configuration ---
 # In Azure Automation: Use automation variables
 # In Local execution: Use provided parameters
 if ($IsAzureAutomation) {
@@ -1654,7 +1662,7 @@ if (-not $SubscriptionId) {
     Write-Log -Level WARN -Message 'No subscription id variable provided; will rely on current context after connect.' 
 }
 
-# ---------- Authenticate ----------
+# --- Authenticate to Azure ---
 if ($IsAzureAutomation) {
     # Azure Automation: Use Managed Identity
     if (-not $UmiClientId) {
@@ -1719,7 +1727,7 @@ else {
     Write-Log -Level INFO -Message "Derived subscription id from context: $SubscriptionId"
 }
 
-# ---------- Load Required Modules ----------
+# --- Load required modules ---
 foreach ($m in 'Az.Accounts', 'Az.Resources', 'Az.OperationalInsights', 'Az.SecurityInsights', 'Az.MonitoringSolutions') {
     # Import each required module (idempotent if already loaded)
     Test-ModuleLoaded -Name $m 
@@ -1777,7 +1785,8 @@ else {
     $WorkspaceCustomerId = $null
 }
 
-# ---------- Retrieve Data Connectors ----------
+#  Retrieve Data Connectors 
+# --- Retrieve data connectors ---
 Write-Log INFO 'Retrieving Sentinel Data Connectors for workspace...'
 try {
     # Primary attempt to enumerate all data connectors
@@ -1821,13 +1830,24 @@ else {
     if ($Parallel) {
         Write-Log INFO "Parallel mode enabled (ThrottleLimit=$ThrottleLimit)"
         $summary = $filteredConnectors | ForEach-Object -Parallel {
-            #$resolved = Resolve-Connector -Connector $_
-            # Ensure the resolved Kind is applied back to object prior to metrics call
-            try {
-                if ($_.PSObject.Properties.Name -contains 'Kind') { $_.Kind = $resolved.Kind } else { $_ | Add-Member -NotePropertyName Kind -NotePropertyValue $resolved.Kind -Force }
-            }
-            catch {}
+            # Build a normalized record enriched with ingestion metrics
             $statusInfo = Get-ConnectorStatus -Connector $_ -WorkspaceCustomerId $using:WorkspaceCustomerId
+            
+            # Check if Get-ConnectorStatus returned null
+            if (-not $statusInfo) {
+                $connectorDetails = @(
+                    "Name='$($_.Name)'"
+                    "Kind='$($_.Kind)'"
+                    "DataConnectorKind='$($_.DataConnectorKind)'"
+                    "Id='$($_.Id)'"
+                    "Type='$($_.Type)'"
+                    "Etag='$($_.Etag)'"
+                )
+                $detailsStr = $connectorDetails -join ' '
+                Write-Warning "Get-ConnectorStatus returned null - Skipping connector: $detailsStr"
+                return
+            }
+            
             $lastLogUtc = $statusInfo.LogMetrics.LastLogTime
             $hoursSince = $statusInfo.HoursSinceLastLog
             [pscustomobject]@{
@@ -1856,9 +1876,32 @@ else {
             # Iterate each connector and build a normalized record enriched with ingestion metrics
             $connector = $_
             Write-Log -Level DEBUG -Message "Processing connector: Name='$($connector.Name)' Kind='$($connector.Kind)'"
-            #$kindResolution = Resolve-Connector -Connector $connector
 
             $statusInfo = Get-ConnectorStatus -Connector $connector -WorkspaceCustomerId $WorkspaceCustomerId
+            
+            # Check if Get-ConnectorStatus returned null
+            if (-not $statusInfo) {
+                # Log comprehensive details about the skipped connector for diagnostics
+                $connectorDetails = [ordered]@{
+                    Name                = $connector.Name
+                    Kind                = $connector.Kind
+                    DataConnectorKind   = $connector.DataConnectorKind
+                    Id                  = $connector.Id
+                    Type                = $connector.Type
+                    Etag                = $connector.Etag
+                }
+                
+                # Add Properties if present
+                if ($connector.Properties) {
+                    $propsStr = ($connector.Properties.PSObject.Properties | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join '; '
+                    $connectorDetails['Properties'] = $propsStr
+                }
+                
+                # Convert to readable string for logging
+                $detailsStr = ($connectorDetails.GetEnumerator() | ForEach-Object { "$($_.Key)='$($_.Value)'" }) -join ' '
+                Write-Log -Level ERROR -Message "Get-ConnectorStatus returned null - Skipping connector: $detailsStr"
+                return
+            }
             
             $record = [ordered]@{
                 Name              = $statusInfo.Name.Trim()
@@ -1894,29 +1937,19 @@ else {
         Write-Log -Level INFO -Message "ForEach-Object completed. Emitted $emissionCount records. Summary contains $($summary.Count) items"
     }
 
-    # ------------------------------------------------------------------
+    # --- Prepare connector collection ---
     # Requirement: Output an object collection with specific fields
     # Fields: Name, Kind, Status, LastLogTime, LogsLastHour,
     #         QueryStatus, MappingFound, StatusDetails
     # Produce a clean collection prior to consolidated object.
-    $ConnectorCollection = $summary #| Select-Object Id, Name, Kind, Status, LastLogTime, LogsLastHour, TotalLogs24h, QueryStatus, HoursSinceLastLog, StatusDetails, Workspace, Subscription, Title, Publisher, IsConnected, NoLastLog
+    $ConnectorCollection = $summary 
 
     Write-Log -Level INFO -Message "After Select-Object: ConnectorCollection contains $($ConnectorCollection.Count) items"
     Write-Log -Level DEBUG -Message "ConnectorCollection unique names: $(($ConnectorCollection | Select-Object -ExpandProperty Name -Unique | Measure-Object).Count)"
 
-    # ------------------------------------------------------------------
+    # --- Merge duplicate connector records ---
     # Deduplication/Merge: Connectors with the same Id represent the same underlying integration.
-    # Group by Id and merge records for each unique connector.
-    #
-    # Merge approach:
-    #   Group by Id (case-insensitive)
-    #   If group count > 1:
-    #       Prefer non-GUID Name over GUID Name for display
-    #       Merge StatusDetails (semicolon joining unique tokens)
-    #       Use latest LastLogTime and associated metrics
-    #       Prefer best Status (ActivelyIngesting > RecentlyActive > Stale > ConfiguredButNoLogs > Disabled > Error > Unknown)
-    #       Combine all unique property values
-    # Logging: emit INFO with merge summary for transparency.
+
     $guidPattern = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
     $mergedRecords = @()
     $merged = @()
@@ -2038,7 +2071,6 @@ else {
         $ConnectorCollection = $ConnectorCollection | Where-Object { $ExcludeStatus -notcontains $_.Status }
     }
 
-    # ------------------------------------------------------------------
     # Remediation Pass: HoursSinceLastLog is unexpectedly null for records with a non-null LastLogTime.
     # Root cause could be prior classification path not executed; recompute defensively here.
     # Also (optionally) upgrade Status if it is a configuration placeholder but ingestion recency indicates activity.
@@ -2051,7 +2083,6 @@ else {
                 $rounded = [Math]::Round($hrs, 2)
                 $rec.HoursSinceLastLog = $rounded
                 $recomputed++
-                # Status upgrade logic mirrors Get-IngestionStatus thresholds (1h / 24h) if current status is placeholder
                 if ($rec.Status -in @('ConfiguredButNoLogs', 'Unknown', 'NoKqlAndNoLogs')) {
                     $newStatus = if ($hrs -le 1) { 'ActivelyIngesting' } elseif ($hrs -le 24) { 'RecentlyActive' } else { $rec.Status }
                     if ($newStatus -ne $rec.Status) { $rec.Status = $newStatus; $upgraded++ }
@@ -2115,14 +2146,13 @@ else {
     Write-Log INFO "Emitting per-connector collection ($($ConnectorCollection.Count) items) as raw objects."
 
     # Emit main collection
-    # $ConnectorCollection | ConvertTo-Json -Depth 6 | Write-Information
     $ConnectorCollection | Sort-Object Id | Format-Table Name, Id, Title, Publisher, Status, LastLogTime, LogsLastHour, TotalLogs24h, QueryStatus, IsConnected -AutoSize
 
     # Emit run summary object (second JSON line) for downstream automation if desired
     $runEnd = (Get-Date).ToUniversalTime()
     $statusCounts = @{}
     foreach ($g in $statusGroups) { $statusCounts[$g.Name] = $g.Count }
-    $maxHours = ($ConnectorCollection | Where-Object { $_.HoursSinceLastLog -ne $null } | Measure-Object -Property HoursSinceLastLog -Maximum).Maximum
+    $maxHours = ($ConnectorCollection | Where-Object { $null -ne $_.HoursSinceLastLog } | Measure-Object -Property HoursSinceLastLog -Maximum).Maximum
     $noKqlAndNoLogs = ($ConnectorCollection | Where-Object { $_.Status -eq 'NoKqlAndNoLogs' })
     if ($noKqlAndNoLogs.Count -gt 0) {
         $ratio = [math]::Round( (100.0 * $noKqlAndNoLogs.Count / [math]::Max(1, $ConnectorCollection.Count)), 2)
@@ -2156,9 +2186,7 @@ else {
     $summaryObj | ConvertTo-Json -Depth 5 | Write-Information
 }
 
-# Logic App posting: already resolved from automation variable earlier (DATACONNECTOR_API)
 if ($LogicAppUri) {
-    # Optional outbound push of results to Logic App (if uri provided)
     try {
         $payload = $ConnectorCollection | ConvertTo-Json -Depth 6
         Write-Log INFO "Posting $($ConnectorCollection.Count) records to Logic App." 
