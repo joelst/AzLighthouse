@@ -1848,22 +1848,26 @@ else {
                 return
             }
             
-            $lastLogUtc = $statusInfo.LogMetrics.LastLogTime
-            $hoursSince = $statusInfo.HoursSinceLastLog
+            $logMetrics = if ($statusInfo.LogMetrics -is [System.Collections.IDictionary]) { $statusInfo.LogMetrics } else { @{} }
+            $trimmedName = if ($statusInfo.Name -is [string]) { $statusInfo.Name.Trim() } else { $statusInfo.Name }
+            $trimmedId = if ($statusInfo.Id -is [string]) { $statusInfo.Id.Trim() } else { $statusInfo.Id }
+            $trimmedTitle = if ($statusInfo.Title -is [string]) { $statusInfo.Title.Trim() } else { $statusInfo.Title }
+            $trimmedPublisher = if ($statusInfo.Publisher -is [string]) { $statusInfo.Publisher.Trim() } else { $statusInfo.Publisher }
+            $trimmedKind = if ($statusInfo.Kind -is [string]) { $statusInfo.Kind.Trim() } else { $statusInfo.Kind }
             [pscustomobject]@{
-                Name              = $statusInfo.Name.Trim()
-                Id                = $statusInfo.Id.Trim()
-                Title             = $statusInfo.Title.Trim()
-                Publisher         = $statusInfo.Publisher.Trim()
-                Kind              = $statusInfo.Kind.Trim()
+                Name              = $trimmedName
+                Id                = $trimmedId
+                Title             = $trimmedTitle
+                Publisher         = $trimmedPublisher
+                Kind              = $trimmedKind
                 Status            = $statusInfo.OverallStatus
-                LastLogTime       = $lastLogUtc
-                LogsLastHour      = $statusInfo.LogMetrics.LogsLastHour
-                TotalLogs24h      = $statusInfo.LogMetrics.TotalLogs24h
-                QueryStatus       = $statusInfo.LogMetrics.QueryStatus
-                HoursSinceLastLog = $hoursSince
-                IsConnected       = $statusInfo.LogMetrics.IsConnected
-                StatusDetails     = ($statusInfo.RawProperties -join ';')
+                LastLogTime       = if ($logMetrics.ContainsKey('LastLogTime')) { $logMetrics['LastLogTime'] } else { $null }
+                LogsLastHour      = if ($logMetrics.ContainsKey('LogsLastHour')) { $logMetrics['LogsLastHour'] } else { $null }
+                TotalLogs24h      = if ($logMetrics.ContainsKey('TotalLogs24h')) { $logMetrics['TotalLogs24h'] } else { $null }
+                QueryStatus       = if ($logMetrics.ContainsKey('QueryStatus')) { $logMetrics['QueryStatus'] } else { $null }
+                HoursSinceLastLog = $statusInfo.HoursSinceLastLog
+                IsConnected       = if ($logMetrics.ContainsKey('IsConnected')) { $logMetrics['IsConnected'] } else { $null }
+                StatusDetails     = if ($statusInfo.RawProperties) { ($statusInfo.RawProperties -join ';') } else { $null }
                 Workspace         = $using:WorkspaceName
                 Subscription      = $using:SubscriptionId
             }
@@ -1903,32 +1907,45 @@ else {
                 return
             }
             
+            $logMetrics = if ($statusInfo.LogMetrics -is [System.Collections.IDictionary]) { $statusInfo.LogMetrics } else { @{} }
+            $trimmedName = if ($statusInfo.Name -is [string]) { $statusInfo.Name.Trim() } else { $statusInfo.Name }
+            $trimmedKind = if ($statusInfo.Kind -is [string]) { $statusInfo.Kind.Trim() } else { $statusInfo.Kind }
+            $trimmedId = if ($statusInfo.Id -is [string]) { $statusInfo.Id.Trim() } else { $statusInfo.Id }
+            $trimmedTitle = if ($statusInfo.Title -is [string]) { $statusInfo.Title.Trim() } else { $statusInfo.Title }
+            $trimmedPublisher = if ($statusInfo.Publisher -is [string]) { $statusInfo.Publisher.Trim() } else { $statusInfo.Publisher }
             $record = [ordered]@{
-                Name              = $statusInfo.Name.Trim()
-                Kind              = $statusInfo.Kind.Trim()
-                Id                = $statusInfo.Id.Trim()
-                Title             = $statusInfo.Title.Trim()
-                Publisher         = $statusInfo.Publisher.Trim()
+                Name              = $trimmedName
+                Kind              = $trimmedKind
+                Id                = $trimmedId
+                Title             = $trimmedTitle
+                Publisher         = $trimmedPublisher
                 Status            = $statusInfo.OverallStatus
-                LastLogTime       = $statusInfo.LogMetrics.LastLogTime
-                LogsLastHour      = $statusInfo.LogMetrics.LogsLastHour
-                TotalLogs24h      = $statusInfo.LogMetrics.TotalLogs24h
-                QueryStatus       = $statusInfo.LogMetrics.QueryStatus
-                HoursSinceLastLog = $statusInfo.LogMetrics.HoursSinceLastLog
-                IsConnected       = $statusInfo.LogMetrics.IsConnected
-                NoLastLog         = $statusInfo.LogMetrics.NoLastLog
+                LastLogTime       = if ($logMetrics.ContainsKey('LastLogTime')) { $logMetrics['LastLogTime'] } else { $null }
+                LogsLastHour      = if ($logMetrics.ContainsKey('LogsLastHour')) { $logMetrics['LogsLastHour'] } else { $null }
+                TotalLogs24h      = if ($logMetrics.ContainsKey('TotalLogs24h')) { $logMetrics['TotalLogs24h'] } else { $null }
+                QueryStatus       = if ($logMetrics.ContainsKey('QueryStatus')) { $logMetrics['QueryStatus'] } else { $null }
+                HoursSinceLastLog = $statusInfo.HoursSinceLastLog
+                IsConnected       = if ($logMetrics.ContainsKey('IsConnected')) { $logMetrics['IsConnected'] } else { $null }
+                NoLastLog         = if ($logMetrics.ContainsKey('NoLastLog')) { $logMetrics['NoLastLog'] } else { $null }
                 DataTypeStatus    = @()
-                StatusDetails     = ($statusInfo.RawProperties -join '; ')
+                StatusDetails     = if ($statusInfo.RawProperties) { ($statusInfo.RawProperties -join '; ') } else { $null }
                 Workspace         = $WorkspaceName
                 Subscription      = $SubscriptionId
                 Tenant            = $TenantId
             }
-            [void]$(foreach ($key in $statusInfo.StateDetails.Keys) {
+            $stateDetails = if ($statusInfo.StateDetails -is [System.Collections.IDictionary]) { $statusInfo.StateDetails } else { $null }
+            if ($record -is [System.Collections.IDictionary] -and $stateDetails) {
+                foreach ($key in $stateDetails.Keys) {
                     # Add any additional state detail properties (dynamic set per connector)
+                    if ($null -eq $key) { continue }
                     if (-not $record.Contains($key)) {
-                        $record[$key] = $statusInfo.StateDetails[$key]
-                    } 
-                })
+                        $record[$key] = $stateDetails[$key]
+                    }
+                }
+            }
+            elseif (-not ($record -is [System.Collections.IDictionary])) {
+                Write-Log -Level WARN -Message "Connector record initialization failed (non-dictionary) for Name='$trimmedName' Id='$trimmedId'"
+            }
             $emissionCount++
             Write-Log -Level DEBUG -Message "Emitting record #$emissionCount for connector: Name='$($record.Name)' Kind='$($record.Kind)' Id='$($record.Id)'"
             # Emit the record ONCE per connector (outside the StateDetails loop)
