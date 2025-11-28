@@ -1,11 +1,12 @@
-# Pester tests for Get-MsspDataConnectorStatus components
+# Pester tests for Get-DataConnectorStatus components
 # Requires: Pester 5+
-# Run with: Invoke-Pester -Path .\Get-MsspDataConnectorStatus.Tests.ps1
+# Run with: Invoke-Pester -Path .\Get-DataConnectorStatus.Tests.ps1
 
 BeforeAll {
     # Ensure script is dot-sourced with skip flag to avoid executing the runbook logic
     $env:MSP_SKIP_CONNECTOR_RUN = '1'
     . "$PSScriptRoot\Get-DataConnectorStatus.ps1"
+    Set-Variable -Name IsArmScopeValidated -Scope Script -Value $true -Force
 }
 
 Describe 'Resolve-Connector' {
@@ -41,7 +42,7 @@ Describe 'Resolve-Connector' {
             ConnectorUiConfigPublisher = $null
         }
         $resolved = Resolve-Connector -Connector $connector
-        $resolved.Title | Should -Be 'Office 365'
+        $resolved.Title | Should -Be 'Microsoft 365 (formerly, Office 365)'
         $resolved.Publisher | Should -Be 'Microsoft'
     }
 
@@ -53,6 +54,19 @@ Describe 'Resolve-Connector' {
         }
         $resolved = Resolve-Connector -Connector $connector
         $resolved.ConnectivityKQL | Should -Not -BeNullOrEmpty
+    }
+
+    It 'Uses definition name mapping for RestApiPoller connectors regardless of source' {
+        $guidName = [guid]::NewGuid().ToString()
+        $connector = [pscustomobject]@{
+            Name                    = $guidName
+            Kind                    = 'RestApiPoller'
+            ConnectorDefinitionName = '/subscriptions/test/resourceGroups/rg/providers/Microsoft.OperationalInsights/workspaces/ws/providers/Microsoft.SecurityInsights/dataConnectorDefinitions/Office365'
+            Source                  = 'Cmdlet'
+        }
+        $resolved = Resolve-Connector -Connector $connector
+        $resolved.Id | Should -Be 'Office365'
+        $resolved.Title | Should -Be 'Microsoft 365 (formerly, Office 365)'
     }
 }
 
@@ -246,7 +260,7 @@ Describe 'Get-LogIngestionMetrics' {
         $result = Get-LogIngestionMetrics -WorkspaceCustomerId $wsId -ConnectorKind 'Kind' -ConnectorName 'Name' -ConnectorId 'ConnectorId' -ConnectivityKql 'connect'
 
         $result.IsConnected | Should -BeTrue
-        $result.QueryStatus | Should -Be 'Unknown'
+        $result.QueryStatus | Should -Be 'NoActivityKql'
     }
 
     It 'Aggregates activity query metrics and marks success' {
@@ -255,13 +269,9 @@ Describe 'Get-LogIngestionMetrics' {
         Mock Invoke-AzOperationalInsightsQuery {
             param($WorkspaceId, $Query)
             if ($Query -eq 'activity') {
-                $table = [pscustomobject]@{
-                    Columns = [pscustomobject]@{ Name = @('LastLogTime', 'LogsLastHour', 'TotalLogs24h') }
-                    Rows    = @([object[]]@($lastLog, 5, 42))
-                }
-                return @{ Tables = @($table); Error = $null }
+                return @{ Results = @(@{ LastLogTime = $lastLog; LogsLastHour = 5; TotalLogs24h = 42 }) }
             }
-            return @{ Tables = @(); Error = $null }
+            return @{ Results = @() }
         }
 
         $result = Get-LogIngestionMetrics -WorkspaceCustomerId $wsId -ConnectorKind 'Kind' -ConnectorName 'Name' -ConnectorId 'ConnectorId' -ActivityKql 'activity'
@@ -292,7 +302,8 @@ Describe 'Get-ConnectorStatus Integration' {
             
             $status = Get-ConnectorStatus -Connector $connector -WorkspaceCustomerId $wsId
             
-            $status.LogMetrics.Id | Should -Be $connector.Id
+            $status.LogMetrics.Id | Should -Be 'Office365'
+            $status.ResourceId | Should -Be $connector.Id
         }
 
         It 'Populates Title and Publisher when Id matches' {
@@ -307,7 +318,7 @@ Describe 'Get-ConnectorStatus Integration' {
             $status = Get-ConnectorStatus -Connector $connector -WorkspaceCustomerId $wsId
             
             $status.LogMetrics.Id | Should -Be 'Office365'
-            $status.LogMetrics.Title | Should -Be 'Office 365'
+            $status.LogMetrics.Title | Should -Be 'Microsoft 365 (formerly, Office 365)'
             $status.LogMetrics.Publisher | Should -Be 'Microsoft'
         }
 
@@ -323,7 +334,7 @@ Describe 'Get-ConnectorStatus Integration' {
             $status = Get-ConnectorStatus -Connector $connector -WorkspaceCustomerId $wsId
             
             $status.LogMetrics.Id | Should -Be 'different-guid-value'
-            $status.LogMetrics.Title | Should -Be 'Azure Active Directory'
+            $status.LogMetrics.Title | Should -Be 'Microsoft Entra ID'
         }
     }
 }
@@ -368,6 +379,72 @@ Describe 'Get-ConnectorStatus missing metrics behavior' {
     }
 }
 
+Describe 'Masking and URI helpers' {
+    It 'Masks all but final characters of identifier' {
+        Get-MaskedIdentifier -Value '1234567890' | Should -Be '****7890'
+    }
+
+    It 'Returns host for valid URI' {
+        Get-UriHostForLog -UriString 'https://example.contoso.com/path' | Should -Be 'example.contoso.com'
+    }
+
+    It 'Returns placeholder for invalid URI' {
+        Get-UriHostForLog -UriString 'not a uri' | Should -Be '<invalid-uri>'
+    }
+}
+
+Describe 'Submit-LogicAppResult' {
+    BeforeEach {
+        Remove-Variable -Name capturedBody -Scope Script -ErrorAction SilentlyContinue
+        Mock Invoke-RestMethod {}
+    }
+
+    It 'Rejects non-HTTPS endpoints' {
+        $result = Submit-LogicAppResult -LogicAppUri 'http://contoso.test/hook' -Payload @()
+        $result | Should -BeFalse
+        Assert-MockCalled Invoke-RestMethod -Times 0
+    }
+
+    It 'Honors WhatIf and skips Invoke-RestMethod' {
+        $result = Submit-LogicAppResult -LogicAppUri 'https://contoso.test/hook' -Payload @() -ConnectorCount 2 -WhatIf
+        $result | Should -BeTrue
+        Assert-MockCalled Invoke-RestMethod -Times 0
+    }
+
+    It 'Posts payload when HTTPS endpoint provided' {
+        Mock Invoke-RestMethod {
+            param($Uri, $Body)
+            $script:capturedBody = $Body
+        }
+
+        $payload = @([pscustomobject]@{ Name = 'ConnectorA'; Status = 'Active' })
+        $result = Submit-LogicAppResult -LogicAppUri 'https://contoso.test/hook' -Payload $payload -ConnectorCount 1 -Confirm:$false
+
+        $result | Should -BeTrue
+        Assert-MockCalled Invoke-RestMethod -Times 1 -Exactly
+        $script:capturedBody | Should -Match 'ConnectorA'
+    }
+}
+
+Describe 'Get-RestErrorDiagnostics' {
+    It 'Extracts status, activity id, and body snippet' {
+        $response = [pscustomobject]@{
+            StatusCode = 429
+            Headers    = @{ 'x-ms-activity-id' = 'activity123'; 'x-ms-request-id' = 'request456' }
+            Content    = '{"error":"too many"}'
+        }
+        $exception = [System.Exception]::new('REST failure')
+        Add-Member -InputObject $exception -MemberType NoteProperty -Name Response -Value $response -Force
+        $errorRecord = [System.Management.Automation.ErrorRecord]::new($exception, 'TestFailure', [System.Management.Automation.ErrorCategory]::InvalidOperation, $null)
+
+        $diag = Get-RestErrorDiagnostics -ErrorRecord $errorRecord
+        $diag.StatusCode | Should -Be 429
+        $diag.ActivityId | Should -Be 'activity123'
+        $diag.RequestId | Should -Be 'request456'
+        $diag.Body | Should -Match 'too many'
+    }
+}
+
 Describe 'ConnectorInfo Array Structure' {
     It 'Contains expected connector entries' {
         $ConnectorInfo | Should -Not -BeNullOrEmpty
@@ -391,16 +468,16 @@ Describe 'ConnectorInfo Array Structure' {
     It 'Office365 entry exists with correct structure' {
         $office365 = $ConnectorInfo | Where-Object { $_.Id -eq 'Office365' }
         $office365 | Should -Not -BeNullOrEmpty
-        $office365.Title | Should -Be 'Office 365'
+        $office365.Title | Should -Be 'Microsoft 365 (formerly, Office 365)'
         $office365.Publisher | Should -Be 'Microsoft'
-        $office365.Kql | Should -Match 'OfficeActivity'
+        $office365.ActivityKql | Should -Match 'OfficeActivity'
     }
 
     It 'AzureActiveDirectory entry exists with correct structure' {
         $aad = $ConnectorInfo | Where-Object { $_.Id -eq 'AzureActiveDirectory' }
         $aad | Should -Not -BeNullOrEmpty
-        $aad.Title | Should -Be 'Azure Active Directory'
+        $aad.Title | Should -Be 'Microsoft Entra ID'
         $aad.Publisher | Should -Be 'Microsoft'
-        $aad.Kql | Should -Match 'SigninLogs'
+        $aad.ActivityKql | Should -Match 'SigninLogs'
     }
 }
