@@ -555,6 +555,72 @@ function Confirm-WorkspaceScope {
     return $true
 }
 
+function ConvertTo-NullableBool {
+    param($Value)
+
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [bool]) { return [bool]$Value }
+    if ($Value -is [int] -or $Value -is [long]) {
+        if ($Value -eq 1) { return $true }
+        if ($Value -eq 0) { return $false }
+    }
+    $text = $Value.ToString()
+    if ([string]::IsNullOrWhiteSpace($text)) { return $null }
+    switch ($text.Trim().ToLower()) {
+        'true' { return $true }
+        '1' { return $true }
+        'yes' { return $true }
+        'false' { return $false }
+        '0' { return $false }
+        'no' { return $false }
+    }
+    return $null
+}
+
+function Get-IsConnectedStateFromResult {
+    param([object]$QueryResult)
+
+    $state = [pscustomobject]@{
+        Observed    = $false
+        IsConnected = $false
+    }
+    if (-not $QueryResult) { return $state }
+
+    if ($QueryResult.Tables -and $QueryResult.Tables.Count -gt 0) {
+        foreach ($tableObj in $QueryResult.Tables) {
+            $idxIsConnected = [Array]::IndexOf($tableObj.Columns.Name, 'IsConnected')
+            if ($idxIsConnected -lt 0 -or $tableObj.Rows.Count -eq 0) { continue }
+            foreach ($row in $tableObj.Rows) {
+                $parsedValue = ConvertTo-NullableBool -Value $row[$idxIsConnected]
+                if ($null -eq $parsedValue) { continue }
+                $state.Observed = $true
+                if ($parsedValue) {
+                    $state.IsConnected = $true
+                    return $state
+                }
+            }
+        }
+    }
+
+    if ($QueryResult.Results -and $QueryResult.Results.Count -gt 0) {
+        foreach ($record in $QueryResult.Results) {
+            $candidate = $null
+            if ($record.PSObject.Properties.Name -contains 'IsConnected') { $candidate = $record.IsConnected }
+            elseif ($record -is [System.Collections.IDictionary] -and $record.Contains('IsConnected')) { $candidate = $record['IsConnected'] }
+            if ($null -eq $candidate) { continue }
+            $parsedValue = ConvertTo-NullableBool -Value $candidate
+            if ($null -eq $parsedValue) { continue }
+            $state.Observed = $true
+            if ($parsedValue) {
+                $state.IsConnected = $true
+                return $state
+            }
+        }
+    }
+
+    return $state
+}
+
 function Get-HttpStatusCode {
     param([object]$Response)
 
@@ -1876,30 +1942,17 @@ function Get-ConnectivityResults {
             } -MaxAttempts 2 -InitialDelaySeconds 1
             
             if (-not $queryResult.Error) {
-                # Parse the result to determine connectivity
-                $isConnected = $false
-                if ($queryResult.Tables -and $queryResult.Tables.Count -gt 0) {
-                    foreach ($table in $queryResult.Tables) {
-                        if ($table.Rows.Count -gt 0) {
-                            $row = $table.Rows[0]
-                            $cols = $table.Columns.Name
-                            $isConnectedIdx = [Array]::IndexOf($cols, 'IsConnected')
-                            if ($isConnectedIdx -ge 0 -and $row[$isConnectedIdx] -is [bool]) {
-                                $isConnected = [bool]$row[$isConnectedIdx]
-                            }
-                            elseif ($isConnectedIdx -ge 0) {
-                                # Try to parse as string boolean
-                                $val = $row[$isConnectedIdx].ToString().ToLower()
-                                $isConnected = $val -eq 'true' -or $val -eq '1'
-                            }
-                        }
-                    }
+                $connectivityState = Get-IsConnectedStateFromResult -QueryResult $queryResult
+
+                if (-not $connectivityState.Observed) {
+                    Write-Log -Level DEBUG -Message "Connectivity criteria $i for '$ConnectorName': no IsConnected column detected in result."
+                }
+                else {
+                    Write-Log -Level DEBUG -Message "Connectivity criteria $i for '$ConnectorName': IsConnected=$($connectivityState.IsConnected)"
                 }
                 
-                Write-Log -Level DEBUG -Message "Connectivity criteria $i for '$ConnectorName': IsConnected=$isConnected"
-                
                 # If ANY query returns true, set overall result to true
-                if ($isConnected) {
+                if ($connectivityState.IsConnected) {
                     $overallConnected = $true
                     Write-Log -Level DEBUG -Message "Overall connectivity for '$ConnectorName': true (criteria $i passed)"
                     # Continue checking remaining queries for completeness but result is already true
@@ -2021,27 +2074,6 @@ function Get-LogIngestionMetrics {
     if ($connectivityQueries.Count -gt 0) {
         Write-Log -Level DEBUG -Message "Executing $($connectivityQueries.Count) ConnectivityKql quer(y/ies) for '$ConnectorName'"
 
-        $convertToBool = {
-            param($raw)
-            if ($null -eq $raw) { return $null }
-            if ($raw -is [bool]) { return [bool]$raw }
-            if ($raw -is [int] -or $raw -is [long]) {
-                if ($raw -eq 1) { return $true }
-                if ($raw -eq 0) { return $false }
-            }
-            $text = $raw.ToString()
-            if ([string]::IsNullOrWhiteSpace($text)) { return $null }
-            switch ($text.Trim().ToLower()) {
-                'true' { return $true }
-                '1' { return $true }
-                'yes' { return $true }
-                'false' { return $false }
-                '0' { return $false }
-                'no' { return $false }
-            }
-            return $null
-        }
-
         for ($i = 0; $i -lt $connectivityQueries.Count; $i++) {
             $kqlQuery = $connectivityQueries[$i]
             $queryLabel = if ($connectivityQueries.Count -gt 1) { "[Connectivity $($i+1)/$($connectivityQueries.Count)]" } else { "[Connectivity]" }
@@ -2055,55 +2087,16 @@ function Get-LogIngestionMetrics {
                 } -MaxAttempts 2 -InitialDelaySeconds 1
                 
                 if ($result -and -not $result.Error) {
-                    $isConnected = $false
-                    $valueObserved = $false
-                    $stopProcessing = $false
+                    $connectivityState = Get-IsConnectedStateFromResult -QueryResult $result
 
-                    if ($result.Tables -and $result.Tables.Count -gt 0) {
-                        foreach ($tableObj in $result.Tables) {
-                            if ($stopProcessing) { break }
-                            $idxIsConnected = [Array]::IndexOf($tableObj.Columns.Name, 'IsConnected')
-                            if ($idxIsConnected -lt 0 -or $tableObj.Rows.Count -eq 0) { continue }
-
-                            foreach ($row in $tableObj.Rows) {
-                                $parsedValue = & $convertToBool $row[$idxIsConnected]
-                                if ($null -ne $parsedValue) {
-                                    $valueObserved = $true
-                                    if ($parsedValue) {
-                                        $isConnected = $true
-                                        $stopProcessing = $true
-                                        break
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (-not $stopProcessing -and $result.Results -and $result.Results.Count -gt 0) {
-                        foreach ($record in $result.Results) {
-                            $candidate = $null
-                            if ($record.PSObject.Properties.Name -contains 'IsConnected') { $candidate = $record.IsConnected }
-                            elseif ($record -is [System.Collections.IDictionary] -and $record.Contains('IsConnected')) { $candidate = $record['IsConnected'] }
-                            if ($null -eq $candidate) { continue }
-                            $parsedValue = & $convertToBool $candidate
-                            if ($null -ne $parsedValue) {
-                                $valueObserved = $true
-                                if ($parsedValue) {
-                                    $isConnected = $true
-                                    break
-                                }
-                            }
-                        }
-                    }
-
-                    if (-not $valueObserved) {
+                    if (-not $connectivityState.Observed) {
                         Write-Log -Level DEBUG -Message "$queryLabel for '$ConnectorName': no IsConnected column detected in result."
                     }
                     else {
-                        Write-Log -Level DEBUG -Message "$queryLabel for '$ConnectorName': IsConnected=$isConnected"
+                        Write-Log -Level DEBUG -Message "$queryLabel for '$ConnectorName': IsConnected=$($connectivityState.IsConnected)"
                     }
 
-                    if ($isConnected) {
+                    if ($connectivityState.IsConnected) {
                         $metrics.IsConnected = $true
                         Write-Log -Level DEBUG -Message "Connectivity established for '$ConnectorName' via query $($i+1)"
                     }
