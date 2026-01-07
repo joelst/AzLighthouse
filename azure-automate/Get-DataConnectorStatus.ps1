@@ -1,3 +1,6 @@
+#requires -Version 7.0
+#requires -Modules Az.Accounts, Az.Resources, Az.Monitor, Az.SecurityInsights
+
 <#
 .SYNOPSIS
   Microsoft Sentinel Data Connectors management & health runbook.
@@ -28,11 +31,11 @@
   Enhanced connector mappings include hardcoded metadata (Id, Title, Publisher, ConnectivityCriteria) and custom KQL queries.
 
  .PARAMETER VerboseLogging
-     Enables DEBUG level log output.
+     Accepts boolean-like values (true/false, yes/no, 1/0). Enables DEBUG level log output when true.
  .PARAMETER WhatIf
      Prevents destructive/privileged changes (e.g., role assignment).
  .PARAMETER FailOnQueryErrors
-     Exit with code 2 if any connector KQL query fails after retries.
+     Accepts boolean-like values (true/false, yes/no, 1/0). When true, exits with code 2 if any connector KQL query fails after retries.
  .PARAMETER KindFilter
      One or more connector kinds to include (post-resolution). If supplied, only these kinds are processed.
  .PARAMETER NameFilter
@@ -40,7 +43,7 @@
  .PARAMETER ExcludeStatus
      One or more final status values to exclude from emitted collection (e.g. Disabled,ConfiguredButNoLogs).
  .PARAMETER Parallel
-     When specified, process connectors concurrently using ForEach-Object -Parallel.
+     Accepts boolean-like values (true/false, yes/no, 1/0). When true, processes connectors concurrently using ForEach-Object -Parallel.
  .PARAMETER ThrottleLimit
      Maximum number of concurrent connector queries when -Parallel is used. Default 4.
 .NOTES
@@ -80,26 +83,48 @@
 # Requires Az.Accounts, Az.Resources, Az.Monitor, Az.SecurityInsights modules.
 # Tested in Azure Automation with PowerShell 7.4 runtime.
 # Can also be run locally by providing SubscriptionId, ResourceGroupName, and WorkspaceName parameters.
+[CmdletBinding()]
 param(
-    [switch] $VerboseLogging,
+    [object] $VerboseLogging = 'false',
     [switch] $WhatIf,
-    [switch] $FailOnQueryErrors,
+    [Alias('FailOnQueryFailures')]
+    [object] $FailOnQueryErrors = 'false',
     [string[]] $KindFilter,
     [string[]] $NameFilter,
     [string[]] $ExcludeStatus,
-    [switch] $Parallel,
+    [object] $Parallel = 'false',
     [int] $ThrottleLimit = 4,
     
     # Local execution parameters (override automation variables)
     [string] $SubscriptionId,
     [string] $ResourceGroupName,
     [string] $WorkspaceName,
-    [string] $LogicAppUri
+    [string] $LogicAppUri,
+    [switch] $AllowModuleInstall,
+    [switch] $AllowCrossTenantScope
 )
+
+$script:SecurityInsightsDataConnectorApiVersion = '2025-09-01'
+$script:SecurityInsightsDefinitionApiVersion   = '2025-09-01'
+$script:DataConnectorDefinitionCache           = @{}
+$script:IsArmScopeValidated                    = $false
+$script:AllowModuleAutoInstall                 = $false
 
 # This provides a way to collect all logs for a single run via the RunId correlation id.
 # Correlation Run Id (32 hex chars) for this execution. Appended to all log lines.
 $script:RunId = [guid]::NewGuid().ToString('N')
+$TenantId = $null
+
+if ($PSBoundParameters.ContainsKey('Verbose') -and -not $PSBoundParameters.ContainsKey('VerboseLogging')) {
+    $VerboseLogging = 'true'
+}
+elseif (-not $PSBoundParameters.ContainsKey('VerboseLogging') -and $VerbosePreference -eq 'Continue') {
+    $VerboseLogging = 'true'
+}
+
+if ($AllowModuleInstall.IsPresent) {
+    $script:AllowModuleAutoInstall = $true
+}
 
 # Record run start timestamp (UTC) early for later duration computatio
 if (-not $RunStartUtc) { $RunStartUtc = (Get-Date).ToUniversalTime() }
@@ -126,9 +151,19 @@ $ConnectorInfo = @(
         ConnectivityKql = 'AWSCloudTrail | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
         ActivityKql     = 'AWSCloudTrail | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
     },
-    @{
+@{
         Id              = 'AWS'
         Title           = 'Amazon Web Services'
+        Publisher       = 'Amazon'
+        ConnectivityKql = @(
+            'AWSCloudTrail | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)',
+            'AWSGuardDuty | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        ActivityKql     = 'union isfuzzy=true AWSGuardDuty, AWSCloudTrail | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
+    @{
+        Id              = 'AmazonWebServicesS3'
+        Title           = 'Amazon Web Services S3'
         Publisher       = 'Amazon'
         ConnectivityKql = @(
             'AWSCloudTrail | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)',
@@ -173,8 +208,9 @@ $ConnectorInfo = @(
         Title           = 'Subscription-based Microsoft Defender for Cloud (Legacy)'
         Publisher       = 'Microsoft'
         ConnectivityKql = @(
-            'SecurityAlert | where ProductName == "Azure Security Center" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)',
-            'SecurityRecommendation | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+            'SecurityAlert | where ProductName == "Azure Security Center" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+            #,
+            #'SecurityRecommendation | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
         )
         ActivityKql     = 'SecurityAlert | where TimeGenerated >= ago(7d) | where ProductName == "Azure Security Center" | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
     },
@@ -233,7 +269,16 @@ $ConnectorInfo = @(
         Publisher       = 'Google'
         ConnectivityKql = 'GCP_IAM_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
         ActivityKql     = 'GCP_IAM_CL | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
-    }, 
+    },
+    @{
+        Id              = 'GoogleWorkspaceCCPDefinition'
+        Title           = 'Google Workspace Activities (via Codeless Connector Framework)'
+        Publisher       = 'Microsoft'
+        ConnectivityKql = @(
+            'GoogleWorkspaceActivities_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        )
+        ActivityKql = 'GoogleWorkspaceActivities_CL | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
     @{
         Id              = 'MicrosoftCloudAppSecurity'
         Title           = 'Microsoft Defender for Cloud Apps'
@@ -329,6 +374,16 @@ $ConnectorInfo = @(
         ActivityKql     = 'SecurityEvent | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
     }, 
     @{
+        Id              = 'SlackAuditLogsCCPDefinition'
+        Title           = 'SlackAudit (via Codeless Connector Framework)'
+        Publisher       = 'Microsoft'
+        ConnectivityKql = @(
+            'SlackAuditV2_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(30d)',
+            'SlackAuditV2_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(30d)'
+        )
+        ActivityKql     = 'union isfuzzy=true SlackAuditV2_CL, SlackAuditV2_CL | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
+    @{
         Id              = 'Syslog'
         Title           = 'Syslog'
         Publisher       = 'Microsoft'
@@ -391,7 +446,7 @@ function Write-Log {
   .SYNOPSIS
   Writes a structured log line with timestamp and level.
   .DESCRIPTION
-  Outputs a log entry formatted as [ISO8601][LEVEL] with optional correlation id. DEBUG messages suppressed unless -VerboseLogging switch is set.
+    Outputs a log entry formatted as [ISO8601][LEVEL] with optional correlation id. DEBUG messages are suppressed unless VerboseLogging is true. WARN levels emit via Write-Warning and ERROR via Write-Error so Azure Automation surfaces them clearly.
   .PARAMETER Level
   Log severity: INFO, WARN, ERROR, DEBUG.
   .PARAMETER Message
@@ -412,7 +467,397 @@ function Write-Log {
     $ts = (Get-Date).ToUniversalTime().ToString('s') + 'Z'
     $cid = if ($CorrelationId) { " corr=$CorrelationId" } else { '' }
     if ($Level -eq 'DEBUG' -and -not $VerboseLogging) { return }
-    Write-Information "[$ts][$Level]$cid $Message"
+    $formatted = "[$ts][$Level]$cid $Message"
+    switch ($Level) {
+        'ERROR' { Write-Error -Message $formatted -ErrorAction Continue }
+        'WARN'  { Write-Warning $formatted }
+        default { Write-Information $formatted }
+    }
+}
+
+function Get-MaskedIdentifier {
+    param(
+        [string]$Value,
+        [int]$VisibleCount = 4
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return '<null>'
+    }
+
+    $trimmed = $Value.Trim()
+    if ($trimmed.Length -le $VisibleCount) {
+        return "****$trimmed"
+    }
+
+    $suffix = $trimmed.Substring($trimmed.Length - $VisibleCount)
+    return "****$suffix"
+}
+
+function Get-UriHostForLog {
+    param(
+        [string]$UriString
+    )
+
+    if ([string]::IsNullOrWhiteSpace($UriString)) {
+        return '<null>'
+    }
+
+    try {
+        $uri = [Uri]$UriString
+        if (-not $uri.Host) {
+            return '<invalid-uri>'
+        }
+        return $uri.Host
+    }
+    catch {
+        return '<invalid-uri>'
+    }
+}
+
+function Confirm-SubscriptionScope {
+    param(
+        [string]$SubscriptionId,
+        [string]$TenantId,
+        [switch]$AllowCrossTenantScope
+    )
+
+    if ([string]::IsNullOrWhiteSpace($SubscriptionId)) { return $false }
+    try {
+        $subscription = Get-AzSubscription -SubscriptionId $SubscriptionId -ErrorAction Stop
+    }
+    catch {
+        throw "Unable to read subscription '$SubscriptionId': $($_.Exception.Message)"
+    }
+
+    if (-not $AllowCrossTenantScope -and $TenantId -and $subscription.TenantId -and ($subscription.TenantId.ToString() -ne $TenantId)) {
+        $maskedSubTenant = Get-MaskedIdentifier -Value $subscription.TenantId
+        $maskedActiveTenant = Get-MaskedIdentifier -Value $TenantId
+        throw "Subscription tenant ($maskedSubTenant) differs from active tenant ($maskedActiveTenant). Use -AllowCrossTenantScope to override."
+    }
+    return $true
+}
+
+function Confirm-WorkspaceScope {
+    param(
+        [string]$WorkspaceResourceId,
+        [string]$SubscriptionId,
+        [string]$ResourceGroupName,
+        [string]$WorkspaceName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($WorkspaceResourceId)) { return $false }
+    $expected = "/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/microsoft.operationalinsights/workspaces/$WorkspaceName"
+    if ($WorkspaceResourceId.ToLowerInvariant() -ne $expected.ToLowerInvariant()) {
+        Write-Log -Level WARN -Message "Workspace scope mismatch. Expected '$expected' but resolved '$WorkspaceResourceId'."
+        return $false
+    }
+    return $true
+}
+
+function ConvertTo-NullableBool {
+    param($Value)
+
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [bool]) { return [bool]$Value }
+    if ($Value -is [int] -or $Value -is [long]) {
+        if ($Value -eq 1) { return $true }
+        if ($Value -eq 0) { return $false }
+    }
+    $text = $Value.ToString()
+    if ([string]::IsNullOrWhiteSpace($text)) { return $null }
+    switch ($text.Trim().ToLower()) {
+        'true' { return $true }
+        '1' { return $true }
+        'yes' { return $true }
+        'false' { return $false }
+        '0' { return $false }
+        'no' { return $false }
+    }
+    return $null
+}
+
+function Get-IsConnectedStateFromResult {
+    param([object]$QueryResult)
+
+    $state = [pscustomobject]@{
+        Observed    = $false
+        IsConnected = $false
+    }
+    if (-not $QueryResult) { return $state }
+
+    if ($QueryResult.Tables -and $QueryResult.Tables.Count -gt 0) {
+        foreach ($tableObj in $QueryResult.Tables) {
+            $idxIsConnected = [Array]::IndexOf($tableObj.Columns.Name, 'IsConnected')
+            if ($idxIsConnected -lt 0 -or $tableObj.Rows.Count -eq 0) { continue }
+            foreach ($row in $tableObj.Rows) {
+                $parsedValue = ConvertTo-NullableBool -Value $row[$idxIsConnected]
+                if ($null -eq $parsedValue) { continue }
+                $state.Observed = $true
+                if ($parsedValue) {
+                    $state.IsConnected = $true
+                    return $state
+                }
+            }
+        }
+    }
+
+    if ($QueryResult.Results -and $QueryResult.Results.Count -gt 0) {
+        foreach ($record in $QueryResult.Results) {
+            $candidate = $null
+            if ($record.PSObject.Properties.Name -contains 'IsConnected') { $candidate = $record.IsConnected }
+            elseif ($record -is [System.Collections.IDictionary] -and $record.Contains('IsConnected')) { $candidate = $record['IsConnected'] }
+            if ($null -eq $candidate) { continue }
+            $parsedValue = ConvertTo-NullableBool -Value $candidate
+            if ($null -eq $parsedValue) { continue }
+            $state.Observed = $true
+            if ($parsedValue) {
+                $state.IsConnected = $true
+                return $state
+            }
+        }
+    }
+
+    return $state
+}
+
+function Get-HttpStatusCode {
+    param([object]$Response)
+
+    if (-not $Response) { return $null }
+    $statusProperty = $Response.PSObject.Properties['StatusCode']
+    if (-not $statusProperty) { return $null }
+    $value = $statusProperty.Value
+    if ($null -eq $value) { return $null }
+    if ($value -is [int]) { return $value }
+    if ($value -is [System.Net.HttpStatusCode]) { return [int]$value }
+    $stringValue = $value.ToString()
+    [int]$parsedValue = 0
+    if ([int]::TryParse($stringValue, [ref]$parsedValue)) { return $parsedValue }
+    return $stringValue
+}
+
+function Get-HttpHeaderValue {
+    param(
+        [object]$Response,
+        [string]$HeaderName
+    )
+
+    if (-not $Response -or [string]::IsNullOrWhiteSpace($HeaderName)) {
+        return $null
+    }
+
+    $headers = $null
+    if ($Response.PSObject.Properties.Name -contains 'Headers') { $headers = $Response.Headers }
+    elseif ($Response.PSObject.Properties.Name -contains 'headers') { $headers = $Response.headers }
+    if (-not $headers) { return $null }
+
+    if ($headers -is [System.Collections.IDictionary]) {
+        foreach ($key in $headers.Keys) {
+            if ([string]::Equals($key, $HeaderName, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $value = $headers[$key]
+                if ($value -is [System.Collections.IEnumerable] -and -not ($value -is [string])) {
+                    return ($value | Select-Object -First 1)
+                }
+                return $value
+            }
+        }
+    }
+    else {
+        foreach ($prop in $headers.PSObject.Properties) {
+            if ([string]::Equals($prop.Name, $HeaderName, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $value = $prop.Value
+                if ($value -is [System.Collections.IEnumerable] -and -not ($value -is [string])) {
+                    return ($value | Select-Object -First 1)
+                }
+                return $value
+            }
+        }
+    }
+    return $null
+}
+
+function Get-ExceptionHttpResponse {
+    param([System.Exception]$Exception)
+
+    $current = $Exception
+    while ($current) {
+        if ($current.PSObject.Properties.Name -contains 'Response' -and $current.Response) {
+            return $current.Response
+        }
+        $current = $current.InnerException
+    }
+    return $null
+}
+
+function Get-ResponseBodySnippet {
+    param(
+        [object]$Response,
+        [int]$MaxLength = 512
+    )
+
+    if (-not $Response) { return $null }
+    $rawContent = $null
+    if ($Response -is [string]) {
+        $rawContent = $Response
+    }
+    elseif ($Response.PSObject.Properties.Name -contains 'Content') {
+        $contentValue = $Response.Content
+        if ($contentValue -is [string]) {
+            $rawContent = $contentValue
+        }
+        elseif ($contentValue -is [System.Net.Http.HttpContent]) {
+            try { $rawContent = $contentValue.ReadAsStringAsync().GetAwaiter().GetResult() }
+            catch { $rawContent = $null }
+        }
+        elseif ($contentValue) {
+            $rawContent = $contentValue.ToString()
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($rawContent)) { return $null }
+    $trimmed = $rawContent.Trim()
+    if ($trimmed.Length -gt $MaxLength) {
+        return $trimmed.Substring(0, $MaxLength) + '...'
+    }
+    return $trimmed
+}
+
+function Get-RestErrorDiagnostics {
+    param([System.Management.Automation.ErrorRecord]$ErrorRecord)
+
+    if (-not $ErrorRecord) { return $null }
+    $response = Get-ExceptionHttpResponse -Exception $ErrorRecord.Exception
+    if (-not $response) {
+        return [pscustomobject]@{}
+    }
+
+    return [pscustomobject]@{
+        StatusCode = Get-HttpStatusCode -Response $response
+        ActivityId = Get-HttpHeaderValue -Response $response -HeaderName 'x-ms-activity-id'
+        RequestId  = Get-HttpHeaderValue -Response $response -HeaderName 'x-ms-request-id'
+        Body       = Get-ResponseBodySnippet -Response $response -MaxLength 512
+    }
+}
+
+function Submit-LogicAppResult {
+    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
+    param(
+        [Parameter(Mandatory)][string]$LogicAppUri,
+        [Parameter(Mandatory)][object]$Payload,
+        [int]$ConnectorCount = 0
+    )
+
+    if ([string]::IsNullOrWhiteSpace($LogicAppUri)) {
+        Write-Log -Level WARN -Message 'Logic App URI is empty; skipping submission.'
+        return $false
+    }
+
+    try { $parsedUri = [Uri]$LogicAppUri }
+    catch {
+        Write-Log -Level ERROR -Message "Logic App URI is invalid: $($_.Exception.Message)"
+        return $false
+    }
+
+    if ($parsedUri.Scheme -ne 'https') {
+        Write-Log -Level ERROR -Message 'Logic App URI must use HTTPS. Submission aborted.'
+        return $false
+    }
+
+    $logicAppHost = $parsedUri.Host
+    if (-not $ConnectorCount -and ($Payload -is [System.Collections.ICollection])) {
+        $ConnectorCount = $Payload.Count
+    }
+    if (-not $ConnectorCount -and ($Payload -is [array])) {
+        $ConnectorCount = $Payload.Length
+    }
+
+    $actionDescription = "POST $ConnectorCount record(s)"
+    $actionTarget = "Logic App host '$logicAppHost'"
+    if (-not $PSCmdlet.ShouldProcess($actionTarget, $actionDescription)) {
+        Write-Log -Level INFO -Message "WhatIf: Would $actionDescription to $actionTarget."
+        return $true
+    }
+
+    $payloadJson = $Payload
+    if ($Payload -isnot [string]) {
+        $payloadJson = $Payload | ConvertTo-Json -Depth 6
+    }
+
+    try {
+        Write-Log -Level INFO -Message "Posting $ConnectorCount record(s) to Logic App host '$logicAppHost'."
+        Invoke-RestMethod -Method Post -Uri $parsedUri.AbsoluteUri -Body $payloadJson -ContentType 'application/json' -ErrorAction Stop | Out-Null
+        Write-Log -Level INFO -Message 'Logic App post succeeded.'
+        return $true
+    }
+    catch {
+        $diag = Get-RestErrorDiagnostics -ErrorRecord $_
+        $statusLabel = if ($diag.StatusCode) { $diag.StatusCode } else { 'unknown' }
+        $activityLabel = if ($diag.ActivityId) { $diag.ActivityId }
+        elseif ($diag.RequestId) { $diag.RequestId } else { 'n/a' }
+        $errorSummary = "Logic App post failed (host='{0}') status={1} activityId={2}: {3}" -f $logicAppHost, $statusLabel, $activityLabel, $_.Exception.Message
+        Write-Log -Level ERROR -Message $errorSummary
+        if ($diag.Body) {
+            Write-Log -Level DEBUG -Message "Logic App diagnostics snippet: $($diag.Body)"
+        }
+        return $false
+    }
+}
+
+function Resolve-BoolInput {
+    <#
+  .SYNOPSIS
+  Converts flexible inputs (string, numeric, switch) to a boolean value.
+  .DESCRIPTION
+  Allows Azure Automation string parameters ("true", "1", "yes") to map to boolean flags. Throws when input cannot be parsed.
+  .PARAMETER Value
+  The incoming value to convert.
+  .PARAMETER Default
+  Boolean fallback when Value is null/empty.
+  .PARAMETER ParameterName
+  Name of the parameter being converted (for error messaging).
+  #>
+    param(
+        [Parameter()][AllowNull()][object]$Value,
+        [bool]$Default = $false,
+        [string]$ParameterName = 'Parameter'
+    )
+
+    if ($null -eq $Value) {
+        return $Default
+    }
+
+    if ($Value -is [bool]) {
+        return [bool]$Value
+    }
+
+    if ($Value -is [System.Management.Automation.SwitchParameter]) {
+        return [bool]$Value
+    }
+
+    if ($Value -is [int] -or $Value -is [long]) {
+        return ($Value -ne 0)
+    }
+
+    if ($Value -is [string]) {
+        $text = $Value.Trim()
+        if ([string]::IsNullOrWhiteSpace($text)) {
+            return $Default
+        }
+        switch ($text.ToLower()) {
+            'true' { return $true }
+            'false' { return $false }
+            '1' { return $true }
+            '0' { return $false }
+            'yes' { return $true }
+            'no' { return $false }
+            'on' { return $true }
+            'off' { return $false }
+        }
+        throw "Unable to parse '$Value' for $ParameterName. Use true/false, yes/no, on/off, or 1/0."
+    }
+
+    throw "Unsupported value '$Value' for $ParameterName. Provide a boolean, number, switch, or string (true/false)."
 }
 
 function Invoke-WithRetry {
@@ -457,7 +902,582 @@ function Invoke-WithRetry {
             $delay = [Math]::Min($delay * 2, 30)
         }
     }
-    if ($lastError) { throw "${OperationName} failed after $MaxAttempts attempts: $($lastError.Exception.Message)" }
+    if ($lastError) {
+        Write-Log -Level ERROR -Message "${OperationName} failed after $MaxAttempts attempts: $($lastError.Exception.Message)"
+        throw $lastError
+    }
+}
+
+function Get-ConnectorLookupKeys {
+    <#
+      .SYNOPSIS
+      Produces case-insensitive lookup keys for a connector object.
+      .DESCRIPTION
+      Generates keys based on Id and Name so we can detect duplicates between
+      cmdlet and REST responses even when one of the fields is missing.
+      .PARAMETER Connector
+      Connector object from either Get-AzSentinelDataConnector or the REST API.
+      .OUTPUTS
+      String array containing zero or more key tokens.
+    #>
+    param([Parameter(Mandatory)][object]$Connector)
+
+    $keys = @()
+    $idValue = $null
+    if ($Connector.PSObject.Properties.Name -contains 'Id') { $idValue = $Connector.Id }
+    elseif ($Connector.PSObject.Properties.Name -contains 'id') { $idValue = $Connector.id }
+    if ($idValue) {
+        try {
+            $idString = [string]$idValue
+            if (-not [string]::IsNullOrWhiteSpace($idString)) {
+                $normalizedId = $idString.ToLowerInvariant()
+                $keys += "id::$normalizedId"
+            }
+        }
+        catch {}
+    }
+    $nameValue = $null
+    if ($Connector.PSObject.Properties.Name -contains 'Name') { $nameValue = $Connector.Name }
+    elseif ($Connector.PSObject.Properties.Name -contains 'name') { $nameValue = $Connector.name }
+    if ($nameValue) {
+        try {
+            $nameString = [string]$nameValue
+            if (-not [string]::IsNullOrWhiteSpace($nameString)) {
+                $normalizedName = $nameString.ToLowerInvariant()
+                $keys += "name::$normalizedName"
+            }
+        }
+        catch {}
+    }
+    return $keys | Where-Object { $_ }
+}
+
+function New-DataConnectorApiUri {
+    <#
+      .SYNOPSIS
+      Builds a properly encoded Azure Resource Manager URI for Sentinel data connectors.
+      .DESCRIPTION
+      Uses System.UriBuilder to ensure workspace, resource group, and connector ids are safely encoded.
+      .PARAMETER SubscriptionId
+      Azure subscription id hosting the workspace.
+      .PARAMETER ResourceGroupName
+      Resource group containing the Log Analytics workspace.
+      .PARAMETER WorkspaceName
+      Name of the Log Analytics workspace.
+      .PARAMETER ConnectorId
+      Optional connector id for detail calls; omit for list calls.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$SubscriptionId,
+        [Parameter(Mandatory)][string]$ResourceGroupName,
+        [Parameter(Mandatory)][string]$WorkspaceName,
+        [string]$ConnectorId
+    )
+
+    $segments = @(
+        'subscriptions', $SubscriptionId,
+        'resourceGroups', $ResourceGroupName,
+        'providers', 'Microsoft.OperationalInsights',
+        'workspaces', $WorkspaceName,
+        'providers', 'Microsoft.SecurityInsights',
+        'dataConnectors'
+    )
+    if ($ConnectorId) { $segments += $ConnectorId }
+
+    $encodedSegments = $segments | ForEach-Object { [System.Uri]::EscapeDataString([string]$_) }
+    $builder = [System.UriBuilder]'https://management.azure.com/'
+    $builder.Path = ($encodedSegments -join '/')
+    $builder.Query = "api-version=$script:SecurityInsightsDataConnectorApiVersion"
+    return $builder.Uri.AbsoluteUri
+}
+
+function New-DataConnectorDefinitionApiUri {
+    <#
+      .SYNOPSIS
+      Builds the ARM URI for Sentinel data connector definitions.
+      .DESCRIPTION
+      Mirrors New-DataConnectorApiUri but targets the dataConnectorDefinitions collection so we can hydrate metadata.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$SubscriptionId,
+        [Parameter(Mandatory)][string]$ResourceGroupName,
+        [Parameter(Mandatory)][string]$WorkspaceName,
+        [string]$DefinitionName
+    )
+
+    $segments = @(
+        'subscriptions', $SubscriptionId,
+        'resourceGroups', $ResourceGroupName,
+        'providers', 'Microsoft.OperationalInsights',
+        'workspaces', $WorkspaceName,
+        'providers', 'Microsoft.SecurityInsights',
+        'dataConnectorDefinitions'
+    )
+    if ($DefinitionName) { $segments += $DefinitionName }
+
+    $encodedSegments = $segments | ForEach-Object { [System.Uri]::EscapeDataString([string]$_) }
+    $builder = [System.UriBuilder]'https://management.azure.com/'
+    $builder.Path = ($encodedSegments -join '/')
+    $builder.Query = "api-version=$script:SecurityInsightsDefinitionApiVersion"
+    return $builder.Uri.AbsoluteUri
+}
+
+function Get-RestDataConnectors {
+    <#
+      .SYNOPSIS
+      Retrieves Sentinel data connectors via the ARM REST API.
+      .DESCRIPTION
+      Enumerates all connectors for the specified workspace, following nextLink pagination.
+      .PARAMETER SubscriptionId
+      Azure subscription id hosting the workspace.
+      .PARAMETER ResourceGroupName
+      Resource group containing the workspace.
+      .PARAMETER WorkspaceName
+      Name of the Log Analytics workspace.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$SubscriptionId,
+        [Parameter(Mandatory)][string]$ResourceGroupName,
+        [Parameter(Mandatory)][string]$WorkspaceName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($SubscriptionId) -or [string]::IsNullOrWhiteSpace($ResourceGroupName) -or [string]::IsNullOrWhiteSpace($WorkspaceName)) {
+        Write-Log -Level WARN -Message 'Get-RestDataConnectors: Missing SubscriptionId/ResourceGroupName/WorkspaceName; skipping REST fallback.'
+        return @()
+    }
+
+    if (-not $script:IsArmScopeValidated) {
+        Write-Log -Level WARN -Message 'Get-RestDataConnectors: ARM scope not validated; skipping REST fallback.'
+        return @()
+    }
+
+    $uri = New-DataConnectorApiUri -SubscriptionId $SubscriptionId -ResourceGroupName $ResourceGroupName -WorkspaceName $WorkspaceName
+    $results = @()
+    $page = 1
+
+    while ($uri) {
+        $pageUri = $uri
+        $pageHost = Get-UriHostForLog -UriString $pageUri
+        Write-Log -Level DEBUG -Message "Calling REST data connectors API (Page $page) Host='$pageHost'"
+        $callTimer = [System.Diagnostics.Stopwatch]::StartNew()
+        try {
+            $response = Invoke-WithRetry -OperationName "REST-DataConnectors-Page$page" -MaxAttempts 3 -InitialDelaySeconds 2 -ScriptBlock {
+                Invoke-AzRestMethod -Method Get -Uri $pageUri -ErrorAction Stop
+            }
+            $callTimer.Stop()
+            $statusCode = Get-HttpStatusCode -Response $response
+            $activityId = Get-HttpHeaderValue -Response $response -HeaderName 'x-ms-activity-id'
+            if (-not $activityId) { $activityId = Get-HttpHeaderValue -Response $response -HeaderName 'x-ms-request-id' }
+            $statusLabel = if ($statusCode) { $statusCode } else { 'unknown' }
+            $activityLabel = if ($activityId) { $activityId } else { 'n/a' }
+            Write-Log -Level DEBUG -Message "REST data connectors page $page completed with status=$statusLabel activityId=$activityLabel duration=$($callTimer.ElapsedMilliseconds)ms"
+        }
+        catch {
+            $errMsg = $_.Exception.Message
+            $callTimer.Stop()
+            $diag = Get-RestErrorDiagnostics -ErrorRecord $_
+            $statusLabel = if ($diag.StatusCode) { $diag.StatusCode } else { 'unknown' }
+            $activityLabel = if ($diag.ActivityId) { $diag.ActivityId }
+            elseif ($diag.RequestId) { $diag.RequestId } else { 'n/a' }
+            Write-Log -Level WARN -Message "Get-RestDataConnectors: REST call failed on page $page (host='$pageHost') status=$statusLabel activityId=$activityLabel duration=$($callTimer.ElapsedMilliseconds)ms: $errMsg"
+            if ($diag.Body) {
+                Write-Log -Level DEBUG -Message "Get-RestDataConnectors diagnostics snippet: $($diag.Body)"
+            }
+            if ($errMsg -match '401' -or $errMsg -match 'Unauthorized') {
+                Write-Log -Level WARN -Message 'REST fallback is unauthorized. Ensure the managed identity or account has Microsoft Sentinel Reader (or higher) on the workspace.'
+            }
+            break
+        }
+
+        $payload = $response
+        if ($response -and ($response.PSObject.Properties.Name -contains 'Content')) {
+            $content = $response.Content
+            if ($content) {
+                try {
+                    $payload = $content | ConvertFrom-Json -Depth 32
+                }
+                catch {
+                    Write-Log -Level WARN -Message "Get-RestDataConnectors: Failed to parse response content on page ${page}. Error: $($_.Exception.Message)"
+                    $payload = $null
+                }
+            }
+            else {
+                $payload = $null
+            }
+        }
+
+        if ($payload -and $payload.value) {
+            $results += $payload.value
+        }
+
+        if ($payload -and $payload.nextLink) {
+            $uri = $payload.nextLink
+            $page++
+        }
+        else {
+            $uri = $null
+        }
+    }
+
+    Write-Log -Level INFO -Message "Get-RestDataConnectors: Retrieved $($results.Count) connector(s) via REST."
+    return $results
+}
+
+function Get-RestDataConnectorDefinition {
+    <#
+      .SYNOPSIS
+      Retrieves a specific data connector definition to enrich connector metadata.
+      .DESCRIPTION
+      Caches results per workspace to avoid redundant REST calls when multiple connectors share the same definition.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$SubscriptionId,
+        [Parameter(Mandatory)][string]$ResourceGroupName,
+        [Parameter(Mandatory)][string]$WorkspaceName,
+        [Parameter(Mandatory)][string]$DefinitionName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($DefinitionName)) {
+        return $null
+    }
+
+    if (-not $script:IsArmScopeValidated) {
+        Write-Log -Level WARN -Message 'Get-RestDataConnectorDefinition: ARM scope not validated; skipping.'
+        return $null
+    }
+
+    if (-not $script:DataConnectorDefinitionCache) {
+        $script:DataConnectorDefinitionCache = @{}
+    }
+
+    $definitionToken = $DefinitionName
+    if ($DefinitionName -like '*/dataConnectorDefinitions/*') {
+        $definitionToken = ($DefinitionName -split '/')[-1]
+    }
+
+    $cacheKey = "${SubscriptionId}/${ResourceGroupName}/${WorkspaceName}/${definitionToken}"
+    if ($script:DataConnectorDefinitionCache.ContainsKey($cacheKey)) {
+        return $script:DataConnectorDefinitionCache[$cacheKey]
+    }
+
+    $definitionUri = New-DataConnectorDefinitionApiUri -SubscriptionId $SubscriptionId -ResourceGroupName $ResourceGroupName -WorkspaceName $WorkspaceName -DefinitionName $definitionToken
+    try {
+        $response = Invoke-AzRestMethod -Method Get -Uri $definitionUri -ErrorAction Stop
+    }
+    catch {
+        Write-Log -Level WARN -Message "Get-RestDataConnectorDefinition: Failed for '$definitionToken': $($_.Exception.Message)"
+        return $null
+    }
+
+    $payload = $response
+    if ($response -and ($response.PSObject.Properties.Name -contains 'Content')) {
+        $content = $response.Content
+        if ($content) {
+            try { $payload = $content | ConvertFrom-Json -Depth 64 }
+            catch {
+                Write-Log -Level WARN -Message "Get-RestDataConnectorDefinition: Unable to parse JSON for '$definitionToken': $($_.Exception.Message)"
+                $payload = $null
+            }
+        }
+        else {
+            $payload = $null
+        }
+    }
+
+    if ($payload) {
+        $script:DataConnectorDefinitionCache[$cacheKey] = $payload
+    }
+    return $payload
+}
+
+function Get-RestDataConnectorDetail {
+    <#
+      .SYNOPSIS
+      Retrieves a single data connector via REST for richer metadata.
+      .DESCRIPTION
+      Used to hydrate REST-only connectors so downstream logic has Properties, UI config, etc.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$SubscriptionId,
+        [Parameter(Mandatory)][string]$ResourceGroupName,
+        [Parameter(Mandatory)][string]$WorkspaceName,
+        [Parameter(Mandatory)][string]$ConnectorName
+    )
+
+    if (-not $script:IsArmScopeValidated) {
+        Write-Log -Level WARN -Message 'Get-RestDataConnectorDetail: ARM scope not validated; skipping.'
+        return $null
+    }
+
+    $detailUri = New-DataConnectorApiUri -SubscriptionId $SubscriptionId -ResourceGroupName $ResourceGroupName -WorkspaceName $WorkspaceName -ConnectorId $ConnectorName
+    try {
+        $response = Invoke-AzRestMethod -Method Get -Uri $detailUri -ErrorAction Stop
+    }
+    catch {
+        Write-Log -Level WARN -Message "Get-RestDataConnectorDetail: Failed for '$ConnectorName': $($_.Exception.Message)"
+        return $null
+    }
+
+    $payload = $response
+    if ($response -and ($response.PSObject.Properties.Name -contains 'Content')) {
+        $content = $response.Content
+        if ($content) {
+            try { $payload = $content | ConvertFrom-Json -Depth 32 }
+            catch {
+                Write-Log -Level WARN -Message "Get-RestDataConnectorDetail: Unable to parse detail JSON for '$ConnectorName': $($_.Exception.Message)"
+                $payload = $null
+            }
+        }
+        else {
+            $payload = $null
+        }
+    }
+    return $payload
+}
+
+function ConvertTo-ConnectorObject {
+    <#
+      .SYNOPSIS
+      Aligns REST payload field names with cmdlet output expectations.
+      .DESCRIPTION
+      Ensures downstream logic can access Name/Id/Kind/Properties/ConnectorUiConfig* regardless of source casing.
+    #>
+    param(
+        [Parameter(Mandatory)][object]$Connector,
+        [string]$SourceTag
+    )
+
+    $copy = $Connector.PSObject.Copy()
+    $propertyMap = @{
+        Name = 'name'
+        Id   = 'id'
+        Type = 'type'
+        Kind = 'kind'
+        Etag = 'etag'
+    }
+    foreach ($pair in $propertyMap.GetEnumerator()) {
+        if (-not ($copy.PSObject.Properties.Name -contains $pair.Key)) {
+            if ($Connector.PSObject.Properties.Name -contains $pair.Value) {
+                Add-Member -InputObject $copy -NotePropertyName $pair.Key -NotePropertyValue $Connector.($pair.Value) -Force
+            }
+        }
+    }
+    if (-not ($copy.PSObject.Properties.Name -contains 'Properties')) {
+        if ($Connector.PSObject.Properties.Name -contains 'properties') {
+            Add-Member -InputObject $copy -NotePropertyName 'Properties' -NotePropertyValue $Connector.properties -Force
+        }
+    }
+
+    $props = $null
+    if ($copy.PSObject.Properties.Name -contains 'Properties') { $props = $copy.Properties }
+    if (-not $copy.Kind -and $props -and $props.PSObject.Properties.Name -contains 'kind') {
+        Add-Member -InputObject $copy -NotePropertyName 'Kind' -NotePropertyValue $props.kind -Force
+    }
+    if ($props -and $props.PSObject.Properties.Name -contains 'connectorUiConfig') {
+        $ui = $props.connectorUiConfig
+        if ($ui) {
+            if (-not ($copy.PSObject.Properties.Name -contains 'ConnectorUiConfigTitle') -and $ui.PSObject.Properties.Name -contains 'title') {
+                Add-Member -InputObject $copy -NotePropertyName 'ConnectorUiConfigTitle' -NotePropertyValue $ui.title -Force
+            }
+            if (-not ($copy.PSObject.Properties.Name -contains 'ConnectorUiConfigPublisher') -and $ui.PSObject.Properties.Name -contains 'publisher') {
+                Add-Member -InputObject $copy -NotePropertyName 'ConnectorUiConfigPublisher' -NotePropertyValue $ui.publisher -Force
+            }
+            if (-not ($copy.PSObject.Properties.Name -contains 'ConnectorUiConfigConnectivityCriterion') -and $ui.PSObject.Properties.Name -contains 'connectivityCriteria') {
+                Add-Member -InputObject $copy -NotePropertyName 'ConnectorUiConfigConnectivityCriterion' -NotePropertyValue $ui.connectivityCriteria -Force
+            }
+            if (-not ($copy.PSObject.Properties.Name -contains 'ConnectorUiConfigActivityCriterion') -and $ui.PSObject.Properties.Name -contains 'activityCriteria') {
+                Add-Member -InputObject $copy -NotePropertyName 'ConnectorUiConfigActivityCriterion' -NotePropertyValue $ui.activityCriteria -Force
+            }
+            if (-not ($copy.PSObject.Properties.Name -contains 'ConnectorUiConfigDescriptionMarkdown') -and $ui.PSObject.Properties.Name -contains 'descriptionMarkdown') {
+                Add-Member -InputObject $copy -NotePropertyName 'ConnectorUiConfigDescriptionMarkdown' -NotePropertyValue $ui.descriptionMarkdown -Force
+            }
+            if (-not ($copy.PSObject.Properties.Name -contains 'ConnectorUiConfigGraphQueries') -and $ui.PSObject.Properties.Name -contains 'graphQueries') {
+                Add-Member -InputObject $copy -NotePropertyName 'ConnectorUiConfigGraphQueries' -NotePropertyValue $ui.graphQueries -Force
+            }
+            if (-not ($copy.PSObject.Properties.Name -contains 'ConnectorUiConfigDataTypes') -and $ui.PSObject.Properties.Name -contains 'dataTypes') {
+                Add-Member -InputObject $copy -NotePropertyName 'ConnectorUiConfigDataTypes' -NotePropertyValue $ui.dataTypes -Force
+            }
+            if (-not ($copy.PSObject.Properties.Name -contains 'ConnectorUiConfigPermissions') -and $ui.PSObject.Properties.Name -contains 'permissions') {
+                Add-Member -InputObject $copy -NotePropertyName 'ConnectorUiConfigPermissions' -NotePropertyValue $ui.permissions -Force
+            }
+            if (-not ($copy.PSObject.Properties.Name -contains 'ConnectorUiConfigAvailability') -and $ui.PSObject.Properties.Name -contains 'availability') {
+                Add-Member -InputObject $copy -NotePropertyName 'ConnectorUiConfigAvailability' -NotePropertyValue $ui.availability -Force
+            }
+            if (-not ($copy.PSObject.Properties.Name -contains 'ConnectorUiConfigLogo') -and $ui.PSObject.Properties.Name -contains 'logo') {
+                Add-Member -InputObject $copy -NotePropertyName 'ConnectorUiConfigLogo' -NotePropertyValue $ui.logo -Force
+            }
+            if (-not ($copy.PSObject.Properties.Name -contains 'ConnectorUiConfigInstructionSteps') -and $ui.PSObject.Properties.Name -contains 'instructionSteps') {
+                Add-Member -InputObject $copy -NotePropertyName 'ConnectorUiConfigInstructionSteps' -NotePropertyValue $ui.instructionSteps -Force
+            }
+            if (-not ($copy.PSObject.Properties.Name -contains 'ConnectorUiConfigSampleQueries') -and $ui.PSObject.Properties.Name -contains 'sampleQueries') {
+                Add-Member -InputObject $copy -NotePropertyName 'ConnectorUiConfigSampleQueries' -NotePropertyValue $ui.sampleQueries -Force
+            }
+            if (-not ($copy.PSObject.Properties.Name -contains 'ConnectorUiConfigIsConnectivityMatchSome') -and $ui.PSObject.Properties.Name -contains 'isConnectivityCriteriasMatchSome') {
+                Add-Member -InputObject $copy -NotePropertyName 'ConnectorUiConfigIsConnectivityMatchSome' -NotePropertyValue $ui.isConnectivityCriteriasMatchSome -Force
+            }
+        }
+    }
+
+    if ($props -and $props.PSObject.Properties.Name -contains 'connectorDefinitionDetail') {
+        Add-Member -InputObject $copy -NotePropertyName 'ConnectorDefinitionDetail' -NotePropertyValue $props.connectorDefinitionDetail -Force
+    }
+    if ($props -and $props.PSObject.Properties.Name -contains 'connectorDefinitionName') {
+        Add-Member -InputObject $copy -NotePropertyName 'ConnectorDefinitionName' -NotePropertyValue $props.connectorDefinitionName -Force
+    }
+
+    if ($SourceTag) {
+        Add-Member -InputObject $copy -NotePropertyName 'Source' -NotePropertyValue $SourceTag -Force
+    }
+    return $copy
+}
+
+function Convert-RestConnectorRecord {
+    <#
+      .SYNOPSIS
+      Converts a REST list payload (optionally hydrated with detail) into the expected connector shape.
+    #>
+    param(
+        [Parameter(Mandatory)][object]$ListRecord,
+        [Parameter(Mandatory)][string]$SubscriptionId,
+        [Parameter(Mandatory)][string]$ResourceGroupName,
+        [Parameter(Mandatory)][string]$WorkspaceName
+    )
+
+    $payload = $ListRecord
+    $needsDetail = $true
+    if ($payload) {
+        if ($payload.PSObject.Properties.Name -contains 'properties' -and $payload.properties) {
+            $needsDetail = $false
+            $ui = $payload.properties.connectorUiConfig
+            if (-not $ui) { $needsDetail = $true }
+        }
+    }
+
+    if ($needsDetail) {
+        $connectorName = if ($payload -and $payload.name) { $payload.name } elseif ($payload -and $payload.id) { ($payload.id -split '/')[-1] } else { $null }
+        if ($connectorName) {
+            $detail = Get-RestDataConnectorDetail -SubscriptionId $SubscriptionId -ResourceGroupName $ResourceGroupName -WorkspaceName $WorkspaceName -ConnectorName $connectorName
+            if ($detail) {
+                $payload = $detail
+            }
+        }
+    }
+
+    if ($payload -and $payload.PSObject.Properties.Name -contains 'properties') {
+        $props = $payload.properties
+        if (-not ($props.PSObject.Properties.Name -contains 'connectorDefinitionName') -and $ListRecord -and $ListRecord.PSObject.Properties.Name -contains 'properties') {
+            $listProps = $ListRecord.properties
+            if ($listProps -and $listProps.PSObject.Properties.Name -contains 'connectorDefinitionName' -and $listProps.connectorDefinitionName) {
+                Add-Member -InputObject $props -NotePropertyName 'connectorDefinitionName' -NotePropertyValue $listProps.connectorDefinitionName -Force
+            }
+        }
+
+        $definitionName = $null
+        if ($props.PSObject.Properties.Name -contains 'connectorDefinitionName') {
+            $definitionName = $props.connectorDefinitionName
+        }
+
+        if ($definitionName) {
+            $definitionDetail = Get-RestDataConnectorDefinition -SubscriptionId $SubscriptionId -ResourceGroupName $ResourceGroupName -WorkspaceName $WorkspaceName -DefinitionName $definitionName
+            if ($definitionDetail -and $definitionDetail.PSObject.Properties.Name -contains 'properties') {
+                $definitionProps = $definitionDetail.properties
+
+                if (-not ($props.PSObject.Properties.Name -contains 'connectorDefinitionDetail')) {
+                    Add-Member -InputObject $props -NotePropertyName 'connectorDefinitionDetail' -NotePropertyValue $definitionDetail -Force
+                }
+                else {
+                    $props.connectorDefinitionDetail = $definitionDetail
+                }
+
+                $definitionUi = $definitionProps.connectorUiConfig
+                if ($definitionUi) {
+                    if (-not ($props.PSObject.Properties.Name -contains 'connectorUiConfig') -or -not $props.connectorUiConfig) {
+                        Add-Member -InputObject $props -NotePropertyName 'connectorUiConfig' -NotePropertyValue $definitionUi -Force
+                    }
+                    else {
+                        $targetUi = $props.connectorUiConfig
+                        foreach ($uiProp in $definitionUi.PSObject.Properties) {
+                            $hasProperty = $targetUi.PSObject.Properties.Name -contains $uiProp.Name
+                            $existingValue = if ($hasProperty) { $targetUi.($uiProp.Name) } else { $null }
+                            $shouldReplace = $false
+
+                            if (-not $hasProperty) {
+                                $shouldReplace = $true
+                            }
+                            elseif ($existingValue -is [string]) {
+                                $shouldReplace = [string]::IsNullOrWhiteSpace($existingValue)
+                            }
+                            elseif (-not $existingValue) {
+                                $shouldReplace = $true
+                            }
+
+                            if ($shouldReplace) {
+                                Add-Member -InputObject $targetUi -NotePropertyName $uiProp.Name -NotePropertyValue $uiProp.Value -Force
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    $normalized = $null
+    if ($payload) {
+        $normalized = ConvertTo-ConnectorObject -Connector $payload -SourceTag 'RESTFallback'
+    }
+    else {
+        Write-Log -Level WARN -Message "Convert-RestConnectorRecord: No payload available for REST connector."
+    }
+    return $normalized
+}
+
+function New-ConnectorFallbackRecord {
+    <#
+      .SYNOPSIS
+      Generates a minimal summary record when full status processing fails.
+    #>
+    param(
+        [Parameter(Mandatory)][object]$Connector,
+        [string]$Reason,
+        [string]$Workspace,
+        [string]$Subscription,
+        [string]$Tenant
+    )
+
+    $name = $null
+    if ($Connector.PSObject.Properties.Name -contains 'Name' -and $Connector.Name) { $name = $Connector.Name }
+    elseif ($Connector.PSObject.Properties.Name -contains 'name' -and $Connector.name) { $name = $Connector.name }
+    elseif ($Connector.Id) { $name = ($Connector.Id -split '/')[-1] }
+    elseif ($Connector.PSObject.Properties.Name -contains 'Id') { $name = $Connector.Id }
+    else { $name = 'UnknownConnector' }
+
+    $kind = $Connector.Kind
+    if (-not $kind -and $Connector.PSObject.Properties.Name -contains 'DataConnectorKind') { $kind = $Connector.DataConnectorKind }
+    if (-not $kind -and $Connector.PSObject.Properties.Name -contains 'properties' -and $Connector.properties.kind) { $kind = $Connector.properties.kind }
+    if (-not $kind) { $kind = 'UnknownKind' }
+
+    $source = if ($Connector.PSObject.Properties.Name -contains 'Source') { $Connector.Source } else { 'Unknown' }
+
+    return [pscustomobject]@{
+        Name              = $name
+        Kind              = $kind
+        Id                = if ($Connector.Id) { $Connector.Id } elseif ($Connector.PSObject.Properties.Name -contains 'id') { $Connector.id } else { $null }
+        Title             = if ($Connector.ConnectorUiConfigTitle) { $Connector.ConnectorUiConfigTitle } else { $name }
+        Publisher         = $Connector.ConnectorUiConfigPublisher
+        Status            = 'NotProcessed'
+        QueryStatus       = 'NotProcessed'
+        LastLogTime       = $null
+        LogsLastHour      = $null
+        TotalLogs24h      = $null
+        HoursSinceLastLog = $null
+        IsConnected       = $null
+        NoLastLog         = $null
+        StatusDetails     = $Reason
+        Workspace         = $Workspace
+        Subscription      = $Subscription
+        Tenant            = $Tenant
+        Source            = $source
+    }
 }
 
 function Resolve-Connector {
@@ -514,6 +1534,31 @@ function Resolve-Connector {
         }
     }
     
+    $isRestApiPoller = $false
+    foreach ($candidateKind in @($kindString, $Connector.Kind, $Connector.DataConnectorKind)) {
+        if (-not $candidateKind) { continue }
+        $candidateParts = @()
+        if ($candidateKind -is [string]) {
+            $candidateParts = $candidateKind.Split(',', [System.StringSplitOptions]::RemoveEmptyEntries)
+        }
+        elseif ($candidateKind -is [System.Collections.IEnumerable] -and ($candidateKind -isnot [string])) {
+            foreach ($part in $candidateKind) {
+                if ($part) { $candidateParts += $part.ToString() }
+            }
+        }
+        else {
+            $candidateParts = @($candidateKind.ToString())
+        }
+        foreach ($candidatePart in $candidateParts) {
+            if ([string]::IsNullOrWhiteSpace($candidatePart)) { continue }
+            if ([string]::Equals($candidatePart.Trim(), 'RestApiPoller', [System.StringComparison]::OrdinalIgnoreCase)) {
+                $isRestApiPoller = $true
+                break
+            }
+        }
+        if ($isRestApiPoller) { break }
+    }
+
     # Determine best Id value for lookup in $ConnectorInfo
     # Priority: 1) Kind if meaningful, 2) Name if not a GUID
     $idValue = $null
@@ -540,12 +1585,60 @@ function Resolve-Connector {
         $idValue = $Connector.Name
         $idSource = 'ConnectorNameFallback'
     }
+
+    $infoMatch = $null
+    if ($idValue) {
+        $infoMatch = $ConnectorInfo | Where-Object { $_.Id -ieq $idValue } | Select-Object -First 1
+    }
+
+    if (-not $infoMatch -and $isRestApiPoller) {
+        $definitionCandidates = @()
+        if ($Connector.PSObject.Properties.Name -contains 'ConnectorDefinitionName' -and $Connector.ConnectorDefinitionName) {
+            $definitionCandidates += $Connector.ConnectorDefinitionName
+        }
+        if ($Connector.PSObject.Properties.Name -contains 'connectorDefinitionName' -and $Connector.connectorDefinitionName) {
+            $definitionCandidates += $Connector.connectorDefinitionName
+        }
+        foreach ($definitionCandidate in $definitionCandidates) {
+            if ([string]::IsNullOrWhiteSpace($definitionCandidate)) { continue }
+            $definitionKey = $definitionCandidate
+            if ($definitionKey -like '*/dataConnectorDefinitions/*') {
+                $definitionKey = ($definitionKey -split '/')[-1]
+            }
+            $match = $ConnectorInfo | Where-Object { $_.Id -ieq $definitionKey } | Select-Object -First 1
+            if ($match) {
+                $infoMatch = $match
+                $idValue = $match.Id
+                $idSource = 'DefinitionName'
+                break
+            }
+        }
+    }
+
+    if (-not $infoMatch -and $isRestApiPoller -and $Connector.Name) {
+        $nameLower = $Connector.Name.ToLowerInvariant()
+        $prefixMatch = $ConnectorInfo | Where-Object {
+            if (-not $_.Id) { $false }
+            else {
+                $candidateLower = $_.Id.ToLowerInvariant()
+                $nameLower.StartsWith($candidateLower)
+            }
+        } | Select-Object -First 1
+        if ($prefixMatch) {
+            $infoMatch = $prefixMatch
+            $idValue = $prefixMatch.Id
+            $idSource = 'ConnectorNamePrefix'
+        }
+    }
+
+    if (-not $infoMatch -and $idValue) {
+        $infoMatch = $ConnectorInfo | Where-Object { $_.Id -ieq $idValue } | Select-Object -First 1
+    }
     
     # If $Connector.ConnectorUiConfigTitle and/or $Connector.ConnectorUiConfigPublisher is null or whitespace, try to match $idValue with $ConnectorInfo Title and Publisher values.
     $resolvedTitle = $Connector.ConnectorUiConfigTitle
     $resolvedPublisher = $Connector.ConnectorUiConfigPublisher
     if ([string]::IsNullOrWhiteSpace($resolvedTitle) -or [string]::IsNullOrWhiteSpace($resolvedPublisher)) {
-        $infoMatch = $ConnectorInfo | Where-Object { $_.Id -ieq $idValue } | Select-Object -First 1
         if ($infoMatch) {
             if ([string]::IsNullOrWhiteSpace($resolvedTitle)) {
                 $resolvedTitle = $infoMatch.Title
@@ -571,11 +1664,8 @@ function Resolve-Connector {
             $resolvedConnectivityCriteria = $isConnectedQueries
         }
     }
-    if (-not $resolvedConnectivityCriteria) {
-        $infoMatch = $ConnectorInfo | Where-Object { $_.Id -ieq $idValue } | Select-Object -First 1
-        if ($infoMatch -and $infoMatch.ConnectivityCriteria) {
-            $resolvedConnectivityCriteria = $infoMatch.ConnectivityCriteria
-        }
+    if (-not $resolvedConnectivityCriteria -and $infoMatch -and $infoMatch.ConnectivityCriteria) {
+        $resolvedConnectivityCriteria = $infoMatch.ConnectivityCriteria
     }
     $resolvedConnectivityKQL = $null
     if ($Connector.ConnectorUiConfigConnectivityCriterion) {
@@ -589,21 +1679,15 @@ function Resolve-Connector {
             $resolvedConnectivityKQL = $isConnectedKqls
         }
     }
-    if (-not $resolvedConnectivityKQL) {
-        $infoMatch = $ConnectorInfo | Where-Object { $_.Id -ieq $idValue } | Select-Object -First 1
-        if ($infoMatch -and $infoMatch.ConnectivityKql) {
-            $resolvedConnectivityKQL = $infoMatch.ConnectivityKql
-        }
+    if (-not $resolvedConnectivityKQL -and $infoMatch -and $infoMatch.ConnectivityKql) {
+        $resolvedConnectivityKQL = $infoMatch.ConnectivityKql
     }
 
     # If $Connector.ConnectorUiConfigConnectivityCriterion has one or more property of type = "IsConnectedQuery", collect their values as an array and assign to ConnectivityCriteria; otherwise, fallback to $ConnectorInfo lookup.
     $resolvedActivityKQL = $null
     $resolvedActivityCriteria = $null
-    if (-not $resolvedActivityCriteria) {
-        $infoMatch = $ConnectorInfo | Where-Object { $_.Id -ieq $idValue } | Select-Object -First 1
-        if ($infoMatch -and $infoMatch.ActivityKql) {
-            $resolvedConnectivityCriteria = $infoMatch.ConnectivityCriteria
-        }
+    if (-not $resolvedActivityCriteria -and $infoMatch -and $infoMatch.ActivityKql) {
+        $resolvedConnectivityCriteria = $infoMatch.ConnectivityCriteria
     }
     $resolvedActivityKQL = $null
     if ($Connector.ConnectorUiConfigConnectivityCriterion) {
@@ -617,11 +1701,8 @@ function Resolve-Connector {
             $resolvedActivityKQL = $isActivityKqls
         }
     }
-    if (-not $resolvedActivityKQL) {
-        $infoMatch = $ConnectorInfo | Where-Object { $_.Id -ieq $idValue } | Select-Object -First 1
-        if ($infoMatch -and $infoMatch.ActivityKql) {
-            $resolvedActivityKQL = $infoMatch.ActivityKql
-        }
+    if (-not $resolvedActivityKQL -and $infoMatch -and $infoMatch.ActivityKql) {
+        $resolvedActivityKQL = $infoMatch.ActivityKql
     }
 
     # Return object with Name and Kind preserved as-is from connector
@@ -750,12 +1831,20 @@ function Test-ModuleLoaded {
     param([string]$Name)
 
     if (-not (Get-Module -ListAvailable -Name $Name)) {
-        Write-Log -Level WARN -Message "Module '$Name' not found in environment; attempting install (may fail in Automation sandbox)."
-        try {
-            Install-Module -Name $Name -Force -Scope CurrentUser -ErrorAction Stop 
+        if ($IsAzureAutomation) {
+            Write-Log -Level WARN -Message "Module '$Name' not found in Automation sandbox; skipping inline install. Ensure the module is pre-imported in the account."
         }
-        catch {
-            Write-Log -Level WARN -Message "Install of $Name failed: $($_.Exception.Message)" 
+        else {
+            if (-not $script:AllowModuleAutoInstall) {
+                throw "Module '$Name' is not installed. Install it manually or rerun with -AllowModuleInstall to permit automatic installation."
+            }
+            Write-Log -Level WARN -Message "Module '$Name' not found locally; attempting install (CurrentUser scope)."
+            try {
+                Install-Module -Name $Name -Force -Scope CurrentUser -ErrorAction Stop 
+            }
+            catch {
+                Write-Log -Level WARN -Message "Install of $Name failed: $($_.Exception.Message)" 
+            }
         }
     }
     Import-Module $Name -ErrorAction Stop
@@ -853,30 +1942,17 @@ function Get-ConnectivityResults {
             } -MaxAttempts 2 -InitialDelaySeconds 1
             
             if (-not $queryResult.Error) {
-                # Parse the result to determine connectivity
-                $isConnected = $false
-                if ($queryResult.Tables -and $queryResult.Tables.Count -gt 0) {
-                    foreach ($table in $queryResult.Tables) {
-                        if ($table.Rows.Count -gt 0) {
-                            $row = $table.Rows[0]
-                            $cols = $table.Columns.Name
-                            $isConnectedIdx = [Array]::IndexOf($cols, 'IsConnected')
-                            if ($isConnectedIdx -ge 0 -and $row[$isConnectedIdx] -is [bool]) {
-                                $isConnected = [bool]$row[$isConnectedIdx]
-                            }
-                            elseif ($isConnectedIdx -ge 0) {
-                                # Try to parse as string boolean
-                                $val = $row[$isConnectedIdx].ToString().ToLower()
-                                $isConnected = $val -eq 'true' -or $val -eq '1'
-                            }
-                        }
-                    }
+                $connectivityState = Get-IsConnectedStateFromResult -QueryResult $queryResult
+
+                if (-not $connectivityState.Observed) {
+                    Write-Log -Level DEBUG -Message "Connectivity criteria $i for '$ConnectorName': no IsConnected column detected in result."
+                }
+                else {
+                    Write-Log -Level DEBUG -Message "Connectivity criteria $i for '$ConnectorName': IsConnected=$($connectivityState.IsConnected)"
                 }
                 
-                Write-Log -Level DEBUG -Message "Connectivity criteria $i for '$ConnectorName': IsConnected=$isConnected"
-                
                 # If ANY query returns true, set overall result to true
-                if ($isConnected) {
+                if ($connectivityState.IsConnected) {
                     $overallConnected = $true
                     Write-Log -Level DEBUG -Message "Overall connectivity for '$ConnectorName': true (criteria $i passed)"
                     # Continue checking remaining queries for completeness but result is already true
@@ -986,7 +2062,7 @@ function Get-LogIngestionMetrics {
         }
     }
     
-    if ([array]$connectivityQueries.Count -eq 0 -and $activityQueries.Count -eq 0) {
+    if ($connectivityQueries.Count -eq 0 -and $activityQueries.Count -eq 0) {
         $metrics.QueryStatus = 'NoKql'
         Write-Log -Level WARN -Message "No KQL available for connector '$ConnectorName' (Kind=$ConnectorKind)."
         return $metrics
@@ -997,7 +2073,7 @@ function Get-LogIngestionMetrics {
     # ===== PART 1: Execute ConnectivityKql queries to determine IsConnected status =====
     if ($connectivityQueries.Count -gt 0) {
         Write-Log -Level DEBUG -Message "Executing $($connectivityQueries.Count) ConnectivityKql quer(y/ies) for '$ConnectorName'"
-        
+
         for ($i = 0; $i -lt $connectivityQueries.Count; $i++) {
             $kqlQuery = $connectivityQueries[$i]
             $queryLabel = if ($connectivityQueries.Count -gt 1) { "[Connectivity $($i+1)/$($connectivityQueries.Count)]" } else { "[Connectivity]" }
@@ -1011,23 +2087,16 @@ function Get-LogIngestionMetrics {
                 } -MaxAttempts 2 -InitialDelaySeconds 1
                 
                 if ($result -and -not $result.Error) {
-                    # Parse IsConnected column
-                    $isConnected = $false
-                    if ($result.Results -and $result.Results.Count -gt 0) {
-                        foreach ($table in $result.Results) {
-                            if ($table.IsConnected) {
-                                $isConnected = $true
-                            }
-                            else {
-                                $isConnected = $false
-                            }
-                        }
+                    $connectivityState = Get-IsConnectedStateFromResult -QueryResult $result
+
+                    if (-not $connectivityState.Observed) {
+                        Write-Log -Level DEBUG -Message "$queryLabel for '$ConnectorName': no IsConnected column detected in result."
                     }
-                    
-                    Write-Log -Level DEBUG -Message "$queryLabel for '$ConnectorName': IsConnected=$isConnected"
-                    
-                    # If ANY connectivity query returns true, set IsConnected to true
-                    if ($isConnected) {
+                    else {
+                        Write-Log -Level DEBUG -Message "$queryLabel for '$ConnectorName': IsConnected=$($connectivityState.IsConnected)"
+                    }
+
+                    if ($connectivityState.IsConnected) {
                         $metrics.IsConnected = $true
                         Write-Log -Level DEBUG -Message "Connectivity established for '$ConnectorName' via query $($i+1)"
                     }
@@ -1097,19 +2166,17 @@ function Get-LogIngestionMetrics {
                     # Newer SDK shape: multiple tables collection
                     foreach ($tableObj in $result.Tables) {
                         $totalRows += $tableObj.Rows.Count 
-                    }
-                
-                    foreach ($tableObj in $result.Tables) {
-                        if ($tableObj.Rows.Count -gt 0) {
-                            $row = $tableObj.Rows[0]
-                            $cols = $tableObj.Columns.Name
-                            $idxLast = [Array]::IndexOf($cols, 'LastLogTime')
-                            if ($idxLast -lt 0) {
-                                $idxLast = [Array]::IndexOf($cols, 'TimeGenerated') 
-                            }
-                            $idxHour = [Array]::IndexOf($cols, 'LogsLastHour')
-                            $idxTotal = [Array]::IndexOf($cols, 'TotalLogs24h')
-                        
+                        if ($tableObj.Rows.Count -eq 0) { continue }
+
+                        $cols = $tableObj.Columns.Name
+                        $idxLast = [Array]::IndexOf($cols, 'LastLogTime')
+                        if ($idxLast -lt 0) {
+                            $idxLast = [Array]::IndexOf($cols, 'TimeGenerated') 
+                        }
+                        $idxHour = [Array]::IndexOf($cols, 'LogsLastHour')
+                        $idxTotal = [Array]::IndexOf($cols, 'TotalLogs24h')
+
+                        foreach ($row in $tableObj.Rows) {
                             if ($idxLast -ge 0 -and $row[$idxLast]) {
                                 $currentLastLog = [DateTime]$row[$idxLast]
                                 # Keep the most recent LastLogTime across all queries
@@ -1134,8 +2201,7 @@ function Get-LogIngestionMetrics {
                 elseif ($result.Results) {
                     # Legacy shape: .Results array
                     $totalRows = $result.Results.Count
-                    if ($totalRows -gt 0) {
-                        $data = $result.Results[0]
+                    foreach ($data in $result.Results) {
                         if ($data.LastLogTime) {
                             $currentLastLog = [DateTime]$data.LastLogTime
                             if (-not $metrics.LastLogTime -or $currentLastLog -gt $metrics.LastLogTime) {
@@ -1230,7 +2296,7 @@ function Get-IngestionStatus {
     #>
     param(
         [Nullable[DateTime]] $LastLogTime,
-        [int] $ActiveThresholdHours = 12,
+        [int] $ActiveThresholdHours = 1,
         [int] $RecentThresholdHours = 24
     )
     if (-not $LastLogTime) {
@@ -1277,6 +2343,14 @@ function Get-ConnectorStatus {
         return $null
     }
   
+    $resourceId = $null
+    if ($Connector.PSObject.Properties.Name -contains 'Id' -and $Connector.Id) {
+        $resourceId = $Connector.Id
+    }
+    elseif ($Connector.PSObject.Properties.Name -contains 'id' -and $Connector.id) {
+        $resourceId = $Connector.id
+    }
+
     $statusInfo = @{
         OverallStatus     = 'Unknown'
         StateDetails      = @{}
@@ -1289,6 +2363,8 @@ function Get-ConnectorStatus {
         Name              = $resolved.Name
         IsConnected       = $false
         Kind              = $resolved.Kind
+        Source            = if ($Connector.PSObject.Properties.Name -contains 'Source') { $Connector.Source } else { 'Cmdlet' }
+        ResourceId        = $resourceId
     }
       
     # Check top-level status/state/enabled properties
@@ -1566,9 +2642,11 @@ function Invoke-AutomaticReaderRoleAssignment {
     param([string]$Scope)
     $roleName = 'Microsoft Sentinel Reader'
     $miObjectId = Resolve-ManagedIdentityObjectId -ClientId $UmiClientId
-    Write-Log -Level WARN -Message "Attempting automatic role assignment due to access failure. Role='$roleName' ObjectId=$miObjectId Scope=$Scope"
+    $maskedObjectId = Get-MaskedIdentifier -Value $miObjectId
+    $scopeLogValue = if ($Scope) { ($Scope -split '/')[-1] } else { '<null>' }
+    Write-Log -Level WARN -Message "Attempting automatic role assignment due to access failure. Role='$roleName' ObjectId=$maskedObjectId Scope=$scopeLogValue"
     if ($WhatIf) {
-        Write-Log -Level INFO -Message "WhatIf: Would assign role '$roleName' to ObjectId $miObjectId at $Scope"
+        Write-Log -Level INFO -Message "WhatIf: Would assign role '$roleName' to ObjectId $maskedObjectId at scope segment '$scopeLogValue'"
         return
     }
     try {
@@ -1585,7 +2663,20 @@ function Invoke-AutomaticReaderRoleAssignment {
     }
 }
 
+$VerboseLogging = Resolve-BoolInput -Value $VerboseLogging -Default:$false -ParameterName 'VerboseLogging'
+$FailOnQueryErrors = Resolve-BoolInput -Value $FailOnQueryErrors -Default:$false -ParameterName 'FailOnQueryErrors'
+$Parallel = Resolve-BoolInput -Value $Parallel -Default:$false -ParameterName 'Parallel'
+
+$throttleFloor = 1
+$throttleCeiling = 32
+if ($ThrottleLimit -lt $throttleFloor -or $ThrottleLimit -gt $throttleCeiling) {
+    $requestedThrottle = $ThrottleLimit
+    $ThrottleLimit = [Math]::Min([Math]::Max($ThrottleLimit, $throttleFloor), $throttleCeiling)
+    Write-Log -Level WARN -Message "ThrottleLimit value $requestedThrottle is outside the supported range ($throttleFloor-$throttleCeiling). Clamped to $ThrottleLimit."
+}
+
 if ($env:MSP_SKIP_CONNECTOR_RUN -eq '1') {
+    $script:IsArmScopeValidated = $true
     Write-Log -Level INFO -Message 'MSP_SKIP_CONNECTOR_RUN=1 detected; skipping main execution (test harness mode).'
     return
 }
@@ -1611,7 +2702,9 @@ if ($IsAzureAutomation) {
     if (-not $WorkspaceName) { $WorkspaceName = Get-Var -Name 'WORKSPACE_NAME' }
     if (-not $LogicAppUri) { $LogicAppUri = Get-Var -Name 'DATACONNECTOR_API' -Optional }
     
-    Write-Log -Level INFO -Message "Variables loaded: RG=$ResourceGroupName Workspace=$WorkspaceName LogicAppUri=$LogicAppUri UmiClientId=$UmiClientId"
+    $logicAppHostForLog = Get-UriHostForLog -UriString $LogicAppUri
+    $maskedUmiClientId = Get-MaskedIdentifier -Value $UmiClientId
+    Write-Log -Level INFO -Message "Variables loaded: RG=$ResourceGroupName Workspace=$WorkspaceName LogicAppHost=$logicAppHostForLog UmiClientId=$maskedUmiClientId"
 }
 else {
     Write-Log -Level INFO -Message 'Using parameters provided for local execution...'
@@ -1622,7 +2715,8 @@ else {
     if (-not $ResourceGroupName) { throw 'ResourceGroupName parameter is required for local execution' }
     if (-not $WorkspaceName) { throw 'WorkspaceName parameter is required for local execution' }
     
-    Write-Log -Level INFO -Message "Parameters: RG=$ResourceGroupName Workspace=$WorkspaceName SubscriptionId=$SubscriptionId"
+    $maskedSubscriptionId = Get-MaskedIdentifier -Value $SubscriptionId
+    Write-Log -Level INFO -Message "Parameters: RG=$ResourceGroupName Workspace=$WorkspaceName SubscriptionId=$maskedSubscriptionId"
 }
 
 # Post-resolution validation
@@ -1676,12 +2770,13 @@ if ($IsAzureAutomation) {
         }
     }
     else {
-        Write-Log -Level INFO -Message "Connecting with User-Assigned Managed Identity (ClientId=$UmiClientId)"
+        $maskedUmiClientId = Get-MaskedIdentifier -Value $UmiClientId
+        Write-Log -Level INFO -Message "Connecting with User-Assigned Managed Identity (ClientId=$maskedUmiClientId)"
         try {
             Connect-AzAccount -Identity -AccountId $UmiClientId -ErrorAction Stop | Out-Null 
         }
         catch {
-            throw "Failed to authenticate with managed identity clientId=$UmiClientId : $($_.Exception.Message)" 
+            throw "Failed to authenticate with managed identity clientId=$maskedUmiClientId : $($_.Exception.Message)" 
         }
     }
 }
@@ -1691,13 +2786,16 @@ else {
     try {
         $context = Get-AzContext -ErrorAction Stop
         if ($context -and $context.Account) {
-            Write-Log -Level INFO -Message "Using existing authentication: Account=$($context.Account.Id) Tenant=$($context.Tenant.Id)"
+            $maskedAccount = Get-MaskedIdentifier -Value $context.Account.Id
+            $maskedTenant = if ($context.Tenant -and $context.Tenant.Id) { Get-MaskedIdentifier -Value $context.Tenant.Id } else { '<unknown>' }
+            Write-Log -Level INFO -Message "Using existing authentication: Account=$maskedAccount Tenant=$maskedTenant"
         }
         else {
             Write-Log -Level INFO -Message 'No existing context found. Initiating interactive login...'
             Connect-AzAccount -ErrorAction Stop | Out-Null
             $context = Get-AzContext
-            Write-Log -Level INFO -Message "Authenticated interactively: Account=$($context.Account.Id)"
+            $maskedAccountAfterLogin = Get-MaskedIdentifier -Value $context.Account.Id
+            Write-Log -Level INFO -Message "Authenticated interactively: Account=$maskedAccountAfterLogin"
         }
     }
     catch {
@@ -1705,7 +2803,8 @@ else {
         try {
             Connect-AzAccount -ErrorAction Stop | Out-Null
             $context = Get-AzContext
-            Write-Log -Level INFO -Message "Authenticated interactively: Account=$($context.Account.Id)"
+            $maskedAccountAfterLogin = Get-MaskedIdentifier -Value $context.Account.Id
+            Write-Log -Level INFO -Message "Authenticated interactively: Account=$maskedAccountAfterLogin"
         }
         catch {
             throw "Failed to authenticate: $($_.Exception.Message)" 
@@ -1716,7 +2815,8 @@ else {
 if ($SubscriptionId) {
     try {
         Set-AzContext -SubscriptionId $SubscriptionId -ErrorAction Stop | Out-Null
-        Write-Log -Level INFO -Message "Context set to subscription $SubscriptionId"
+        $maskedSubscriptionId = Get-MaskedIdentifier -Value $SubscriptionId
+        Write-Log -Level INFO -Message "Context set to subscription $maskedSubscriptionId"
     }
     catch {
         throw "Failed setting subscription context: $($_.Exception.Message)" 
@@ -1724,7 +2824,31 @@ if ($SubscriptionId) {
 }
 else {
     $SubscriptionId = (Get-AzContext).Subscription.Id
-    Write-Log -Level INFO -Message "Derived subscription id from context: $SubscriptionId"
+    $maskedSubscriptionId = Get-MaskedIdentifier -Value $SubscriptionId
+    Write-Log -Level INFO -Message "Derived subscription id from context: $maskedSubscriptionId"
+}
+
+try {
+    $currentContext = Get-AzContext -ErrorAction Stop
+    if ($currentContext -and $currentContext.Tenant -and $currentContext.Tenant.Id) {
+        $TenantId = $currentContext.Tenant.Id
+        $maskedTenantId = Get-MaskedIdentifier -Value $TenantId
+        Write-Log -Level INFO -Message "Active tenant context: $maskedTenantId"
+    }
+    else {
+        Write-Log -Level WARN -Message 'Unable to determine tenant id from current context.'
+    }
+}
+catch {
+    Write-Log -Level WARN -Message "Unable to read tenant context: $($_.Exception.Message)"
+}
+
+try {
+    Confirm-SubscriptionScope -SubscriptionId $SubscriptionId -TenantId $TenantId -AllowCrossTenantScope:$AllowCrossTenantScope | Out-Null
+    Write-Log -Level DEBUG -Message 'Subscription scope validated.'
+}
+catch {
+    throw
 }
 
 # --- Load required modules ---
@@ -1774,11 +2898,18 @@ $workspaceId = if ($workspace.Id) {
 else {
     $workspace.ResourceId 
 }
-Write-Log -Level INFO -Message "Workspace resolved (resourceId): $workspaceId"
+Write-Log -Level INFO -Message "Workspace resolved: Name=$WorkspaceName ResourceGroup=$ResourceGroupName"
+
+if (-not (Confirm-WorkspaceScope -WorkspaceResourceId $workspaceId -SubscriptionId $SubscriptionId -ResourceGroupName $ResourceGroupName -WorkspaceName $WorkspaceName)) {
+    throw "Workspace scope validation failed for RG=$ResourceGroupName Workspace=$WorkspaceName"
+}
+$script:IsArmScopeValidated = $true
+
 # Split the workspace ID
 if ([string]::IsNullOrWhiteSpace($workspace.CustomerId) -eq $false) {
     $WorkspaceCustomerId = $workspace.CustomerId.ToString()
-    Write-Log -Level INFO -Message "Workspace CustomerId (GUID for KQL): $WorkspaceCustomerId"
+    $maskedWorkspaceCustomerId = Get-MaskedIdentifier -Value $WorkspaceCustomerId
+    Write-Log -Level INFO -Message "Workspace CustomerId (GUID for KQL): $maskedWorkspaceCustomerId"
 }
 else {
     Write-Log -Level WARN -Message 'Workspace CustomerId not present; KQL queries may not function.'
@@ -1794,8 +2925,14 @@ try {
 }
 catch {
     Write-Log -Level WARN -Message "Initial connector retrieval failed: $($_.Exception.Message)"
-    Invoke-AutomaticReaderRoleAssignment -Scope $workspaceId
-    Start-Sleep -Seconds 5
+    $canAttemptAutoAssignment = $IsAzureAutomation -and (-not [string]::IsNullOrWhiteSpace($UmiClientId))
+    if ($canAttemptAutoAssignment) {
+        Invoke-AutomaticReaderRoleAssignment -Scope $workspaceId
+        Start-Sleep -Seconds 5
+    }
+    else {
+        Write-Log -Level INFO -Message 'Skipping automatic role assignment (not running with a User-Assigned Managed Identity in Azure Automation).'
+    }
     try {
         Write-Log INFO 'Retrying connector retrieval after role assignment attempt.'
         $connectors = Get-AzSentinelDataConnector -ResourceGroupName $ResourceGroupName -WorkspaceName $WorkspaceName -ErrorAction Stop | Sort-Object Name
@@ -1806,6 +2943,84 @@ catch {
     }
 }
 
+$connectors = if ($connectors) { @($connectors) } else { @() }
+foreach ($conn in $connectors) {
+    if ($conn -and -not ($conn.PSObject.Properties.Name -contains 'Source')) {
+        Add-Member -InputObject $conn -NotePropertyName 'Source' -NotePropertyValue 'Cmdlet' -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# Supplement cmdlet response with REST-only connectors
+$restFallbackConnectors = @()
+try {
+    $restFallbackConnectors = Get-RestDataConnectors -SubscriptionId $SubscriptionId -ResourceGroupName $ResourceGroupName -WorkspaceName $WorkspaceName
+}
+catch {
+    Write-Log -Level WARN -Message "REST fallback retrieval threw: $($_.Exception.Message)"
+    $restFallbackConnectors = @()
+}
+
+if ($restFallbackConnectors.Count -eq 0) {
+    Write-Log -Level WARN -Message 'REST fallback: 0 connectors returned. Verify Sentinel Reader permission for the run identity if connectors are missing.'
+}
+
+if ($restFallbackConnectors.Count -gt 0) {
+    $restCandidateNames = $restFallbackConnectors | ForEach-Object {
+        if ($_.name) { $_.name }
+        elseif ($_.Name) { $_.Name }
+        elseif ($_.id) { ($_.id -split '/')[-1] }
+        else { 'UnknownRestConnector' }
+    }
+    Write-Log -Level WARN -Message "REST fallback: API returned $($restFallbackConnectors.Count) connector(s): $([string]::Join(', ', $restCandidateNames))"
+    $existingKeys = New-Object System.Collections.Generic.HashSet[string]
+    foreach ($conn in $connectors) {
+        if (-not $conn) { continue }
+        foreach ($key in (Get-ConnectorLookupKeys -Connector $conn)) {
+            if ($null -ne $key) { [void]$existingKeys.Add($key) }
+        }
+    }
+
+    $restOnly = @()
+    $restSkipped = @()
+    foreach ($restConnector in $restFallbackConnectors) {
+        if (-not $restConnector) { continue }
+        $keys = Get-ConnectorLookupKeys -Connector $restConnector
+        $hasMatch = $false
+        $matchedKey = $null
+        foreach ($key in $keys) {
+            if ($existingKeys.Contains($key)) { $hasMatch = $true; $matchedKey = $key; break }
+        }
+        if ($hasMatch) {
+            $restSkipped += [pscustomobject]@{ Name = if ($restConnector.name) { $restConnector.name } else { $restConnector.Name }; Reason = "Matched existing key '$matchedKey'" }
+            continue
+        }
+
+        if (-not $hasMatch) {
+            $converted = Convert-RestConnectorRecord -ListRecord $restConnector -SubscriptionId $SubscriptionId -ResourceGroupName $ResourceGroupName -WorkspaceName $WorkspaceName
+            if ($converted) {
+                $restOnly += $converted
+                foreach ($key in (Get-ConnectorLookupKeys -Connector $converted)) {
+                    if ($null -ne $key) { [void]$existingKeys.Add($key) }
+                }
+            }
+        }
+    }
+
+    if ($restSkipped.Count -gt 0) {
+        $skipDetails = $restSkipped | ForEach-Object { "$($_.Name): $($_.Reason)" }
+        Write-Log -Level WARN -Message "REST fallback: candidates skipped (already returned by cmdlet): $([string]::Join(', ', $skipDetails))"
+    }
+
+    if ($restOnly.Count -gt 0) {
+        $restNames = $restOnly | ForEach-Object { $_.Name } | Sort-Object
+        Write-Log -Level WARN -Message "REST fallback: $($restOnly.Count) connector(s) missing from cmdlet output; merging: $([string]::Join(', ', $restNames))"
+        $connectors = @($connectors + $restOnly) | Sort-Object Name
+    }
+    else {
+        Write-Log -Level INFO -Message "REST API returned $($restFallbackConnectors.Count) connector(s); all represented in cmdlet output."
+    }
+}
+
 if (-not $connectors) {
     Write-Log -Level WARN -Message 'No data connectors returned.' 
 }
@@ -1813,6 +3028,19 @@ else {
 
     $connectTxt = $connectors | Format-List * | Out-String
     Write-Log -Level DEBUG -Message "Connectors: $connectTxt"
+    if ($VerboseLogging -and $connectors.Count -gt 0) {
+        Write-Log -Level DEBUG -Message "Raw output from Get-AzSentinelDataConnector ($($connectors.Count) item(s)) follows."
+        foreach ($connector in $connectors) {
+            $raw = $null
+            try {
+                $raw = $connector | ConvertTo-Json -Depth 10 -Compress
+            }
+            catch {
+                $raw = ($connector | Format-List * | Out-String).Trim()
+            }
+            Write-Log -Level DEBUG -Message "ConnectorRaw: $raw"
+        }
+    }
     
     # Summarize connectors with accurate status including log ingestion
     # Apply NameFilter and KindFilter early if provided
@@ -1845,7 +3073,7 @@ else {
                 )
                 $detailsStr = $connectorDetails -join ' '
                 Write-Warning "Get-ConnectorStatus returned null - Skipping connector: $detailsStr"
-                return
+                return (New-ConnectorFallbackRecord -Connector $_ -Reason 'Get-ConnectorStatus failed' -Workspace $using:WorkspaceName -Subscription $using:SubscriptionId -Tenant $using:TenantId)
             }
             
             $logMetrics = if ($statusInfo.LogMetrics -is [System.Collections.IDictionary]) { $statusInfo.LogMetrics } else { @{} }
@@ -1854,9 +3082,18 @@ else {
             $trimmedTitle = if ($statusInfo.Title -is [string]) { $statusInfo.Title.Trim() } else { $statusInfo.Title }
             $trimmedPublisher = if ($statusInfo.Publisher -is [string]) { $statusInfo.Publisher.Trim() } else { $statusInfo.Publisher }
             $trimmedKind = if ($statusInfo.Kind -is [string]) { $statusInfo.Kind.Trim() } else { $statusInfo.Kind }
+            if ([string]::IsNullOrWhiteSpace([string]$trimmedTitle)) {
+                $fallbackId = if ([string]::IsNullOrWhiteSpace([string]$trimmedId) -and ($statusInfo.Id -is [string])) { $statusInfo.Id.Trim() } elseif ([string]::IsNullOrWhiteSpace([string]$trimmedId)) { $statusInfo.Id } else { $trimmedId }
+                if ([string]::IsNullOrWhiteSpace([string]$fallbackId) -and ($trimmedName -is [string])) {
+                    $fallbackId = $trimmedName
+                }
+                $trimmedTitle = $fallbackId
+                $trimmedPublisher = 'No Match'
+            }
             [pscustomobject]@{
                 Name              = $trimmedName
                 Id                = $trimmedId
+                ResourceId        = $statusInfo.ResourceId
                 Title             = $trimmedTitle
                 Publisher         = $trimmedPublisher
                 Kind              = $trimmedKind
@@ -1870,6 +3107,7 @@ else {
                 StatusDetails     = if ($statusInfo.RawProperties) { ($statusInfo.RawProperties -join ';') } else { $null }
                 Workspace         = $using:WorkspaceName
                 Subscription      = $using:SubscriptionId
+                Source            = $statusInfo.Source
             }
         } -ThrottleLimit $ThrottleLimit
     }
@@ -1904,7 +3142,7 @@ else {
                 # Convert to readable string for logging
                 $detailsStr = ($connectorDetails.GetEnumerator() | ForEach-Object { "$($_.Key)='$($_.Value)'" }) -join ' '
                 Write-Log -Level ERROR -Message "Get-ConnectorStatus returned null - Skipping connector: $detailsStr"
-                return
+                return (New-ConnectorFallbackRecord -Connector $connector -Reason 'Get-ConnectorStatus failed' -Workspace $WorkspaceName -Subscription $SubscriptionId -Tenant $TenantId)
             }
             
             $logMetrics = if ($statusInfo.LogMetrics -is [System.Collections.IDictionary]) { $statusInfo.LogMetrics } else { @{} }
@@ -1913,10 +3151,19 @@ else {
             $trimmedId = if ($statusInfo.Id -is [string]) { $statusInfo.Id.Trim() } else { $statusInfo.Id }
             $trimmedTitle = if ($statusInfo.Title -is [string]) { $statusInfo.Title.Trim() } else { $statusInfo.Title }
             $trimmedPublisher = if ($statusInfo.Publisher -is [string]) { $statusInfo.Publisher.Trim() } else { $statusInfo.Publisher }
+            if ([string]::IsNullOrWhiteSpace([string]$trimmedTitle)) {
+                $fallbackId = if ([string]::IsNullOrWhiteSpace([string]$trimmedId) -and ($statusInfo.Id -is [string])) { $statusInfo.Id.Trim() } elseif ([string]::IsNullOrWhiteSpace([string]$trimmedId)) { $statusInfo.Id } else { $trimmedId }
+                if ([string]::IsNullOrWhiteSpace([string]$fallbackId) -and ($trimmedName -is [string])) {
+                    $fallbackId = $trimmedName
+                }
+                $trimmedTitle = $fallbackId
+                $trimmedPublisher = 'No Match'
+            }
             $record = [ordered]@{
                 Name              = $trimmedName
                 Kind              = $trimmedKind
                 Id                = $trimmedId
+                ResourceId        = $statusInfo.ResourceId
                 Title             = $trimmedTitle
                 Publisher         = $trimmedPublisher
                 Status            = $statusInfo.OverallStatus
@@ -1932,6 +3179,7 @@ else {
                 Workspace         = $WorkspaceName
                 Subscription      = $SubscriptionId
                 Tenant            = $TenantId
+                Source            = $statusInfo.Source
             }
             $stateDetails = if ($statusInfo.StateDetails -is [System.Collections.IDictionary]) { $statusInfo.StateDetails } else { $null }
             if ($record -is [System.Collections.IDictionary] -and $stateDetails) {
@@ -1961,8 +3209,40 @@ else {
     # Produce a clean collection prior to consolidated object.
     $ConnectorCollection = $summary 
 
+    # Ensure every record has a Name value (fallback to Id/Title) for downstream grouping/logging
+    $nameInjected = 0
+    foreach ($rec in $ConnectorCollection) {
+        if (-not $rec) { continue }
+        $hasNameProp = $rec.PSObject.Properties.Name -contains 'Name'
+        $nameValue = if ($hasNameProp) { $rec.Name } else { $null }
+        if ([string]::IsNullOrWhiteSpace([string]$nameValue)) {
+            $fallback = $null
+            if ($rec.Id) { $fallback = $rec.Id }
+            elseif ($rec.Title) { $fallback = $rec.Title }
+            else { $fallback = "UnknownConnector_$($nameInjected + 1)" }
+            if ($hasNameProp) {
+                $rec.Name = $fallback
+            }
+            else {
+                Add-Member -InputObject $rec -NotePropertyName Name -NotePropertyValue $fallback -Force
+            }
+            $nameInjected++
+        }
+    }
+    if ($nameInjected -gt 0) {
+        Write-Log -Level WARN -Message "Injected fallback Name value for $nameInjected connector record(s)."
+    }
+
     Write-Log -Level INFO -Message "After Select-Object: ConnectorCollection contains $($ConnectorCollection.Count) items"
-    Write-Log -Level DEBUG -Message "ConnectorCollection unique names: $(($ConnectorCollection | Select-Object -ExpandProperty Name -Unique | Measure-Object).Count)"
+    $uniqueNames = New-Object System.Collections.Generic.HashSet[string]
+    foreach ($rec in $ConnectorCollection) {
+        if (-not $rec) { continue }
+        if (-not ($rec.PSObject.Properties.Name -contains 'Name')) { continue }
+        $nameValue = [string]$rec.Name
+        if ([string]::IsNullOrWhiteSpace($nameValue)) { continue }
+        [void]$uniqueNames.Add($nameValue)
+    }
+    Write-Log -Level DEBUG -Message "ConnectorCollection unique names: $($uniqueNames.Count)"
 
     # --- Merge duplicate connector records ---
     # Deduplication/Merge: Connectors with the same Id represent the same underlying integration.
@@ -2204,14 +3484,13 @@ else {
 }
 
 if ($LogicAppUri) {
-    try {
-        $payload = $ConnectorCollection | ConvertTo-Json -Depth 6
-        Write-Log INFO "Posting $($ConnectorCollection.Count) records to Logic App." 
-        Invoke-RestMethod -Method Post -Uri $LogicAppUri -Body $payload -ContentType 'application/json' -ErrorAction Stop | Out-Null
-        Write-Log INFO 'Logic App post succeeded.'
-    }
-    catch {
-        Write-Log ERROR "Logic App post failed: $($_.Exception.Message)" 
+    $connectorCountForPost = 0
+    if ($ConnectorCollection -is [System.Collections.ICollection]) { $connectorCountForPost = $ConnectorCollection.Count }
+    elseif ($ConnectorCollection -is [array]) { $connectorCountForPost = $ConnectorCollection.Length }
+
+    $postSuccess = Submit-LogicAppResult -LogicAppUri $LogicAppUri -Payload $ConnectorCollection -ConnectorCount $connectorCountForPost -WhatIf:$WhatIf
+    if (-not $postSuccess) {
+        Write-Log -Level WARN -Message 'Logic App submission failed; continuing without halting the run.'
     }
 }
 else {
