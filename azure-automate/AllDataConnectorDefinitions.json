@@ -2603,43 +2603,27 @@
       },
       {
         "title": "",
-        "description": "**STEP 4 - Assign role of Contributor to application in Microsoft Entra ID**\n\n Follow the steps in this section to assign the role:\n 1. In the Azure portal, Go to **Resource Group** and select your resource group.\n 2. Go to **Access control (IAM)** from left panel.\n 3. Click on **Add**, and then select **Add role assignment**.\n 4. Select **Contributor** as role and click on next.\n 5. In **Assign access to**, select `User, group, or service principal`.\n 6. Click on **add members** and type **your app name** that you have created and select it.\n 7. Now click on **Review + assign** and then again click on **Review + assign**. \n\n> **Reference link:** [https://learn.microsoft.com/azure/role-based-access-control/role-assignments-portal](https://learn.microsoft.com/azure/role-based-access-control/role-assignments-portal)"
+        "description": "**STEP 4 - Get Object ID of your application in Microsoft Entra ID**\n\n After creating your app registration, follow the steps in this section to get Object ID:\n 1. Go to **Microsoft Entra ID**.\n 2. Select **Enterprise applications** from the left menu.\n 3. Find your newly created application in the list (you can search by the name you provided).\n 4. Click on the application.\n 5. On the overview page, copy the **Object ID**. This is the **AzureEntraObjectId** needed for your ARM template role assignment.\n"
       },
       {
         "title": "",
-        "description": "**STEP 5 - Create a Keyvault**\n\n Follow these instructions to create a new Keyvault.\n 1. In the Azure portal, Go to **Key vaults**. Click create.\n 2. Select Subsciption, Resource Group and provide unique name of keyvault.\n\n> **NOTE:** Create a separate key vault for each **API key** within one workspace."
+        "description": "**STEP 5 - Assign role of Contributor to application in Microsoft Entra ID**\n\n Follow the steps in this section to assign the role:\n 1. In the Azure portal, Go to **Resource Group** and select your resource group.\n 2. Go to **Access control (IAM)** from left panel.\n 3. Click on **Add**, and then select **Add role assignment**.\n 4. Select **Contributor** as role and click on next.\n 5. In **Assign access to**, select `User, group, or service principal`.\n 6. Click on **add members** and type **your app name** that you have created and select it.\n 7. Now click on **Review + assign** and then again click on **Review + assign**. \n\n> **Reference link:** [https://learn.microsoft.com/azure/role-based-access-control/role-assignments-portal](https://learn.microsoft.com/azure/role-based-access-control/role-assignments-portal)"
       },
       {
         "title": "",
-        "description": "**STEP 6 - Create Access Policy in Keyvault**\n\n Follow these instructions to create access policy in Keyvault.\n 1. Go to keyvaults, select your keyvault, go to Access policies on left side panel. Click create.\n 2. Select all keys & secrets permissions. Click next.\n 3. In the principal section, search by application name which was generated in STEP - 2. Click next.\n\n> **NOTE:** Ensure the Permission model in the Access Configuration of Key Vault is set to **'Vault access policy'**"
+        "description": "**STEP 6 - Create a Keyvault**\n\n Follow these instructions to create a new Keyvault.\n 1. In the Azure portal, Go to **Key vaults**. Click create.\n 2. Select Subsciption, Resource Group and provide unique name of keyvault.\n\n> **NOTE:** Create a separate key vault for each **API key** within one workspace."
       },
       {
         "title": "",
-        "description": "**STEP 7 - Choose ONE from the following two deployment options to deploy the connector and the associated Azure Function**\n\n>**IMPORTANT:** Before deploying the Armis Alerts Activities data connector, have the Workspace ID and Workspace Primary Key (can be copied from the following) readily available.., as well as the Armis API Authorization Key(s)",
-        "instructions": [
-          {
-            "parameters": {
-              "fillWith": [
-                "WorkspaceId"
-              ],
-              "label": "Workspace ID"
-            },
-            "type": "CopyableLabel"
-          },
-          {
-            "parameters": {
-              "fillWith": [
-                "PrimaryKey"
-              ],
-              "label": "Primary Key"
-            },
-            "type": "CopyableLabel"
-          }
-        ]
+        "description": "**STEP 7 - Create Access Policy in Keyvault**\n\n Follow these instructions to create access policy in Keyvault.\n 1. Go to keyvaults, select your keyvault, go to Access policies on left side panel. Click create.\n 2. Select all keys & secrets permissions. Click next.\n 3. In the principal section, search by application name which was generated in STEP - 2. Click next.\n\n> **NOTE:** Ensure the Permission model in the Access Configuration of Key Vault is set to **'Vault access policy'**"
+      },
+      {
+        "title": "",
+        "description": "**STEP 8 - Choose ONE from the following two deployment options to deploy the connector and the associated Azure Function**\n\n>**IMPORTANT:** Before deploying the Armis Device data connector, have the Armis API Authorization Key(s) readily available.."
       },
       {
         "title": "Option 1 - Azure Resource Manager (ARM) Template",
-        "description": "Use this method for automated deployment of the Armis connector.\n\n1. Click the **Deploy to Azure** button below. \n\n\t[![Deploy To Azure](https://aka.ms/deploytoazurebutton)](https://aka.ms/sentinel-ArmisAlertsActivitiesAPI-azuredeploy) [![Deploy to Azure Gov](https://aka.ms/deploytoazuregovbutton)](https://aka.ms/sentinel-ArmisAlertsActivitiesAPI-azuredeploy-gov)\n2. Select the preferred **Subscription**, **Resource Group** and **Location**. \n3. Enter the below information : \n\t\tFunction Name \n\t\tWorkspace ID \n\t\tWorkspace Key \n\t\tArmis Secret Key \n\t\tArmis URL (https://<armis-instance>.armis.com/api/v1/) \n\t\tArmis Alert Table Name  \n\t\tArmis Activity Table Name \n\t\tSeverity  (Default: Low) \n\t\tArmis Schedule \n\t\tKeyVault Name \n\t\tAzure Client Id \n\t\tAzure Client Secret \n\t\tTenant Id \n4. Mark the checkbox labeled **I agree to the terms and conditions stated above**. \n5. Click **Purchase** to deploy."
+        "description": "Use this method for automated deployment of the Armis connector.\n\n1. Click the **Deploy to Azure** button below. \n\n\t[![Deploy To Azure](https://aka.ms/deploytoazurebutton)](https://aka.ms/sentinel-ArmisAlertsActivitiesAPI-azuredeploy) [![Deploy to Azure Gov](https://aka.ms/deploytoazuregovbutton)](https://aka.ms/sentinel-ArmisAlertsActivitiesAPI-azuredeploy-gov)\n2. Select the preferred **Subscription**, **Resource Group** and **Location**. \n3. Enter the below information : \n\t\tFunction Name \n\t\tWorkspace Name  \n\t\tArmis Secret Key \n\t\tArmis URL (https://<armis-instance>.armis.com/api/v1/) \n\t\tArmis Alert Table Name \n\t\tArmis Activity Table Name \n\t\tSeverity  (Default: Low) \n\t\tArmis Schedule \n\t\tKeyVault Name \n\t\tAzure Client Id \n\t\tAzure Client Secret \n\t\tAzure Entra ObjectID  \n\t\tTenant Id \n4. Mark the checkbox labeled **I agree to the terms and conditions stated above**. \n5. Click **Purchase** to deploy."
       },
       {
         "title": "Option 2 - Manual Deployment of Azure Functions",
@@ -2647,11 +2631,11 @@
       },
       {
         "title": "",
-        "description": "**1. Deploy a Function App**\n\n> **NOTE:** You will need to [prepare VS code](https://docs.microsoft.com/azure/azure-functions/functions-create-first-function-python#prerequisites) for Azure function development.\n\n1. Download the [Azure Function App](https://aka.ms/sentinel-ArmisAlertsActivitiesAPI311-functionapp) file. Extract archive to your local development computer.\n2. Start VS Code. Choose File in the main menu and select Open Folder.\n3. Select the top level folder from extracted files.\n4. Choose the Azure icon in the Activity bar, then in the **Azure: Functions** area, choose the **Deploy to function app** button.\nIf you aren't already signed in, choose the Azure icon in the Activity bar, then in the **Azure: Functions** area, choose **Sign in to Azure**\nIf you're already signed in, go to the next step.\n5. Provide the following information at the prompts:\n\n\ta. **Select folder:** Choose a folder from your workspace or browse to one that contains your function app.\n\n\tb. **Select Subscription:** Choose the subscription to use.\n\n\tc. Select **Create new Function App in Azure** (Don't choose the Advanced option)\n\n\td. **Enter a globally unique name for the function app:** Type a name that is valid in a URL path. The name you type is validated to make sure that it's unique in Azure Functions. (e.g. ARMISXXXXX).\n\n\te. **Select a runtime:** Choose Python 3.11\n\n\tf. Select a location for new resources. For better performance and lower costs choose the same [region](https://azure.microsoft.com/regions/) where Microsoft Sentinel is located.\n\n6. Deployment will begin. A notification is displayed after your function app is created and the deployment package is applied.\n7. Go to Azure Portal for the Function App configuration."
+        "description": "**1. Deploy a Function App**\n\n> **NOTE:** You will need to [prepare VS code](https://docs.microsoft.com/azure/azure-functions/functions-create-first-function-python#prerequisites) for Azure function development.\n\n1. Download the [Azure Function App](https://aka.ms/sentinel-ArmisAlertsActivities320-functionapp) file. Extract archive to your local development computer.\n2. Start VS Code. Choose File in the main menu and select Open Folder.\n3. Select the top level folder from extracted files.\n4. Choose the Azure icon in the Activity bar, then in the **Azure: Functions** area, choose the **Deploy to function app** button.\nIf you aren't already signed in, choose the Azure icon in the Activity bar, then in the **Azure: Functions** area, choose **Sign in to Azure**\nIf you're already signed in, go to the next step.\n5. Provide the following information at the prompts:\n\n\ta. **Select folder:** Choose a folder from your workspace or browse to one that contains your function app.\n\n\tb. **Select Subscription:** Choose the subscription to use.\n\n\tc. Select **Create new Function App in Azure** (Don't choose the Advanced option)\n\n\td. **Enter a globally unique name for the function app:** Type a name that is valid in a URL path. The name you type is validated to make sure that it's unique in Azure Functions. (e.g. ARMISXXXXX).\n\n\te. **Select a runtime:** Choose Python 3.12\n\n\tf. Select a location for new resources. For better performance and lower costs choose the same [region](https://azure.microsoft.com/regions/) where Microsoft Sentinel is located.\n\n6. Deployment will begin. A notification is displayed after your function app is created and the deployment package is applied.\n7. Go to Azure Portal for the Function App configuration."
       },
       {
         "title": "",
-        "description": "**2. Configure the Function App**\n\n1. In the Function App, select the Function App Name and select **Configuration**.\n2. In the **Application settings** tab, select **+ New application setting**.\n3. Add each of the following application settings individually, with their respective values (case-sensitive): \n\t\tWorkspace ID \n\t\tWorkspace Key \n\t\tArmis Secret Key \n\t\tArmis URL (https://<armis-instance>.armis.com/api/v1/) \n\t\tArmis Alert Table Name \n\t\tArmis Activity Table Name \n\t\tSeverity  (Default: Low) \n\t\tArmis Schedule \n\t\tKeyVault Name \n\t\tAzure Client Id \n\t\tAzure Client Secret \n\t\tTenant Id \n\t\tlogAnalyticsUri (optional) \n - Use logAnalyticsUri to override the log analytics API endpoint for dedicated cloud. For example, for public cloud, leave the value empty; for Azure GovUS cloud environment, specify the value in the following format: `https://<CustomerId>.ods.opinsights.azure.us`.\n4. Once all application settings have been entered, click **Save**."
+        "description": "**2. Configure the Function App**\n\n1. In the Function App, select the Function App Name and select **Configuration**.\n2. In the **Application settings** tab, select **+ New application setting**.\n3. Add each of the following application settings individually, with their respective values (case-sensitive): \n\t\tWorkspace Name  \n\t\tArmis Secret Key \n\t\tArmis URL (https://<armis-instance>.armis.com/api/v1/) \n\t\tArmis Alert Table Name \n\t\tArmis Activity Table Name \n\t\tSeverity  (Default: Low) \n\t\tArmis Schedule \n\t\tKeyVault Name \n\t\tAzure Client Id \n\t\tAzure Client Secret \n\t\tAzure Entra ObjectID  \n\t\tTenant Id \n\t\tlogAnalyticsUri (optional) \n - Use logAnalyticsUri to override the log analytics API endpoint for dedicated cloud. For example, for public cloud, leave the value empty; for Azure GovUS cloud environment, specify the value in the following format: `https://<CustomerId>.ods.opinsights.azure.us`.\n4. Once all application settings have been entered, click **Save**."
       }
     ]
   },
@@ -2752,43 +2736,27 @@
       },
       {
         "title": "",
-        "description": "**STEP 4 - Assign role of Contributor to application in Microsoft Entra ID**\n\n Follow the steps in this section to assign the role:\n 1. In the Azure portal, Go to **Resource Group** and select your resource group.\n 2. Go to **Access control (IAM)** from left panel.\n 3. Click on **Add**, and then select **Add role assignment**.\n 4. Select **Contributor** as role and click on next.\n 5. In **Assign access to**, select `User, group, or service principal`.\n 6. Click on **add members** and type **your app name** that you have created and select it.\n 7. Now click on **Review + assign** and then again click on **Review + assign**. \n\n> **Reference link:** [https://learn.microsoft.com/azure/role-based-access-control/role-assignments-portal](https://learn.microsoft.com/azure/role-based-access-control/role-assignments-portal)"
+        "description": "**STEP 4 - Get Object ID of your application in Microsoft Entra ID**\n\n After creating your app registration, follow the steps in this section to get Object ID:\n 1. Go to **Microsoft Entra ID**.\n 2. Select **Enterprise applications** from the left menu.\n 3. Find your newly created application in the list (you can search by the name you provided).\n 4. Click on the application.\n 5. On the overview page, copy the **Object ID**. This is the **AzureEntraObjectId** needed for your ARM template role assignment.\n"
       },
       {
         "title": "",
-        "description": "**STEP 5 - Create a Keyvault**\n\n Follow these instructions to create a new Keyvault.\n 1. In the Azure portal, Go to **Key vaults**. Click create.\n 2. Select Subsciption, Resource Group and provide unique name of keyvault.\n\n> **NOTE:** Create a separate key vault for each **API key** within one workspace."
+        "description": "**STEP 5 - Assign role of Contributor to application in Microsoft Entra ID**\n\n Follow the steps in this section to assign the role:\n 1. In the Azure portal, Go to **Resource Group** and select your resource group.\n 2. Go to **Access control (IAM)** from left panel.\n 3. Click on **Add**, and then select **Add role assignment**.\n 4. Select **Contributor** as role and click on next.\n 5. In **Assign access to**, select `User, group, or service principal`.\n 6. Click on **add members** and type **your app name** that you have created and select it.\n 7. Now click on **Review + assign** and then again click on **Review + assign**. \n\n> **Reference link:** [https://learn.microsoft.com/azure/role-based-access-control/role-assignments-portal](https://learn.microsoft.com/azure/role-based-access-control/role-assignments-portal)"
       },
       {
         "title": "",
-        "description": "**STEP 6 - Create Access Policy in Keyvault**\n\n Follow these instructions to create access policy in Keyvault.\n 1. Go to keyvaults, select your keyvault, go to Access policies on left side panel. Click create.\n 2. Select all keys & secrets permissions. Click next.\n 3. In the principal section, search by application name which was generated in STEP - 2. Click next.\n\n> **NOTE:** Ensure the Permission model in the Access Configuration of Key Vault is set to **'Vault access policy'**"
+        "description": "**STEP 6 - Create a Keyvault**\n\n Follow these instructions to create a new Keyvault.\n 1. In the Azure portal, Go to **Key vaults**. Click create.\n 2. Select Subsciption, Resource Group and provide unique name of keyvault.\n\n> **NOTE:** Create a separate key vault for each **API key** within one workspace."
       },
       {
         "title": "",
-        "description": "**STEP 7 - Choose ONE from the following two deployment options to deploy the connector and the associated Azure Function**\n\n>**IMPORTANT:** Before deploying the Armis Device data connector, have the Workspace ID and Workspace Primary Key (can be copied from the following) readily available.., as well as the Armis API Authorization Key(s)",
-        "instructions": [
-          {
-            "parameters": {
-              "fillWith": [
-                "WorkspaceId"
-              ],
-              "label": "Workspace ID"
-            },
-            "type": "CopyableLabel"
-          },
-          {
-            "parameters": {
-              "fillWith": [
-                "PrimaryKey"
-              ],
-              "label": "Primary Key"
-            },
-            "type": "CopyableLabel"
-          }
-        ]
+        "description": "**STEP 7 - Create Access Policy in Keyvault**\n\n Follow these instructions to create access policy in Keyvault.\n 1. Go to keyvaults, select your keyvault, go to Access policies on left side panel. Click create.\n 2. Select all keys & secrets permissions. Click next.\n 3. In the principal section, search by application name which was generated in STEP - 2. Click next.\n\n> **NOTE:** Ensure the Permission model in the Access Configuration of Key Vault is set to **'Vault access policy'**"
+      },
+      {
+        "title": "",
+        "description": "**STEP 8 - Choose ONE from the following two deployment options to deploy the connector and the associated Azure Function**\n\n>**IMPORTANT:** Before deploying the Armis Device data connector, have the Armis API Authorization Key(s) readily available.."
       },
       {
         "title": "Option 1 - Azure Resource Manager (ARM) Template",
-        "description": "Use this method for automated deployment of the Armis connector.\n\n1. Click the **Deploy to Azure** button below. \n\n\t[![Deploy To Azure](https://aka.ms/deploytoazurebutton)](https://aka.ms/sentinel-ArmisDevice-azuredeploy) [![Deploy to Azure Gov](https://aka.ms/deploytoazuregovbutton)](https://aka.ms/sentinel-ArmisDevice-azuredeploy-gov)\n2. Select the preferred **Subscription**, **Resource Group** and **Location**. \n3. Enter the below information : \n\t\tFunction Name \n\t\tWorkspace ID \n\t\tWorkspace Key \n\t\tArmis Secret Key \n\t\tArmis URL (https://<armis-instance>.armis.com/api/v1/) \n\t\tArmis Device Table Name \n\t\tArmis Schedule \n\t\tKeyVault Name \n\t\tAzure Client Id \n\t\tAzure Client Secret \n\t\tTenant Id \n4. Mark the checkbox labeled **I agree to the terms and conditions stated above**. \n5. Click **Purchase** to deploy."
+        "description": "Use this method for automated deployment of the Armis connector.\n\n1. Click the **Deploy to Azure** button below. \n\n\t[![Deploy To Azure](https://aka.ms/deploytoazurebutton)](https://aka.ms/sentinel-ArmisDevice-azuredeploy) [![Deploy to Azure Gov](https://aka.ms/deploytoazuregovbutton)](https://aka.ms/sentinel-ArmisDevice-azuredeploy-gov)\n2. Select the preferred **Subscription**, **Resource Group** and **Location**. \n3. Enter the below information : \n\t\tFunction Name \n\t\tLocation \n\t\tWorkspace Name \n\t\tArmis Secret Key \n\t\tArmis URL (https://<armis-instance>.armis.com/api/v1/) \n\t\tArmis Device Table Name \n\t\tArmis Schedule \n\t\tKeyVault Name \n\t\tAzure Client Id \n\t\tAzure Client Secret \n\t\tAzure Entra ObjectID \n\t\tTenant Id \n4. Mark the checkbox labeled **I agree to the terms and conditions stated above**. \n5. Click **Purchase** to deploy."
       },
       {
         "title": "Option 2 - Manual Deployment of Azure Functions",
@@ -2796,11 +2764,11 @@
       },
       {
         "title": "",
-        "description": "**1. Deploy a Function App**\n\n> **NOTE:** You will need to [prepare VS code](https://docs.microsoft.com/azure/azure-functions/functions-create-first-function-python#prerequisites) for Azure function development.\n\n1. Download the [Azure Function App](https://aka.ms/sentinel-ArmisDevice311-functionapp) file. Extract archive to your local development computer.\n2. Start VS Code. Choose File in the main menu and select Open Folder.\n3. Select the top level folder from extracted files.\n4. Choose the Azure icon in the Activity bar, then in the **Azure: Functions** area, choose the **Deploy to function app** button.\nIf you aren't already signed in, choose the Azure icon in the Activity bar, then in the **Azure: Functions** area, choose **Sign in to Azure**\nIf you're already signed in, go to the next step.\n5. Provide the following information at the prompts:\n\n\ta. **Select folder:** Choose a folder from your workspace or browse to one that contains your function app.\n\n\tb. **Select Subscription:** Choose the subscription to use.\n\n\tc. Select **Create new Function App in Azure** (Don't choose the Advanced option)\n\n\td. **Enter a globally unique name for the function app:** Type a name that is valid in a URL path. The name you type is validated to make sure that it's unique in Azure Functions. (e.g. ARMISXXXXX).\n\n\te. **Select a runtime:** Choose Python 3.11\n\n\tf. Select a location for new resources. For better performance and lower costs choose the same [region](https://azure.microsoft.com/regions/) where Microsoft Sentinel is located.\n\n6. Deployment will begin. A notification is displayed after your function app is created and the deployment package is applied.\n7. Go to Azure Portal for the Function App configuration."
+        "description": "**1. Deploy a Function App**\n\n> **NOTE:** You will need to [prepare VS code](https://docs.microsoft.com/azure/azure-functions/functions-create-first-function-python#prerequisites) for Azure function development.\n\n1. Download the [Azure Function App](https://aka.ms/sentinel-ArmisDevice320-functionapp) file. Extract archive to your local development computer.\n2. Start VS Code. Choose File in the main menu and select Open Folder.\n3. Select the top level folder from extracted files.\n4. Choose the Azure icon in the Activity bar, then in the **Azure: Functions** area, choose the **Deploy to function app** button.\nIf you aren't already signed in, choose the Azure icon in the Activity bar, then in the **Azure: Functions** area, choose **Sign in to Azure**\nIf you're already signed in, go to the next step.\n5. Provide the following information at the prompts:\n\n\ta. **Select folder:** Choose a folder from your workspace or browse to one that contains your function app.\n\n\tb. **Select Subscription:** Choose the subscription to use.\n\n\tc. Select **Create new Function App in Azure** (Don't choose the Advanced option)\n\n\td. **Enter a globally unique name for the function app:** Type a name that is valid in a URL path. The name you type is validated to make sure that it's unique in Azure Functions. (e.g. ARMISXXXXX).\n\n\te. **Select a runtime:** Choose Python 3.12\n\n\tf. Select a location for new resources. For better performance and lower costs choose the same [region](https://azure.microsoft.com/regions/) where Microsoft Sentinel is located.\n\n6. Deployment will begin. A notification is displayed after your function app is created and the deployment package is applied.\n7. Go to Azure Portal for the Function App configuration."
       },
       {
         "title": "",
-        "description": "**2. Configure the Function App**\n\n1. In the Function App, select the Function App Name and select **Configuration**.\n2. In the **Application settings** tab, select **+ New application setting**.\n3. Add each of the following application settings individually, with their respective values (case-sensitive): \n\t\tWorkspace ID \n\t\tWorkspace Key \n\t\tArmis Secret Key \n\t\tArmis URL (https://<armis-instance>.armis.com/api/v1/) \n\t\tArmis Device Table Name \n\t\tArmis Schedule \n\t\tKeyVault Name \n\t\tAzure Client Id \n\t\tAzure Client Secret \n\t\tTenant Id \n\t\tlogAnalyticsUri (optional) \n - Use logAnalyticsUri to override the log analytics API endpoint for dedicated cloud. For example, for public cloud, leave the value empty; for Azure GovUS cloud environment, specify the value in the following format: `https://<CustomerId>.ods.opinsights.azure.us`.\n4. Once all application settings have been entered, click **Save**."
+        "description": "**2. Configure the Function App**\n\n1. In the Function App, select the Function App Name and select **Configuration**.\n2. In the **Application settings** tab, select **+ New application setting**.\n3. Add each of the following application settings individually, with their respective values (case-sensitive): \n\t\tLocation \n\t\tWorkspace Name \n\t\tArmis Secret Key \n\t\tArmis URL (https://<armis-instance>.armis.com/api/v1/) \n\t\tArmis Device Table Name \n\t\tArmis Schedule \n\t\tKeyVault Name \n\t\tAzure Client Id \n\t\tAzure Client Secret \n\t\tAzure Entra ObjectID \n\t\tTenant Id \n\t\tlogAnalyticsUri (optional) \n - Use logAnalyticsUri to override the log analytics API endpoint for dedicated cloud. For example, for public cloud, leave the value empty; for Azure GovUS cloud environment, specify the value in the following format: `https://<CustomerId>.ods.opinsights.azure.us`.\n4. Once all application settings have been entered, click **Save**."
       }
     ]
   },
@@ -11344,7 +11312,7 @@
         },
         {
           "provider": "Microsoft.OperationalInsights/workspaces/sharedKeys",
-          "permissionsDisplayText": "read permissions to shared keys for the workspace are required.",
+          "permissionsDisplayText": "read permissions to shared keys for the workspace are required. [See the documentation to learn more about workspace keys](https://docs.microsoft.com/azure/azure-monitor/platform/agent-windows#obtain-workspace-id-and-key).",
           "providerDisplayName": "Keys",
           "scope": "Workspace",
           "requiredPermissions": {
@@ -11370,7 +11338,7 @@
       },
       {
         "title": "",
-        "description": ">**NOTE:** This connector has been updated to support [Cisco Cloud Security log schema version 11.](https://docs.umbrella.com/deployment-umbrella/docs/log-formats-and-versioning)"
+        "description": ">**NOTE:** This connector has been updated to support [Cisco Cloud Security log schema version 14.](https://docs.umbrella.com/deployment-umbrella/docs/log-formats-and-versioning)"
       },
       {
         "title": "",
@@ -11656,7 +11624,7 @@
         },
         {
           "provider": "Microsoft.OperationalInsights/workspaces/sharedKeys",
-          "permissionsDisplayText": "read permissions to shared keys for the workspace are required.",
+          "permissionsDisplayText": "read permissions to shared keys for the workspace are required. [See the documentation to learn more about workspace keys](https://docs.microsoft.com/azure/azure-monitor/platform/agent-windows#obtain-workspace-id-and-key).",
           "providerDisplayName": "Keys",
           "scope": "Workspace",
           "requiredPermissions": {
@@ -11686,7 +11654,7 @@
       },
       {
         "title": "",
-        "description": ">**NOTE:** This connector has been updated to support [cisco umbrella log schema version 11.](https://docs.umbrella.com/deployment-umbrella/docs/log-formats-and-versioning)"
+        "description": ">**NOTE:** This connector has been updated to support [cisco umbrella log schema version 14.](https://docs.umbrella.com/deployment-umbrella/docs/log-formats-and-versioning)"
       },
       {
         "title": "",
@@ -16725,6 +16693,34 @@
     ]
   },
   {
+    "id": "CybleVisionAlerts",
+    "title": "Cyble Vision Alerts",
+    "publisher": "Cyble",
+    "descriptionMarkdown": "The **Cyble Vision Alerts** CCF Data Connector enables Ingestion of Threat Alerts from Cyble Vision into Microsoft Sentinel using the Codeless Connector Framework Connector. It collects alert data via API, normalizes it, and stores it in a custom table for advanced detection, correlation, and response.",
+    "graphQueries": [
+      {
+        "metricName": "Total Alerts received",
+        "legend": "Alerts",
+        "baseQuery": "{{graphQueriesTableName}}"
+      }
+    ],
+    "sampleQueries": [
+      {
+        "description": "Get Sample of Cyble Vision Alerts",
+        "query": "{{graphQueriesTableName}}\n | take 10"
+      }
+    ],
+    "dataTypes": [
+      {
+        "name": "CybleVisionAlerts_CL",
+        "lastDataReceivedQuery": "{{graphQueriesTableName}}\n | where TimeGenerated > ago(7d) | summarize Time = max(TimeGenerated)\n | where isnotempty(Time)"
+      }
+    ],
+    "connectivityCriterias": null,
+    "availability": null,
+    "metadata": null
+  },
+  {
     "id": "CyborgSecurity_HUNTER",
     "title": "Cyborg Security HUNTER Hunt Packages",
     "publisher": "Cyborg Security",
@@ -16824,9 +16820,9 @@
   },
   {
     "id": "CyeraDSPMCCF",
-    "title": "Cyera DSPM Azure Sentinel Data Connector",
+    "title": "Cyera DSPM Microsoft Sentinel Data Connector",
     "publisher": "Cyera Inc",
-    "descriptionMarkdown": "The [Cyera DSPM](https://api.cyera.io/) data connector allows you to connect to your Cyera's DSPM tenant and ingesting Classifications, Assets, Issues, and Identity Resources/Definitions into Microsoft Sentinel. The data connector is built on Microsoft Sentinel's Codeless Connector Framework and uses the Cyera's API to fetch Cyera's [DSPM Telemetry](https://www.cyera.com/) once recieced can be correlated with security events creating custom columns so that queries don't need to parse it again, thus resulting in better performance.",
+    "descriptionMarkdown": "The [Cyera DSPM](https://api.cyera.io/) data connector allows you to connect to your Cyera's DSPM tenant and ingesting Classifications, Assets, Issues, and Identity Resources/Definitions into Microsoft Sentinel. The data connector is built on Microsoft Sentinel's Codeless Connector Framework and uses the Cyera's API to fetch Cyera's [DSPM Telemetry](https://www.cyera.com/) once received can be correlated with security events creating custom columns so that queries don't need to parse it again, thus resulting in better performance.",
     "graphQueries": [
       {
         "baseQuery": "CyeraClassifications_CL",
@@ -16907,10 +16903,10 @@
   },
   {
     "id": "CyeraFunctionsConnector",
-    "title": "Cyera DSPM Azure Functions Sentinel Data Connector",
+    "title": "Cyera DSPM Azure Functions Microsoft Sentinel Data Connector",
     "publisher": "Cyera Inc",
     "logo": "{{icon-url}}",
-    "descriptionMarkdown": "The **Cyera DSPM Azure Function Connector** enables seamless ingestion of Cyera’s **Data Security Posture Management (DSPM)** telemetry — *Assets*, *Identities*, *Issues*, and *Classifications* — into **Microsoft Sentinel**.\\n\\nThis connector uses an **Azure Function App** to call Cyera’s REST API on a schedule, fetch the latest DSPM telemetry, and send it to Sentinel through the **Azure Monitor Logs Ingestion API** via a **Data Collection Endpoint (DCE)** and **Data Collection Rule (DCR, kind: Direct)** — no agents required.\\n\\n**Tables created/used**\\n\\n| Entity | Table | Purpose |\\n|---|---|---|\\n| Assets | `CyeraAssets_CL` | Raw asset metadata and data-store context |\\n| Identities | `CyeraIdentities_CL` | Identity definitions and sensitivity context |\\n| Issues | `CyeraIssues_CL` | Findings and remediation details |\\n| Classifications | `CyeraClassifications_CL` | Data class & sensitivity definitions |\\n| MS View | `CyeraAssets_MS_CL` | Normalized asset view for dashboards |\\n\\n> **Note:** This v7 connector supersedes the earlier CCF-based approach and aligns with Microsoft’s recommended Direct ingestion path for Sentinel.",
+    "descriptionMarkdown": "The **Cyera DSPM Azure Function Connector** enables seamless ingestion of Cyera’s **Data Security Posture Management (DSPM)** telemetry — *Assets*, *Identities*, *Issues*, and *Classifications* — into **Microsoft Sentinel**.\\n\\nThis connector uses an **Azure Function App** to call Cyera’s REST API on a schedule, fetch the latest DSPM telemetry, and send it to Microsoft Sentinel through the **Azure Monitor Logs Ingestion API** via a **Data Collection Endpoint (DCE)** and **Data Collection Rule (DCR, kind: Direct)** — no agents required.\\n\\n**Tables created/used**\\n\\n| Entity | Table | Purpose |\\n|---|---|---|\\n| Assets | `CyeraAssets_CL` | Raw asset metadata and data-store context |\\n| Identities | `CyeraIdentities_CL` | Identity definitions and sensitivity context |\\n| Issues | `CyeraIssues_CL` | Findings and remediation details |\\n| Classifications | `CyeraClassifications_CL` | Data class & sensitivity definitions |\\n| MS View | `CyeraAssets_MS_CL` | Normalized asset view for dashboards |\\n\\n> **Note:** This v7 connector supersedes the earlier CCF-based approach and aligns with Microsoft’s recommended Direct ingestion path for Microsoft Sentinel.",
     "additionalRequirementBanner": "This connector deploys KQL transforms in the DCR. No parser function is required.",
     "graphQueries": [
       {
@@ -17064,7 +17060,7 @@
           {
             "parameters": {
               "fillWith": [
-                "{{workspace}}"
+                "{{workspace-location}}"
               ],
               "label": "Workspace Name"
             },
@@ -18222,6 +18218,81 @@
       {
         "title": "",
         "description": "*Now we are done with the adding integration settings for Dataminr RTAP. Once the Dataminr RTAP send an alert data, Function app is triggered and you should be able to see the Alerts data from the Dataminr Pulse into LogAnalytics workspace table called \"DataminrPulse_Alerts_CL\".*\n\n"
+      }
+    ]
+  },
+  {
+    "id": "DatawizaDapSolution",
+    "title": "Datawiza DAP",
+    "publisher": "Datawiza",
+    "descriptionMarkdown": "Connects the Datawiza DAP logs to Azure Log Analytics via the REST API interface",
+    "graphQueries": [
+      {
+        "metricName": "Total data received",
+        "legend": "Datawiza",
+        "baseQuery": "datawizaserveraccess_CL"
+      }
+    ],
+    "sampleQueries": [
+      {
+        "description": "API requests that were rate-limited",
+        "query": "datawizaserveraccess_CL\n| where TimeGenerated >= ago(30d)\n| where Status_d == 429"
+      }
+    ],
+    "dataTypes": [
+      {
+        "name": "datawizaserveraccess_CL",
+        "lastDataReceivedQuery": "datawizaserveraccess_CL\n | summarize Time = max(TimeGenerated)\n | where isnotempty(Time)"
+      }
+    ],
+    "connectivityCriterias": [
+      {
+        "type": "IsConnectedQuery",
+        "value": [
+          "datawizaserveraccess_CL\n| summarize LastLogReceived = max(TimeGenerated)\n | project IsConnected = LastLogReceived > ago(7d)"
+        ]
+      }
+    ],
+    "availability": {
+      "status": 1,
+      "isPreview": true
+    },
+    "permissions": {
+      "resourceProvider": [
+        {
+          "provider": "Microsoft.OperationalInsights/workspaces",
+          "permissionsDisplayText": "read and write permissions are required.",
+          "providerDisplayName": "Workspace",
+          "scope": "Workspace",
+          "requiredPermissions": {
+            "write": true,
+            "read": true,
+            "delete": true
+          }
+        },
+        {
+          "provider": "Microsoft.OperationalInsights/workspaces/sharedKeys",
+          "permissionsDisplayText": "read permissions to shared keys for the workspace are required. [See the documentation to learn more about workspace keys](https://docs.microsoft.com/azure/azure-monitor/platform/agent-windows#obtain-workspace-id-and-key).",
+          "providerDisplayName": "Keys",
+          "scope": "Workspace",
+          "requiredPermissions": {
+            "action": true
+          }
+        }
+      ]
+    },
+    "instructionSteps": [
+      {
+        "title": "Step 1 : Read the detailed documentation",
+        "description": "The installation process is documented in great detail in the documentation site [Microsoft Sentinel integration](https://docs.datawiza.com/tutorial/integrate-with-microsoft-sentinel.html). The user should consult our support (support@datawiza.com) further to understand installation and debug of the integration."
+      },
+      {
+        "title": "Step 2: Install the Datawiza Sentinel Connector",
+        "description": "The next step is to install the Datawiza log forwarder to send logs to Microsoft Sentinel. The exact installation will depend on your environment, consult the [Microsoft Sentinel integration](https://docs.datawiza.com/tutorial/integrate-with-microsoft-sentinel.html) for full details. "
+      },
+      {
+        "title": "Step 3: Test the data ingestion",
+        "description": "After approximately 20 minutes access the Log Analytics workspace on your Microsoft Sentinel installation, and locate the *Custom Logs* section verify that a *datawizaserveraccess_CL* table exists. Use the sample queries to examine the data."
       }
     ]
   },
@@ -28151,6 +28222,88 @@
     }
   },
   {
+    "id": "HalcyonPush",
+    "title": "Halcyon Connector",
+    "publisher": "Halcyon",
+    "descriptionMarkdown": "The [Halcyon](https://www.halcyon.ai) connector provides the capability to send data from Halcyon to Microsoft Sentinel.",
+    "graphQueries": [
+      {
+        "metricName": "Authentication Events",
+        "legend": "HalcyonAuthenticationEvents_CL",
+        "baseQuery": "HalcyonAuthenticationEvents_CL"
+      },
+      {
+        "metricName": "DNS Activity",
+        "legend": "HalcyonDnsActivity_CL",
+        "baseQuery": "HalcyonDnsActivity_CL"
+      },
+      {
+        "metricName": "File Activity",
+        "legend": "HalcyonFileActivity_CL",
+        "baseQuery": "HalcyonFileActivity_CL"
+      },
+      {
+        "metricName": "Network Sessions",
+        "legend": "HalcyonNetworkSession_CL",
+        "baseQuery": "HalcyonNetworkSession_CL"
+      },
+      {
+        "metricName": "Process Events",
+        "legend": "HalcyonProcessEvent_CL",
+        "baseQuery": "HalcyonProcessEvent_CL"
+      }
+    ],
+    "sampleQueries": [
+      {
+        "description": "Get Sample Authentication Events",
+        "query": "HalcyonAuthenticationEvents_CL\n | take 10"
+      },
+      {
+        "description": "Get Sample DNS Activity",
+        "query": "HalcyonDnsActivity_CL\n | take 10"
+      },
+      {
+        "description": "Get Sample File Activity",
+        "query": "HalcyonFileActivity_CL\n | take 10"
+      },
+      {
+        "description": "Get Sample Network Sessions",
+        "query": "HalcyonNetworkSession_CL\n | take 10"
+      },
+      {
+        "description": "Get Sample Process Events",
+        "query": "HalcyonProcessEvent_CL\n | take 10"
+      }
+    ],
+    "dataTypes": [
+      {
+        "name": "Halcyon Authentication Events",
+        "lastDataReceivedQuery": "HalcyonAuthenticationEvents_CL\n | summarize Time = max(TimeGenerated)\n | where isnotempty(Time)"
+      },
+      {
+        "name": "Halcyon DNS Activity",
+        "lastDataReceivedQuery": "HalcyonDnsActivity_CL\n | summarize Time = max(TimeGenerated)\n | where isnotempty(Time)"
+      },
+      {
+        "name": "Halcyon File Activity",
+        "lastDataReceivedQuery": "HalcyonFileActivity_CL\n | summarize Time = max(TimeGenerated)\n | where isnotempty(Time)"
+      },
+      {
+        "name": "Halcyon Network Sessions",
+        "lastDataReceivedQuery": "HalcyonNetworkSession_CL\n | summarize Time = max(TimeGenerated)\n | where isnotempty(Time)"
+      },
+      {
+        "name": "Halcyon Process Events",
+        "lastDataReceivedQuery": "HalcyonProcessEvent_CL\n | summarize Time = max(TimeGenerated)\n | where isnotempty(Time)"
+      }
+    ],
+    "connectivityCriterias": null,
+    "availability": {
+      "isPreview": true
+    },
+    "metadata": null
+  },
+  {
     "id": "HolmSecurityAssets",
     "title": "Holm Security Asset Data",
     "publisher": "Holm Security",
@@ -31253,11 +31406,13 @@
       },
       {
         "title": "Parsers",
-        "description": ">This data connector depends on a parser based on a Kusto Function to work as expected called [**InfobloxInsight**](https://github.com/Azure/Azure-Sentinel/blob/master/Solutions/Infoblox%20SOC%20Insights/Parsers/InfobloxInsight.yaml) which is deployed with the Microsoft Sentinel Solution."
+        "description": ">This data connector depends on a parser based on a Kusto Function to work as expected called [**InfobloxInsight**](https://github.com/Azure/Azure-Sentinel/blob/master/Solutions/Infoblox%20SOC%20Insights/Parsers/InfobloxInsight.yaml) which is deployed with the Microsoft Sentinel Solution.",
+        "instructions": []
       },
       {
         "title": "SOC Insights",
-        "description": ">This data connector assumes you have access to Infoblox BloxOne Threat Defense SOC Insights. You can find more information about SOC Insights [**here**](https://docs.infoblox.com/space/BloxOneThreatDefense/501514252/SOC+Insights)."
+        "description": ">This data connector assumes you have access to Infoblox BloxOne Threat Defense SOC Insights. You can find more information about SOC Insights [**here**](https://docs.infoblox.com/space/BloxOneThreatDefense/501514252/SOC+Insights).",
+        "instructions": []
       },
       {
         "title": "Follow the steps below to configure this data connector",
@@ -31268,11 +31423,13 @@
               "instructionSteps": [
                 {
                   "title": "1.  Generate an Infoblox API Key and copy it somewhere safe",
-                  "description": "In the [Infoblox Cloud Services Portal](https://csp.infoblox.com/atlas/app/welcome), generate an API Key and copy it somewhere safe to use in the next step. You can find instructions on how to create API keys [**here**](https://docs.infoblox.com/space/BloxOneThreatDefense/230394187/How+Do+I+Create+an+API+Key%3F)."
+                  "description": "In the [Infoblox Cloud Services Portal](https://csp.infoblox.com/atlas/app/welcome), generate an API Key and copy it somewhere safe to use in the next step. You can find instructions on how to create API keys [**here**](https://docs.infoblox.com/space/BloxOneThreatDefense/230394187/How+Do+I+Create+an+API+Key%3F).",
+                  "instructions": []
                 },
                 {
                   "title": "2.  Configure the Infoblox-SOC-Get-Open-Insights-API playbook",
-                  "description": "Create and configure the **Infoblox-SOC-Get-Open-Insights-API** playbook which is deployed with this solution. Enter your Infoblox API key in the appropriate parameter when prompted."
+                  "description": "Create and configure the **Infoblox-SOC-Get-Open-Insights-API** playbook which is deployed with this solution. Enter your Infoblox API key in the appropriate parameter when prompted.",
+                  "instructions": []
                 }
               ]
             },
@@ -31386,13 +31543,11 @@
       },
       {
         "title": "Parsers",
-        "description": ">This data connector depends on a parser based on a Kusto Function to work as expected called [**InfobloxInsight**](https://github.com/Azure/Azure-Sentinel/blob/master/Solutions/Infoblox%20SOC%20Insights/Parsers/InfobloxInsight.yaml) which is deployed with the Microsoft Sentinel Solution.",
-        "instructions": []
+        "description": ">This data connector depends on a parser based on a Kusto Function to work as expected called [**InfobloxInsight**](https://github.com/Azure/Azure-Sentinel/blob/master/Solutions/Infoblox%20SOC%20Insights/Parsers/InfobloxInsight.yaml) which is deployed with the Microsoft Sentinel Solution."
       },
       {
         "title": "SOC Insights",
-        "description": ">This data connector assumes you have access to Infoblox BloxOne Threat Defense SOC Insights. You can find more information about SOC Insights [**here**](https://docs.infoblox.com/space/BloxOneThreatDefense/501514252/SOC+Insights).",
-        "instructions": []
+        "description": ">This data connector assumes you have access to Infoblox BloxOne Threat Defense SOC Insights. You can find more information about SOC Insights [**here**](https://docs.infoblox.com/space/BloxOneThreatDefense/501514252/SOC+Insights)."
       },
       {
         "title": "Follow the steps below to configure this data connector",
@@ -31403,13 +31558,11 @@
               "instructionSteps": [
                 {
                   "title": "1.  Generate an Infoblox API Key and copy it somewhere safe",
-                  "description": "In the [Infoblox Cloud Services Portal](https://csp.infoblox.com/atlas/app/welcome), generate an API Key and copy it somewhere safe to use in the next step. You can find instructions on how to create API keys [**here**](https://docs.infoblox.com/space/BloxOneThreatDefense/230394187/How+Do+I+Create+an+API+Key%3F).",
-                  "instructions": []
+                  "description": "In the [Infoblox Cloud Services Portal](https://csp.infoblox.com/atlas/app/welcome), generate an API Key and copy it somewhere safe to use in the next step. You can find instructions on how to create API keys [**here**](https://docs.infoblox.com/space/BloxOneThreatDefense/230394187/How+Do+I+Create+an+API+Key%3F)."
                 },
                 {
                   "title": "2.  Configure the Infoblox-SOC-Get-Open-Insights-API playbook",
-                  "description": "Create and configure the **Infoblox-SOC-Get-Open-Insights-API** playbook which is deployed with this solution. Enter your Infoblox API key in the appropriate parameter when prompted.",
-                  "instructions": []
+                  "description": "Create and configure the **Infoblox-SOC-Get-Open-Insights-API** playbook which is deployed with this solution. Enter your Infoblox API key in the appropriate parameter when prompted."
                 }
               ]
             },
@@ -35966,19 +36119,19 @@
       {
         "metricName": "Total data received",
         "legend": "Microsoft Copilot",
-        "baseQuery": "LLMActivity"
+        "baseQuery": "CopilotActivity"
       }
     ],
     "sampleQueries": [
       {
         "description": "Microsoft Copilot Logs",
-        "query": "LLMActivity\n            | sort by TimeGenerated"
+        "query": "CopilotActivity\n            | sort by TimeGenerated"
       }
     ],
     "dataTypes": [
       {
-        "name": "LLMActivity",
-        "lastDataReceivedQuery": "LLMActivity\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
+        "name": "CopilotActivity",
+        "lastDataReceivedQuery": "CopilotActivity\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
       }
     ],
     "connectivityCriterias": null,
@@ -36194,18 +36347,31 @@
     "graphQueries": [
       {
         "metricName": "Total data received",
-        "legend": "ThreatIntelligenceIndicator",
-        "baseQuery": "ThreatIntelligenceIndicator\n                      | where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")"
+        "legend": "ThreatIntelIndicators",
+        "baseQuery": "ThreatIntelIndicators\n                      | where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")"
+      },
+      {
+        "metricName": "Total data received",
+        "legend": "ThreatIntelObjects",
+        "baseQuery": "ThreatIntelObjects\n                      | where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")"
       }
     ],
     "sampleQueries": [
       {
         "description": "Summarize by threat type",
-        "query": "ThreatIntelligenceIndicator\n| where ExpirationDateTime > now()\n| where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n| where ExpirationDateTime > now()\n| join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
+        "query": "ThreatIntelIndicators\n| where ExpirationDateTime > now()\n| where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n| where ExpirationDateTime > now()\n| join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
       },
       {
         "description": "Summarize by 1 hour bins",
-        "query": "ThreatIntelligenceIndicator\n| where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n| where TimeGenerated >= ago(1d) | summarize count()​​"
+        "query": "ThreatIntelIndicators\n| where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n| where TimeGenerated >= ago(1d) | summarize count()​​"
+      },
+      {
+        "description": "Summarize by threat type",
+        "query": "ThreatIntelObjects\n| where ExpirationDateTime > now()\n| where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n| where ExpirationDateTime > now()\n| join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
+      },
+      {
+        "description": "Summarize by 1 hour bins",
+        "query": "ThreatIntelObjects\n| where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n| where TimeGenerated >= ago(1d) | summarize count()​​"
       }
     ],
     "connectivityCriterias": [
@@ -36218,8 +36384,12 @@
     ],
     "dataTypes": [
       {
-        "name": "ThreatIntelligenceIndicator",
-        "lastDataReceivedQuery": "ThreatIntelligenceIndicator \n                | where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
+        "name": "ThreatIntelIndicators",
+        "lastDataReceivedQuery": "ThreatIntelIndicators \n                | where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
+      },
+      {
+        "name": "ThreatIntelObjects",
+        "lastDataReceivedQuery": "ThreatIntelObjects \n                | where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
       }
     ],
     "availability": {
@@ -36282,31 +36452,18 @@
     "graphQueries": [
       {
         "metricName": "Total data received",
-        "legend": "ThreatIntelIndicators",
-        "baseQuery": "ThreatIntelIndicators\n                      | where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")"
-      },
-      {
-        "metricName": "Total data received",
-        "legend": "ThreatIntelObjects",
-        "baseQuery": "ThreatIntelObjects\n                      | where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")"
+        "legend": "ThreatIntelligenceIndicator",
+        "baseQuery": "ThreatIntelligenceIndicator\n                      | where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")"
       }
     ],
     "sampleQueries": [
       {
         "description": "Summarize by threat type",
-        "query": "ThreatIntelIndicators\n| where ExpirationDateTime > now()\n| where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n| where ExpirationDateTime > now()\n| join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
+        "query": "ThreatIntelligenceIndicator\n| where ExpirationDateTime > now()\n| where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n| where ExpirationDateTime > now()\n| join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
       },
       {
         "description": "Summarize by 1 hour bins",
-        "query": "ThreatIntelIndicators\n| where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n| where TimeGenerated >= ago(1d) | summarize count()​​"
-      },
-      {
-        "description": "Summarize by threat type",
-        "query": "ThreatIntelObjects\n| where ExpirationDateTime > now()\n| where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n| where ExpirationDateTime > now()\n| join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
-      },
-      {
-        "description": "Summarize by 1 hour bins",
-        "query": "ThreatIntelObjects\n| where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n| where TimeGenerated >= ago(1d) | summarize count()​​"
+        "query": "ThreatIntelligenceIndicator\n| where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n| where TimeGenerated >= ago(1d) | summarize count()​​"
       }
     ],
     "connectivityCriterias": [
@@ -36319,12 +36476,8 @@
     ],
     "dataTypes": [
       {
-        "name": "ThreatIntelIndicators",
-        "lastDataReceivedQuery": "ThreatIntelIndicators \n                | where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
-      },
-      {
-        "name": "ThreatIntelObjects",
-        "lastDataReceivedQuery": "ThreatIntelObjects \n                | where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
+        "name": "ThreatIntelligenceIndicator",
+        "lastDataReceivedQuery": "ThreatIntelligenceIndicator \n                | where SourceSystem in (\"Microsoft Defender Threat Intelligence\", \"Microsoft Emerging Threat Feed\")\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
       }
     ],
     "availability": {
@@ -37014,6 +37167,115 @@
   },
   {
     "id": "MimecastAuditAPI",
+    "title": "Mimecast Audit",
+    "publisher": "Mimecast",
+    "descriptionMarkdown": "The data connector for [Mimecast Audit](https://integrations.mimecast.com/tech-partners/microsoft-sentinel/) provides customers with the visibility into security events related to audit and authentication events within Microsoft Sentinel. The data connector provides pre-created dashboards to allow analysts to view insight into user activity, aid in incident correlation and reduce investigation response times coupled with custom alert capabilities.  \nThe Mimecast products included within the connector are: \nAudit\n ",
+    "graphQueries": [
+      {
+        "metricName": "Total Audit data received",
+        "legend": "Audit_CL",
+        "baseQuery": "Audit_CL"
+      }
+    ],
+    "sampleQueries": [
+      {
+        "description": "Audit_CL",
+        "query": "Audit_CL\n| sort by TimeGenerated desc"
+      }
+    ],
+    "dataTypes": [
+      {
+        "name": "Audit_CL",
+        "lastDataReceivedQuery": "Audit_CL\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
+      }
+    ],
+    "connectivityCriterias": [
+      {
+        "type": "IsConnectedQuery",
+        "value": [
+          "Audit_CL\n            | summarize LastLogReceived = max(TimeGenerated)\n            | project IsConnected = LastLogReceived > ago(30d)"
+        ]
+      }
+    ],
+    "availability": {
+      "status": 1,
+      "isPreview": true
+    },
+    "permissions": {
+      "resourceProvider": [
+        {
+          "provider": "Microsoft.OperationalInsights/workspaces",
+          "permissionsDisplayText": "read and write permissions on the workspace are required.",
+          "providerDisplayName": "Workspace",
+          "scope": "Workspace",
+          "requiredPermissions": {
+            "write": true,
+            "read": true,
+            "delete": true
+          }
+        },
+        {
+          "provider": "Microsoft.OperationalInsights/workspaces/sharedKeys",
+          "permissionsDisplayText": "read permissions to shared keys for the workspace are required. [See the documentation to learn more about workspace keys](https://docs.microsoft.com/azure/azure-monitor/platform/agent-windows#obtain-workspace-id-and-key).",
+          "providerDisplayName": "Keys",
+          "scope": "Workspace",
+          "requiredPermissions": {
+            "action": true
+          }
+        }
+      ],
+      "customs": [
+        {
+          "name": "Azure Subscription",
+          "description": "Azure Subscription with owner role is required to register an application in Microsoft Entra ID and assign role of contributor to app in resource group."
+        },
+        {
+          "name": "Microsoft.Web/sites permissions",
+          "description": "Read and write permissions to Azure Functions to create a Function App is required. [See the documentation to learn more about Azure Functions](https://docs.microsoft.com/azure/azure-functions/)."
+        },
+        {
+          "name": "REST API Credentials/permissions",
+          "description": "See the documentation to learn more about API on the [Rest API reference](https://integrations.mimecast.com/documentation/)"
+        }
+      ]
+    },
+    "instructionSteps": [
+      {
+        "title": "",
+        "description": ">**NOTE:** This connector uses Azure Functions to connect to a Mimecast API to pull its logs into Microsoft Sentinel. This might result in additional data ingestion costs. Check the [Azure Functions pricing page](https://azure.microsoft.com/pricing/details/functions/) for details."
+      },
+      {
+        "title": "",
+        "description": ">**(Optional Step)** Securely store workspace and API authorization key(s) or token(s) in Azure Key Vault. Azure Key Vault provides a secure mechanism to store and retrieve key values. [Follow these instructions](https://docs.microsoft.com/azure/app-service/app-service-key-vault-references) to use Azure Key Vault with an Azure Function App."
+      },
+      {
+        "title": "Configuration:",
+        "description": "**STEP 1 - Configuration steps for the Mimecast API**\n\nGo to ***Azure portal ---> App registrations ---> [your_app] ---> Certificates & secrets ---> New client secret*** and create a new secret (save the Value somewhere safe right away because you will not be able to preview it later)"
+      },
+      {
+        "title": "",
+        "description": "**STEP 2 - Deploy Mimecast API Connector**\n\n>**IMPORTANT:** Before deploying the Mimecast API connector, have the Mimecast API authorization key(s) or Token, readily available."
+      },
+      {
+        "title": "",
+        "description": "**STEP 3 - App Registration steps for the Application in Microsoft Entra ID**\n\n This integration requires an App registration in the Azure portal. Follow the steps in this section to create a new application in Microsoft Entra ID:\n 1. Sign in to the [Azure portal](https://portal.azure.com/).\n 2. Search for and select **Microsoft Entra ID**.\n 3. Under **Manage**, select **App registrations > New registration**.\n 4. Enter a display **Name** for your application.\n 5. Select **Register** to complete the initial app registration.\n 6. When registration finishes, the Azure portal displays the app registration's Overview pane. You see the **Application (client) ID** and **Tenant ID**. The client ID and Tenant ID is required as configuration parameters for the execution of TenableVM Data Connector. \n\n> **Reference link:** [https://learn.microsoft.com/azure/active-directory/develop/quickstart-register-app](https://learn.microsoft.com/azure/active-directory/develop/quickstart-register-app)"
+      },
+      {
+        "title": "",
+        "description": "**STEP 4 - Add a client secret for application in Microsoft Entra ID**\n\n Sometimes called an application password, a client secret is a string value required for the execution of TenableVM Data Connector. Follow the steps in this section to create a new Client Secret:\n 1. In the Azure portal, in **App registrations**, select your application.\n 2. Select **Certificates & secrets > Client secrets > New client secret**.\n 3. Add a description for your client secret.\n 4. Select an expiration for the secret or specify a custom lifetime. Limit is 24 months.\n 5. Select **Add**. \n 6. *Record the secret's value for use in your client application code. This secret value is never displayed again after you leave this page.* The secret value is required as configuration parameter for the execution of TenableVM Data Connector. \n\n> **Reference link:** [https://learn.microsoft.com/azure/active-directory/develop/quickstart-register-app#add-a-client-secret](https://learn.microsoft.com/azure/active-directory/develop/quickstart-register-app#add-a-client-secret)"
+      },
+      {
+        "title": "",
+        "description": "**STEP 5 - Get Object ID of your application in Microsoft Entra ID**\n\n After creating your app registration, follow the steps in this section to get Object ID:\n 1. Go to **Microsoft Entra ID**.\n 2. Select **Enterprise applications** from the left menu.\n 3. Find your newly created application in the list (you can search by the name you provided).\n 4. Click on the application.\n 5. On the overview page, copy the **Object ID**. This is the **AzureEntraObjectId** needed for your ARM template role assignment.\n"
+      },
+      {
+        "title": "Deploy the Mimecast Audit Data Connector:",
+        "description": "Use this method for automated deployment of the Mimecast Audit Data connector.\n\n1. Click the **Deploy to Azure** button below. \n\n\t[![Deploy To Azure](https://aka.ms/deploytoazurebutton)](https://aka.ms/sentinel-MimecastAuditAzureDeploy-azuredeploy) [![Deploy to Azure Gov](https://aka.ms/deploytoazuregovbutton)](https://aka.ms/sentinel-MimecastAuditAzureDeploy-azuredeploy-gov)\n2. Select the preferred **Subscription**, **Resource Group** and **Region**. \n3. Enter the below information : \n\n\t a. Location - The location in which the data collection rules and data collection endpoints should be deployed\n\n\t b. WorkspaceName - Enter Microsoft Sentinel Workspace Name of Log Analytics workspace\n\n\t c. AzureClientID - Enter Azure Client ID that you have created during app registration\n\n\t d. AzureClientSecret - Enter Azure Client Secret that you have created during creating the client secret\n\n\t e. AzureTenantID - Enter Azure Tenant ID of your Azure Active Directory\n\n\t f. AzureEntraObjectID - Enter Object id of your Microsoft Entra App\n\n\t g. MimecastBaseURL - Enter Base URL of Mimecast API 2.0 (e.g. https://api.services.mimecast.com)\n\n\t h. MimecastClientID - Enter Mimecast Client ID for authentication\n\n\t i. MimecastClientSecret - Enter Mimecast Client Secret for authentication\n\n\t j. MimecastAuditTableName - Enter name of the table used to store Audit data. Default is 'Audit'\n\n\t k. StartDate - Enter the start date in the 'yyyy-mm-dd' format. If you do not provide a date, data from the last 60 days will be fetched automatically. Ensure that the date is in the past and properly formatted\n\n\t l. Schedule - Please enter a valid Quartz cron-expression. (Example: 0 0 */1 * * *) Do not keep the value empty, minimum value is 10 minutes\n\n\t m. LogLevel - Please add log level or log severity value. By default it is set to INFO\n\n\t n. AppInsightsWorkspaceResourceId - Migrate Classic Application Insights to Log Analytic Workspace which is retiring by 29 Febraury 2024. Use 'Log Analytic Workspace-->Properties' blade having 'Resource ID' property value. This is a fully qualified resourceId which is in format '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}' \n4. Mark the checkbox labeled **I agree to the terms and conditions stated above**. \n5. Click **Purchase** to deploy."
+      }
+    ]
+  },
+  {
+    "id": "MimecastAuditAPI",
     "title": "Mimecast Audit & Authentication",
     "publisher": "Mimecast",
     "descriptionMarkdown": "The data connector for [Mimecast Audit & Authentication](https://integrations.mimecast.com/tech-partners/microsoft-sentinel/) provides customers with the visibility into security events related to audit and authentication events within Microsoft Sentinel. The data connector provides pre-created dashboards to allow analysts to view insight into user activity, aid in incident correlation and reduce investigation response times coupled with custom alert capabilities.  \nThe Mimecast products included within the connector are: \nAudit & Authentication\n ",
@@ -37150,115 +37412,6 @@
         "link": "https://mimecastsupport.zendesk.com/"
       }
     }
-  },
-  {
-    "id": "MimecastAuditAPI",
-    "title": "Mimecast Audit",
-    "publisher": "Mimecast",
-    "descriptionMarkdown": "The data connector for [Mimecast Audit](https://integrations.mimecast.com/tech-partners/microsoft-sentinel/) provides customers with the visibility into security events related to audit and authentication events within Microsoft Sentinel. The data connector provides pre-created dashboards to allow analysts to view insight into user activity, aid in incident correlation and reduce investigation response times coupled with custom alert capabilities.  \nThe Mimecast products included within the connector are: \nAudit\n ",
-    "graphQueries": [
-      {
-        "metricName": "Total Audit data received",
-        "legend": "Audit_CL",
-        "baseQuery": "Audit_CL"
-      }
-    ],
-    "sampleQueries": [
-      {
-        "description": "Audit_CL",
-        "query": "Audit_CL\n| sort by TimeGenerated desc"
-      }
-    ],
-    "dataTypes": [
-      {
-        "name": "Audit_CL",
-        "lastDataReceivedQuery": "Audit_CL\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
-      }
-    ],
-    "connectivityCriterias": [
-      {
-        "type": "IsConnectedQuery",
-        "value": [
-          "Audit_CL\n            | summarize LastLogReceived = max(TimeGenerated)\n            | project IsConnected = LastLogReceived > ago(30d)"
-        ]
-      }
-    ],
-    "availability": {
-      "status": 1,
-      "isPreview": true
-    },
-    "permissions": {
-      "resourceProvider": [
-        {
-          "provider": "Microsoft.OperationalInsights/workspaces",
-          "permissionsDisplayText": "read and write permissions on the workspace are required.",
-          "providerDisplayName": "Workspace",
-          "scope": "Workspace",
-          "requiredPermissions": {
-            "write": true,
-            "read": true,
-            "delete": true
-          }
-        },
-        {
-          "provider": "Microsoft.OperationalInsights/workspaces/sharedKeys",
-          "permissionsDisplayText": "read permissions to shared keys for the workspace are required. [See the documentation to learn more about workspace keys](https://docs.microsoft.com/azure/azure-monitor/platform/agent-windows#obtain-workspace-id-and-key).",
-          "providerDisplayName": "Keys",
-          "scope": "Workspace",
-          "requiredPermissions": {
-            "action": true
-          }
-        }
-      ],
-      "customs": [
-        {
-          "name": "Azure Subscription",
-          "description": "Azure Subscription with owner role is required to register an application in Microsoft Entra ID and assign role of contributor to app in resource group."
-        },
-        {
-          "name": "Microsoft.Web/sites permissions",
-          "description": "Read and write permissions to Azure Functions to create a Function App is required. [See the documentation to learn more about Azure Functions](https://docs.microsoft.com/azure/azure-functions/)."
-        },
-        {
-          "name": "REST API Credentials/permissions",
-          "description": "See the documentation to learn more about API on the [Rest API reference](https://integrations.mimecast.com/documentation/)"
-        }
-      ]
-    },
-    "instructionSteps": [
-      {
-        "title": "",
-        "description": ">**NOTE:** This connector uses Azure Functions to connect to a Mimecast API to pull its logs into Microsoft Sentinel. This might result in additional data ingestion costs. Check the [Azure Functions pricing page](https://azure.microsoft.com/pricing/details/functions/) for details."
-      },
-      {
-        "title": "",
-        "description": ">**(Optional Step)** Securely store workspace and API authorization key(s) or token(s) in Azure Key Vault. Azure Key Vault provides a secure mechanism to store and retrieve key values. [Follow these instructions](https://docs.microsoft.com/azure/app-service/app-service-key-vault-references) to use Azure Key Vault with an Azure Function App."
-      },
-      {
-        "title": "Configuration:",
-        "description": "**STEP 1 - Configuration steps for the Mimecast API**\n\nGo to ***Azure portal ---> App registrations ---> [your_app] ---> Certificates & secrets ---> New client secret*** and create a new secret (save the Value somewhere safe right away because you will not be able to preview it later)"
-      },
-      {
-        "title": "",
-        "description": "**STEP 2 - Deploy Mimecast API Connector**\n\n>**IMPORTANT:** Before deploying the Mimecast API connector, have the Mimecast API authorization key(s) or Token, readily available."
-      },
-      {
-        "title": "",
-        "description": "**STEP 3 - App Registration steps for the Application in Microsoft Entra ID**\n\n This integration requires an App registration in the Azure portal. Follow the steps in this section to create a new application in Microsoft Entra ID:\n 1. Sign in to the [Azure portal](https://portal.azure.com/).\n 2. Search for and select **Microsoft Entra ID**.\n 3. Under **Manage**, select **App registrations > New registration**.\n 4. Enter a display **Name** for your application.\n 5. Select **Register** to complete the initial app registration.\n 6. When registration finishes, the Azure portal displays the app registration's Overview pane. You see the **Application (client) ID** and **Tenant ID**. The client ID and Tenant ID is required as configuration parameters for the execution of TenableVM Data Connector. \n\n> **Reference link:** [https://learn.microsoft.com/azure/active-directory/develop/quickstart-register-app](https://learn.microsoft.com/azure/active-directory/develop/quickstart-register-app)"
-      },
-      {
-        "title": "",
-        "description": "**STEP 4 - Add a client secret for application in Microsoft Entra ID**\n\n Sometimes called an application password, a client secret is a string value required for the execution of TenableVM Data Connector. Follow the steps in this section to create a new Client Secret:\n 1. In the Azure portal, in **App registrations**, select your application.\n 2. Select **Certificates & secrets > Client secrets > New client secret**.\n 3. Add a description for your client secret.\n 4. Select an expiration for the secret or specify a custom lifetime. Limit is 24 months.\n 5. Select **Add**. \n 6. *Record the secret's value for use in your client application code. This secret value is never displayed again after you leave this page.* The secret value is required as configuration parameter for the execution of TenableVM Data Connector. \n\n> **Reference link:** [https://learn.microsoft.com/azure/active-directory/develop/quickstart-register-app#add-a-client-secret](https://learn.microsoft.com/azure/active-directory/develop/quickstart-register-app#add-a-client-secret)"
-      },
-      {
-        "title": "",
-        "description": "**STEP 5 - Get Object ID of your application in Microsoft Entra ID**\n\n After creating your app registration, follow the steps in this section to get Object ID:\n 1. Go to **Microsoft Entra ID**.\n 2. Select **Enterprise applications** from the left menu.\n 3. Find your newly created application in the list (you can search by the name you provided).\n 4. Click on the application.\n 5. On the overview page, copy the **Object ID**. This is the **AzureEntraObjectId** needed for your ARM template role assignment.\n"
-      },
-      {
-        "title": "Deploy the Mimecast Audit Data Connector:",
-        "description": "Use this method for automated deployment of the Mimecast Audit Data connector.\n\n1. Click the **Deploy to Azure** button below. \n\n\t[![Deploy To Azure](https://aka.ms/deploytoazurebutton)](https://aka.ms/sentinel-MimecastAuditAzureDeploy-azuredeploy) [![Deploy to Azure Gov](https://aka.ms/deploytoazuregovbutton)](https://aka.ms/sentinel-MimecastAuditAzureDeploy-azuredeploy-gov)\n2. Select the preferred **Subscription**, **Resource Group** and **Region**. \n3. Enter the below information : \n\n\t a. Location - The location in which the data collection rules and data collection endpoints should be deployed\n\n\t b. WorkspaceName - Enter Microsoft Sentinel Workspace Name of Log Analytics workspace\n\n\t c. AzureClientID - Enter Azure Client ID that you have created during app registration\n\n\t d. AzureClientSecret - Enter Azure Client Secret that you have created during creating the client secret\n\n\t e. AzureTenantID - Enter Azure Tenant ID of your Azure Active Directory\n\n\t f. AzureEntraObjectID - Enter Object id of your Microsoft Entra App\n\n\t g. MimecastBaseURL - Enter Base URL of Mimecast API 2.0 (e.g. https://api.services.mimecast.com)\n\n\t h. MimecastClientID - Enter Mimecast Client ID for authentication\n\n\t i. MimecastClientSecret - Enter Mimecast Client Secret for authentication\n\n\t j. MimecastAuditTableName - Enter name of the table used to store Audit data. Default is 'Audit'\n\n\t k. StartDate - Enter the start date in the 'yyyy-mm-dd' format. If you do not provide a date, data from the last 60 days will be fetched automatically. Ensure that the date is in the past and properly formatted\n\n\t l. Schedule - Please enter a valid Quartz cron-expression. (Example: 0 0 */1 * * *) Do not keep the value empty, minimum value is 10 minutes\n\n\t m. LogLevel - Please add log level or log severity value. By default it is set to INFO\n\n\t n. AppInsightsWorkspaceResourceId - Migrate Classic Application Insights to Log Analytic Workspace which is retiring by 29 Febraury 2024. Use 'Log Analytic Workspace-->Properties' blade having 'Resource ID' property value. This is a fully qualified resourceId which is in format '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{workspaceName}' \n4. Mark the checkbox labeled **I agree to the terms and conditions stated above**. \n5. Click **Purchase** to deploy."
-      }
-    ]
   },
   {
     "id": "MimecastCIAPI",
@@ -38102,6 +38255,78 @@
         "link": "https://mimecastsupport.zendesk.com/"
       }
     }
+  },
+  {
+    "id": "MiroAuditLogsDataConnector",
+    "title": "Miro Audit Logs (Enterprise Plan)",
+    "publisher": "Miro",
+    "descriptionMarkdown": "The [Miro Audit Logs](https://help.miro.com/hc/en-us/articles/360017571434-Audit-logs) data connector enables you to ingest organization-wide audit events from Miro into Microsoft Sentinel. Monitor user activities, security events, content access, team changes, and administrative actions to enhance your security operations and compliance capabilities.\n\n**Key features:**\n- Track user authentication and access patterns.\n- Monitor content creation, sharing, and deletion.\n- Audit team and organization configuration changes.\n- Detect suspicious activities and policy violations.\n- Meet compliance and regulatory requirements.\n\n**Requirements:**\n- **Miro Plan**: [Enterprise Plan](https://miro.com/pricing/).\n- **OAuth scope**: `auditlogs:read`.\n- **Role**: Company Admin in your Miro organization.\n\n💡 **Not on Enterprise Plan yet?** Upgrade to [Miro Enterprise](https://miro.com/enterprise/) to unlock audit logs and gain comprehensive visibility into your team's activities in Microsoft Sentinel.\n\nFor detailed instructions, refer to the [documentation](https://help.miro.com/hc/en-us/articles/31325908249362).",
+    "graphQueries": [
+      {
+        "metricName": "Miro Audit Logs",
+        "legend": "MiroAuditLogs_CL",
+        "baseQuery": "MiroAuditLogs_CL"
+      }
+    ],
+    "sampleQueries": [
+      {
+        "description": "Recent audit events",
+        "query": "MiroAuditLogs_CL\n| sort by TimeGenerated desc\n| take 10"
+      },
+      {
+        "description": "Events by category",
+        "query": "MiroAuditLogs_CL\n| summarize count() by category\n| render piechart"
+      }
+    ],
+    "dataTypes": [
+      {
+        "name": "MiroAuditLogs_CL",
+        "lastDataReceivedQuery": "MiroAuditLogs_CL\n| summarize Time = max(TimeGenerated)\n| where isnotempty(Time)"
+      }
+    ],
+    "connectivityCriterias": null,
+    "availability": {
+      "isPreview": false
+    },
+    "metadata": null
+  },
+  {
+    "id": "MiroContentLogsDataConnector",
+    "title": "Miro Content Logs (Enterprise Plan + Enterprise Guard)",
+    "publisher": "Miro",
+    "descriptionMarkdown": "The [Miro Content Logs](https://help.miro.com/hc/en-us/articles/17774729839378-Content-Logs-overview) data connector enables you to ingest content activity logs from Miro into Microsoft Sentinel. Part of Miro's Enterprise Guard eDiscovery capabilities, this connector provides content-level visibility for compliance, legal hold, and advanced threat detection.\n\n**Key features:**\n- Track all content item changes.\n- Monitor content modifications by user and timestamp.\n- Support compliance and eDiscovery requirements.\n- Detect data exfiltration and insider threats.\n- Meet regulatory and legal hold obligations.\n\n**Requirements:**\n- **Miro Plan**: [Enterprise Plan](https://miro.com/pricing/) + **Enterprise Guard** add-on.\n- **OAuth scope**: `contentlogs:export`.\n- **Role**: Company Admin in your Miro organization.\n- **Organization ID**: Your Miro organization identifier.\n\n💡 **Not on Enterprise Plan yet?** Upgrade to [Miro Enterprise](https://miro.com/enterprise/) to unlock advanced security and compliance features for your team's collaboration activities in Microsoft Sentinel.\n\n💡 **Need Content Logs?** Content activity logging is part of [Miro Enterprise Guard](https://miro.com/enterprise-guard/), which provides advanced security, compliance, and eDiscovery features. Contact your Miro account manager to add Enterprise Guard to your Enterprise Plan and unlock content-level monitoring in Microsoft Sentinel.\n\n**Note:** If you only have the base Enterprise Plan (without Enterprise Guard), please use the **Miro Audit Logs** connector instead for organization-level event monitoring.\n\nFor detailed instructions, refer to the [documentation](https://help.miro.com/hc/en-us/articles/31325908249362).",
+    "graphQueries": [
+      {
+        "metricName": "Miro Content Logs",
+        "legend": "MiroContentLogs_CL",
+        "baseQuery": "MiroContentLogs_CL"
+      }
+    ],
+    "sampleQueries": [
+      {
+        "description": "Recent content changes",
+        "query": "MiroContentLogs_CL\n| sort by TimeGenerated desc\n| take 10"
+      },
+      {
+        "description": "Activity by action type",
+        "query": "MiroContentLogs_CL\n| summarize count() by actionType\n| render piechart"
+      },
+      {
+        "description": "Most active users",
+        "query": "MiroContentLogs_CL\n| summarize events = count() by actor_name\n| top 10 by events desc"
+      }
+    ],
+    "dataTypes": [
+      {
+        "name": "MiroContentLogs_CL",
+        "lastDataReceivedQuery": "MiroContentLogs_CL\n| summarize Time = max(TimeGenerated)\n| where isnotempty(Time)"
+      }
+    ],
+    "connectivityCriterias": null,
+    "availability": {
+      "isPreview": false
+    },
+    "metadata": null
   },
   {
     "id": "MISP2SentinelConnector",
@@ -41237,21 +41462,24 @@
     "sampleQueries": [
       {
         "description": "All OCI Events",
-        "query": "{{graphQueriesTableName}} \n| sort by TimeGenerated desc"
+        "query": "{{graphQueriesTableName}}\n| sort by TimeGenerated desc"
       },
       {
         "description": "Get Sample of OCI Events",
-        "query": "{{graphQueriesTableName}} \n | take 10"
+        "query": "{{graphQueriesTableName}}\n| take 10"
       }
     ],
     "dataTypes": [
       {
-        "name": "{{graphQueriesTableName}}",
-        "lastDataReceivedQuery": "{{graphQueriesTableName}} \n | summarize Time = max(TimeGenerated)\n | where isnotempty(Time)"
+        "name": "OCI_LogsV2_CL",
+        "lastDataReceivedQuery": "OCI_LogsV2_CL\n| where TimeGenerated > ago(12h)\n| summarize Time = max(TimeGenerated)\n| where isnotempty(Time)"
       }
     ],
     "connectivityCriterias": null,
-    "availability": null,
+    "availability": {
+      "isPreview": false,
+      "status": 1
+    },
     "metadata": null
   },
   {
@@ -41957,6 +42185,36 @@
   },
   {
     "id": "Onapsis",
+    "title": "Onapsis Defend: Integrate Unmatched SAP Threat Detection & Intel with Microsoft Sentinel",
+    "publisher": "Onapsis SE",
+    "descriptionMarkdown": "Empower security teams with deep visibility into unique exploit, zero-day, and threat actor activity; suspicious user or insider behavior; sensitive data downloads; security control violations; and more - all enriched by the SAP experts at Onapsis.",
+    "graphQueries": [
+      {
+        "metricName": "Total events received",
+        "legend": "Onapsis_SID",
+        "baseQuery": "{{graphQueriesTableName}} | project TimeGenerated, Onapsis_SID= sid"
+      }
+    ],
+    "sampleQueries": [
+      {
+        "description": "Get Sample Events",
+        "query": "{{graphQueriesTableName}}\n | take 10"
+      }
+    ],
+    "dataTypes": [
+      {
+        "name": "{{graphQueriesTableName}}",
+        "lastDataReceivedQuery": "{{graphQueriesTableName}}\n | where TimeGenerated > ago(12h) | where name_s == \"no data test\" | summarize Time = max(TimeGenerated)\n | where isnotempty(Time)"
+      }
+    ],
+    "connectivityCriterias": null,
+    "availability": {
+      "isPreview": true
+    },
+    "metadata": null
+  },
+  {
+    "id": "Onapsis",
     "title": "Onapsis Defend Integration",
     "publisher": "Onapsis Platform",
     "logo": "Onapsis.svg",
@@ -42118,36 +42376,6 @@
         "link": "https://onapsis.com/support/"
       }
     }
-  },
-  {
-    "id": "Onapsis",
-    "title": "Onapsis Defend: Integrate Unmatched SAP Threat Detection & Intel with Microsoft Sentinel",
-    "publisher": "Onapsis SE",
-    "descriptionMarkdown": "Empower security teams with deep visibility into unique exploit, zero-day, and threat actor activity; suspicious user or insider behavior; sensitive data downloads; security control violations; and more - all enriched by the SAP experts at Onapsis.",
-    "graphQueries": [
-      {
-        "metricName": "Total events received",
-        "legend": "Onapsis_SID",
-        "baseQuery": "{{graphQueriesTableName}} | project TimeGenerated, Onapsis_SID= sid"
-      }
-    ],
-    "sampleQueries": [
-      {
-        "description": "Get Sample Events",
-        "query": "{{graphQueriesTableName}}\n | take 10"
-      }
-    ],
-    "dataTypes": [
-      {
-        "name": "{{graphQueriesTableName}}",
-        "lastDataReceivedQuery": "{{graphQueriesTableName}}\n | where TimeGenerated > ago(12h) | where name_s == \"no data test\" | summarize Time = max(TimeGenerated)\n | where isnotempty(Time)"
-      }
-    ],
-    "connectivityCriterias": null,
-    "availability": {
-      "isPreview": true
-    },
-    "metadata": null
   },
   {
     "id": "OnapsisPlatform",
@@ -45392,31 +45620,18 @@
     "graphQueries": [
       {
         "metricName": "Total data received",
-        "legend": "ThreatIntelIndicators",
-        "baseQuery": "ThreatIntelIndicators\n                      | where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\""
-      },
-      {
-        "metricName": "Total data received",
-        "legend": "ThreatIntelObjects",
-        "baseQuery": "ThreatIntelObjects\n                      | where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\""
+        "legend": "ThreatIntelligenceIndicator",
+        "baseQuery": "ThreatIntelligenceIndicator\n                      | where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\""
       }
     ],
     "sampleQueries": [
       {
         "description": "Summarize by threat type",
-        "query": "ThreatIntelIndicators\n| where ExpirationDateTime > now()\n| where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n| where ExpirationDateTime > now()\n| join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
+        "query": "ThreatIntelligenceIndicator\n| where ExpirationDateTime > now()\n| where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n| where ExpirationDateTime > now()\n| join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
       },
       {
         "description": "Summarize by 1 hour bins",
-        "query": "ThreatIntelIndicators\n| where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n| where TimeGenerated >= ago(1d) | summarize count()​​"
-      },
-      {
-        "description": "Summarize by threat type",
-        "query": "ThreatIntelObjects\n| where ExpirationDateTime > now()\n| where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n| where ExpirationDateTime > now()\n| join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
-      },
-      {
-        "description": "Summarize by 1 hour bins",
-        "query": "ThreatIntelObjects\n| where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n| where TimeGenerated >= ago(1d) | summarize count()​​"
+        "query": "ThreatIntelligenceIndicator\n| where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n| where TimeGenerated >= ago(1d) | summarize count()​​"
       }
     ],
     "connectivityCriterias": [
@@ -45429,12 +45644,8 @@
     ],
     "dataTypes": [
       {
-        "name": "ThreatIntelIndicators",
-        "lastDataReceivedQuery": "ThreatIntelIndicators \n                | where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
-      },
-      {
-        "name": "ThreatIntelObjects",
-        "lastDataReceivedQuery": "ThreatIntelObjects \n                | where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
+        "name": "ThreatIntelligenceIndicator",
+        "lastDataReceivedQuery": "ThreatIntelligenceIndicator \n                | where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
       }
     ],
     "availability": {
@@ -45497,18 +45708,31 @@
     "graphQueries": [
       {
         "metricName": "Total data received",
-        "legend": "ThreatIntelligenceIndicator",
-        "baseQuery": "ThreatIntelligenceIndicator\n                      | where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\""
+        "legend": "ThreatIntelIndicators",
+        "baseQuery": "ThreatIntelIndicators\n                      | where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\""
+      },
+      {
+        "metricName": "Total data received",
+        "legend": "ThreatIntelObjects",
+        "baseQuery": "ThreatIntelObjects\n                      | where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\""
       }
     ],
     "sampleQueries": [
       {
         "description": "Summarize by threat type",
-        "query": "ThreatIntelligenceIndicator\n| where ExpirationDateTime > now()\n| where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n| where ExpirationDateTime > now()\n| join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
+        "query": "ThreatIntelIndicators\n| where ExpirationDateTime > now()\n| where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n| where ExpirationDateTime > now()\n| join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
       },
       {
         "description": "Summarize by 1 hour bins",
-        "query": "ThreatIntelligenceIndicator\n| where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n| where TimeGenerated >= ago(1d) | summarize count()​​"
+        "query": "ThreatIntelIndicators\n| where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n| where TimeGenerated >= ago(1d) | summarize count()​​"
+      },
+      {
+        "description": "Summarize by threat type",
+        "query": "ThreatIntelObjects\n| where ExpirationDateTime > now()\n| where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n| where ExpirationDateTime > now()\n| join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
+      },
+      {
+        "description": "Summarize by 1 hour bins",
+        "query": "ThreatIntelObjects\n| where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n| where TimeGenerated >= ago(1d) | summarize count()​​"
       }
     ],
     "connectivityCriterias": [
@@ -45521,8 +45745,12 @@
     ],
     "dataTypes": [
       {
-        "name": "ThreatIntelligenceIndicator",
-        "lastDataReceivedQuery": "ThreatIntelligenceIndicator \n                | where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
+        "name": "ThreatIntelIndicators",
+        "lastDataReceivedQuery": "ThreatIntelIndicators \n                | where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
+      },
+      {
+        "name": "ThreatIntelObjects",
+        "lastDataReceivedQuery": "ThreatIntelObjects \n                | where SourceSystem == \"Premium Microsoft Defender Threat Intelligence\"\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
       }
     ],
     "availability": {
@@ -47864,36 +48092,6 @@
     "id": "SAPLogServ",
     "title": "SAP LogServ (RISE), S/4HANA Cloud private edition",
     "publisher": "SAP SE",
-    "descriptionMarkdown": "SAP LogServ is an SAP Enterprise Cloud Services (ECS) service aimed at collection, storage, forwarding and access of logs. LogServ centralizes the logs from all systems, applications, and ECS services used by a registered customer. <br> Main Features include:<br>Near Realtime Log Collection: With ability to integrate into Microsoft Sentinel as SIEM solution.<br>LogServ complements the existing SAP application layer threat monitoring and detections in Microsoft Sentinel with the log types owned by SAP ECS as the system provider. This includes logs like: SAP Security Audit Log (AS ABAP), HANA database, AS JAVA, ICM, SAP Web Dispatcher, SAP Cloud Connector, OS, SAP Gateway, 3rd party Database, Network, DNS, Proxy, Firewall",
-    "graphQueries": [
-      {
-        "metricName": "Total events received",
-        "legend": "Tenant",
-        "baseQuery": "{{graphQueriesTableName}} | project TimeGenerated"
-      }
-    ],
-    "sampleQueries": [
-      {
-        "description": "Get Sample Events",
-        "query": "{{graphQueriesTableName}}\n | take 10"
-      }
-    ],
-    "dataTypes": [
-      {
-        "name": "{{graphQueriesTableName}}",
-        "lastDataReceivedQuery": "{{graphQueriesTableName}}\n | where TimeGenerated > ago(12h) | summarize Time = max(TimeGenerated)\n | where isnotempty(Time)"
-      }
-    ],
-    "connectivityCriterias": null,
-    "availability": {
-      "isPreview": true
-    },
-    "metadata": null
-  },
-  {
-    "id": "SAPLogServ",
-    "title": "SAP LogServ (RISE), S/4HANA Cloud private edition",
-    "publisher": "SAP SE",
     "logo": "SapLogo.svg",
     "descriptionMarkdown": "SAP LogServ is an SAP Enterprise Cloud Services (ECS) service aimed at collection, storage, forwarding and access of logs. LogServ centralizes the logs from all systems, applications, and ECS services used by a registered customer. <br> Main Features include:<br>Near Realtime Log Collection: With ability to integrate into Microsoft Sentinel as SIEM solution.<br>LogServ complements the existing SAP application layer threat monitoring and detections in Microsoft Sentinel with the log types owned by SAP ECS as the system provider. This includes logs like: SAP Security Audit Log (AS ABAP), HANA database, AS JAVA, ICM, SAP Web Dispatcher, SAP Cloud Connector, OS, SAP Gateway, 3rd party Database, Network, DNS, Proxy, Firewall",
     "graphQueriesTableName": "SAPLogServ_CL",
@@ -48053,6 +48251,36 @@
         "link": "https://me.sap.com/"
       }
     }
+  },
+  {
+    "id": "SAPLogServ",
+    "title": "SAP LogServ (RISE), S/4HANA Cloud private edition",
+    "publisher": "SAP SE",
+    "descriptionMarkdown": "SAP LogServ is an SAP Enterprise Cloud Services (ECS) service aimed at collection, storage, forwarding and access of logs. LogServ centralizes the logs from all systems, applications, and ECS services used by a registered customer. <br> Main Features include:<br>Near Realtime Log Collection: With ability to integrate into Microsoft Sentinel as SIEM solution.<br>LogServ complements the existing SAP application layer threat monitoring and detections in Microsoft Sentinel with the log types owned by SAP ECS as the system provider. This includes logs like: SAP Security Audit Log (AS ABAP), HANA database, AS JAVA, ICM, SAP Web Dispatcher, SAP Cloud Connector, OS, SAP Gateway, 3rd party Database, Network, DNS, Proxy, Firewall",
+    "graphQueries": [
+      {
+        "metricName": "Total events received",
+        "legend": "Tenant",
+        "baseQuery": "{{graphQueriesTableName}} | project TimeGenerated"
+      }
+    ],
+    "sampleQueries": [
+      {
+        "description": "Get Sample Events",
+        "query": "{{graphQueriesTableName}}\n | take 10"
+      }
+    ],
+    "dataTypes": [
+      {
+        "name": "{{graphQueriesTableName}}",
+        "lastDataReceivedQuery": "{{graphQueriesTableName}}\n | where TimeGenerated > ago(12h) | summarize Time = max(TimeGenerated)\n | where isnotempty(Time)"
+      }
+    ],
+    "connectivityCriterias": null,
+    "availability": {
+      "isPreview": true
+    },
+    "metadata": null
   },
   {
     "id": "SAPS4PublicAlerts",
@@ -49991,43 +50219,43 @@
     "sampleQueries": [
       {
         "description": "Get Sample Login Events of Snowflake",
-        "query": "SnowflakeLogin_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend Time = toreal(extractjson(\"$.EVENT_TIMESTAMP\", JsonString))\r\n| extend\r\n    SrcDvcIpAddr = extractjson(\"$.CLIENT_IP\", JsonString),\r\n    LoginClientPrivateLinkId = extractjson(\"$.CLIENT_PRIVATE_LINK_ID\", JsonString),\r\n    LoginConnection = extractjson(\"$.CONNECTION\", JsonString),\r\n    LoginErrorCode = extractjson(\"$.ERROR_CODE\", JsonString),\r\n    LoginErrorMessage = extractjson(\"$.ERROR_MESSAGE\", JsonString),\r\n    LoginEventId = extractjson(\"$.EVENT_ID\", JsonString),\r\n    LoginEventEndTime = unixtime_seconds_todatetime(Time),\r\n    LoginEventType = extractjson(\"$.EVENT_TYPE\", JsonString),\r\n    LoginFirstAuthenticationFactor = extractjson(\"$.FIRST_AUTHENTICATION_FACTOR\", JsonString),\r\n    LoginIsSuccess = extractjson(\"$.IS_SUCCESS\", JsonString),\r\n    LoginRelatedEventId = extractjson(\"$.RELATED_EVENT_ID\", JsonString),\r\n    LoginReportedClientType = extractjson(\"$.REPORTED_CLIENT_TYPE\", JsonString),\r\n    LoginReportedClientVersion = extractjson(\"$.REPORTED_CLIENT_VERSION\", JsonString),\r\n    LoginSecondAuthenticationFactor = extractjson(\"$.SECOND_AUTHENTICATION_FACTOR\", JsonString),\r\n    TargetUsername = extractjson(\"$.USER_NAME\", JsonString)\r\n| extend User = TargetUsername\r\n| project-away Data, OuterArray, JsonString\r\n| take 10"
+        "query": "SnowflakeLogin_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend Time = toreal(extractjson(\"$.EVENT_TIMESTAMP\", JsonString))\r\n| extend\r\n    SrcDvcIpAddr = extractjson(\"$.CLIENT_IP\", JsonString),\r\n    LoginClientPrivateLinkId = extractjson(\"$.CLIENT_PRIVATE_LINK_ID\", JsonString),\r\n    LoginConnection = extractjson(\"$.CONNECTION\", JsonString),\r\n    LoginErrorCode = extractjson(\"$.ERROR_CODE\", JsonString),\r\n    LoginErrorMessage = extractjson(\"$.ERROR_MESSAGE\", JsonString),\r\n    LoginEventId = extractjson(\"$.EVENT_ID\", JsonString),\r\n    LoginEventEndTime = unixtime_seconds_todatetime(Time),\r\n    LoginEventType = extractjson(\"$.EVENT_TYPE\", JsonString),\r\n    LoginFirstAuthenticationFactor = extractjson(\"$.FIRST_AUTHENTICATION_FACTOR\", JsonString),\r\n    LoginIsSuccess = extractjson(\"$.IS_SUCCESS\", JsonString),\r\n    LoginRelatedEventId = extractjson(\"$.RELATED_EVENT_ID\", JsonString),\r\n    LoginReportedClientType = extractjson(\"$.REPORTED_CLIENT_TYPE\", JsonString),\r\n    LoginReportedClientVersion = extractjson(\"$.REPORTED_CLIENT_VERSION\", JsonString),\r\n    LoginSecondAuthenticationFactor = extractjson(\"$.SECOND_AUTHENTICATION_FACTOR\", JsonString),\r\n    TargetUsername = extractjson(\"$.USER_NAME\", JsonString)\r\n| extend User = TargetUsername\r\n| project-away Data, OuterArray, innerArray, JsonString\r\n| take 10"
       },
       {
         "description": "Get Sample Query Events of Snowflake",
-        "query": "SnowflakeQuery_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend\r\n    QueryStartTime = unixtime_seconds_todatetime(toreal(extractjson(\"$.START_TIME\", JsonString))),\r\n    QueryEndTime = unixtime_seconds_todatetime(toreal(extractjson(\"$.END_TIME\", JsonString))),\r\n    QueryTotalElapsedTime = toreal(extractjson(\"$.TOTAL_ELAPSED_TIME\", JsonString)),\r\n    QueryExecutionTime = toreal(extractjson(\"$.EXECUTION_TIME\", JsonString))\r\n| extend\r\n    QueryId = extractjson(\"$.QUERY_ID\", JsonString),\r\n    QueryText = extractjson(\"$.QUERY_TEXT\", JsonString),\r\n    QueryDatabaseId = extractjson(\"$.DATABASE_ID\", JsonString),\r\n    QueryDatabaseName = extractjson(\"$.DATABASE_NAME\", JsonString),\r\n    QuerySchemaId = extractjson(\"$.SCHEMA_ID\", JsonString),\r\n    QuerySchemaName = extractjson(\"$.SCHEMA_NAME\", JsonString),\r\n    QueryType = extractjson(\"$.QUERY_TYPE\", JsonString),\r\n    QuerySessionId = extractjson(\"$.SESSION_ID\", JsonString),\r\n    QueryUserName = extractjson(\"$.USER_NAME\", JsonString),\r\n    QueryRoleName = extractjson(\"$.ROLE_NAME\", JsonString),\r\n    QueryWarehouseId = extractjson(\"$.WAREHOUSE_ID\", JsonString),\r\n    QueryWarehouseName = extractjson(\"$.WAREHOUSE_NAME\", JsonString),\r\n    QueryWarehouseSize = extractjson(\"$.WAREHOUSE_SIZE\", JsonString),\r\n    QueryWarehouseType = extractjson(\"$.WAREHOUSE_TYPE\", JsonString),\r\n    QueryClusterNumber = extractjson(\"$.CLUSTER_NUMBER\", JsonString),\r\n    QueryTag = extractjson(\"$.TAG\", JsonString),\r\n    QueryBytesScanned = extractjson(\"$.BYTES_SCANNED\", JsonString),\r\n    QueryPercentageScannedFromCache = extractjson(\"$.PERCENTAGE_SCANNED_FROM_CACHE\", JsonString),\r\n    QueryBytesWritten = extractjson(\"$.BYTES_WRITTEN\", JsonString),\r\n    QueryBytesWrittenToResult = extractjson(\"$.BYTES_WRITTEN_TO_RESULT\", JsonString),\r\n    QueryBytesReadFromResult = extractjson(\"$.BYTES_READ_FROM_RESULT\", JsonString),\r\n    QueryRowsProduced = extractjson(\"$.ROWS_PRODUCED\", JsonString),\r\n    QueryRowsInserted = extractjson(\"$.ROWS_INSERTED\", JsonString),\r\n    QueryRowsUpdated = extractjson(\"$.ROWS_UPDATED\", JsonString),\r\n    QueryRowsDeleted = extractjson(\"$.ROWS_DELETED\", JsonString),\r\n    QueryRowsUnloaded = extractjson(\"$.ROWS_UNLOADED\", JsonString),\r\n    QueryBytesDeleted = extractjson(\"$.BYTES_DELETED\", JsonString),\r\n    QueryQueuedProvisioningTime = extractjson(\"$.PROVISIONING_TIME\", JsonString),\r\n    QueryQueuedRepairTime = extractjson(\"$.QUEUED_REPAIR_TIME\", JsonString),\r\n    QueryQueuedOverloadTime = extractjson(\"$.QUEUED_OVERLOAD_TIME\", JsonString),\r\n    QueryTransactionBlockedTime = extractjson(\"$.TRANSACTION_BLOCKED_TIME\", JsonString),\r\n    QueryOutboundDataTransferCloud = extractjson(\"$.OUTBOUND_DATA_TRANSFER_CLOUD\", JsonString),\r\n    QueryOutboundDataTransferRegion = extractjson(\"$.OUTBOUND_DATA_TRANSFER_REGION\", JsonString),\r\n    QueryOutboundDataTransferBytes = extractjson(\"$.OUTBOUND_DATA_TRANSFER_BYTES\", JsonString),\r\n    QueryInboundDataTransferCloud = extractjson(\"$.INBOUND_DATA_TRANSFER_CLOUD\", JsonString),\r\n    QueryInboundDataTransferRegion = extractjson(\"$.INBOUND_DATA_TRANSFER_REGION\", JsonString),\r\n    QueryInboundDataTransferBytes = extractjson(\"$.INBOUND_DATA_TRANSFER_BYTES\", JsonString),\r\n    QueryPartitionsScanned = extractjson(\"$.PARTITIONS_SCANNED\", JsonString),\r\n    QueryPartitionsTotal = extractjson(\"$.PARTITIONS_TOTAL\", JsonString),\r\n    QueryBytesSpilledToLocalStorage = extractjson(\"$.BYTES_SPILLED_TO_LOCAL_STORAGE\", JsonString),\r\n    QueryBytesSpilledToRemoteStorage = extractjson(\"$.BYTES_SPILLED_TO_REMOTE_STORAGE\", JsonString),\r\n    QueryBytesSentOverTheNetwork = extractjson(\"$.BYTES_SENT_OVER_THE_NETWORK\", JsonString),\r\n    QueryCompilationTime = extractjson(\"$.COMPILATION_TIME\", JsonString),\r\n    QueryExecutionStatus = extractjson(\"$.EXECUTION_STATUS\", JsonString),\r\n    QueryErrorCode = extractjson(\"$.ERROR_CODE\", JsonString),\r\n    QueryErrorMessage = extractjson(\"$.ERROR_MESSAGE\", JsonString),\r\n    QueryListExternalFilesTime = extractjson(\"$.LIST_EXTERNAL_FILES_TIME\", JsonString),\r\n    QueryCreditsUsedCloudServices = extractjson(\"$.CREDITS_USED_CLOUD_SERVICES\", JsonString),\r\n    QueryReleaseVersion = extractjson(\"$.RELEASE_VERSION\", JsonString),\r\n    QueryExternalFunctionTotalInvocations = extractjson(\"$.EXTERNAL_FUNCTION_TOTAL_INVOCATIONS\", JsonString),\r\n    QueryExternalFunctionTotalSentRows = extractjson(\"$.EXTERNAL_FUNCTION_TOTAL_SENT_ROWS\", JsonString),\r\n    QueryExternalFunctionTotalReceivedRows = extractjson(\"$.EXTERNAL_FUNCTION_TOTAL_RECEIVED_ROWS\", JsonString),\r\n    QueryExternalFunctionTotalSentBytes = extractjson(\"$.EXTERNAL_FUNCTION_TOTAL_SENT_BYTES\", JsonString),\r\n    QueryExternalFunctionTotalReceivedBytes = extractjson(\"$.EXTERNAL_FUNCTION_TOTAL_RECEIVED_BYTES\", JsonString),\r\n    QueryIsClientGeneratedStatement = extractjson(\"$.IS_CLIENT_GENERATED_STATEMENT\", JsonString),\r\n    QueryAccelerationBytesScanned = extractjson(\"$.ACCELERATION_BYTES_SCANNED\", JsonString),\r\n    QueryAccelerationPartitionsScanned = extractjson(\"$.ACCELERATION_PARTITIONS_SCANNED\", JsonString),\r\n    QueryAccelerationUpperLimitScaleFactor = extractjson(\"$.ACCELERATION_UPPER_LIMIT_SCALE_FACTOR\", JsonString),\r\n    QueryTransactionId = extractjson(\"$.TRANSACTION_ID\", JsonString),\r\n    QueryLoadPercent = extractjson(\"$.QUERY_LOAD_PERCENT\", JsonString),\r\n    ChildQueriesWaitTime = extractjson(\"$.CHILD_QUERIES_WAIT_TIME\", JsonString),\r\n    QueryRoleType = extractjson(\"$.ROLE_TYPE\", JsonString),\r\n    QueryHash = extractjson(\"$.HASH\", JsonString),\r\n    QueryHashVersion = extractjson(\"$.HASH_VERSION\", JsonString),\r\n    QueryParameterizedHash = extractjson(\"$.PARAMETERIZED_HASH\", JsonString),\r\n    QueryParameterizedHashVersion = extractjson(\"$.PARAMETERIZED_HASH_VERSION\", JsonString),\r\n    QuerySecondaryRoleStats = extractjson(\"$.SECONDARY_ROLE_STATS\", JsonString),\r\n    QueryRowsWrittenToResult = extractjson(\"$.ROWS_WRITTEN_TO_RESULT\", JsonString),\r\n    QueryRetryTime = extractjson(\"$.RETRY_TIME\", JsonString),\r\n    QueryRetryCause = extractjson(\"$.RETRY_CAUSE\", JsonString),\r\n    QueryFaultHandlingTime = extractjson(\"$.FAULT_HANDLING_TIME\", JsonString),\r\n    QueryUserType = extractjson(\"$.USER_TYPE\", JsonString),\r\n    QueryUserDatabaseName = extractjson(\"$.USER_DATABASE_NAME\", JsonString),\r\n    QueryUserDatabaseId = extractjson(\"$.USER_DATABASE_ID\", JsonString),\r\n    QueryUserSchemaId = extractjson(\"$.USER_SCHEMA_ID\", JsonString),\r\n    QueryUserSchemaName = extractjson(\"$.USER_SCHEMA_NAME\", JsonString)\r\n| project-away Data, OuterArray, JsonString\r\n| take 10"
+        "query": "SnowflakeQuery_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend\r\n    QueryStartTime = unixtime_seconds_todatetime(toreal(extractjson(\"$.START_TIME\", JsonString))),\r\n    QueryEndTime = unixtime_seconds_todatetime(toreal(extractjson(\"$.END_TIME\", JsonString))),\r\n    QueryTotalElapsedTime = toreal(extractjson(\"$.TOTAL_ELAPSED_TIME\", JsonString)),\r\n    QueryExecutionTime = toreal(extractjson(\"$.EXECUTION_TIME\", JsonString))\r\n| extend\r\n    QueryId = extractjson(\"$.QUERY_ID\", JsonString),\r\n    QueryText = extractjson(\"$.QUERY_TEXT\", JsonString),\r\n    QueryDatabaseId = extractjson(\"$.DATABASE_ID\", JsonString),\r\n    QueryDatabaseName = extractjson(\"$.DATABASE_NAME\", JsonString),\r\n    QuerySchemaId = extractjson(\"$.SCHEMA_ID\", JsonString),\r\n    QuerySchemaName = extractjson(\"$.SCHEMA_NAME\", JsonString),\r\n    QueryType = extractjson(\"$.QUERY_TYPE\", JsonString),\r\n    QuerySessionId = extractjson(\"$.SESSION_ID\", JsonString),\r\n    QueryUserName = extractjson(\"$.USER_NAME\", JsonString),\r\n    QueryRoleName = extractjson(\"$.ROLE_NAME\", JsonString),\r\n    QueryWarehouseId = extractjson(\"$.WAREHOUSE_ID\", JsonString),\r\n    QueryWarehouseName = extractjson(\"$.WAREHOUSE_NAME\", JsonString),\r\n    QueryWarehouseSize = extractjson(\"$.WAREHOUSE_SIZE\", JsonString),\r\n    QueryWarehouseType = extractjson(\"$.WAREHOUSE_TYPE\", JsonString),\r\n    QueryClusterNumber = extractjson(\"$.CLUSTER_NUMBER\", JsonString),\r\n    QueryTag = extractjson(\"$.TAG\", JsonString),\r\n    QueryBytesScanned = extractjson(\"$.BYTES_SCANNED\", JsonString),\r\n    QueryPercentageScannedFromCache = extractjson(\"$.PERCENTAGE_SCANNED_FROM_CACHE\", JsonString),\r\n    QueryBytesWritten = extractjson(\"$.BYTES_WRITTEN\", JsonString),\r\n    QueryBytesWrittenToResult = extractjson(\"$.BYTES_WRITTEN_TO_RESULT\", JsonString),\r\n    QueryBytesReadFromResult = extractjson(\"$.BYTES_READ_FROM_RESULT\", JsonString),\r\n    QueryRowsProduced = extractjson(\"$.ROWS_PRODUCED\", JsonString),\r\n    QueryRowsInserted = extractjson(\"$.ROWS_INSERTED\", JsonString),\r\n    QueryRowsUpdated = extractjson(\"$.ROWS_UPDATED\", JsonString),\r\n    QueryRowsDeleted = extractjson(\"$.ROWS_DELETED\", JsonString),\r\n    QueryRowsUnloaded = extractjson(\"$.ROWS_UNLOADED\", JsonString),\r\n    QueryBytesDeleted = extractjson(\"$.BYTES_DELETED\", JsonString),\r\n    QueryQueuedProvisioningTime = extractjson(\"$.PROVISIONING_TIME\", JsonString),\r\n    QueryQueuedRepairTime = extractjson(\"$.QUEUED_REPAIR_TIME\", JsonString),\r\n    QueryQueuedOverloadTime = extractjson(\"$.QUEUED_OVERLOAD_TIME\", JsonString),\r\n    QueryTransactionBlockedTime = extractjson(\"$.TRANSACTION_BLOCKED_TIME\", JsonString),\r\n    QueryOutboundDataTransferCloud = extractjson(\"$.OUTBOUND_DATA_TRANSFER_CLOUD\", JsonString),\r\n    QueryOutboundDataTransferRegion = extractjson(\"$.OUTBOUND_DATA_TRANSFER_REGION\", JsonString),\r\n    QueryOutboundDataTransferBytes = extractjson(\"$.OUTBOUND_DATA_TRANSFER_BYTES\", JsonString),\r\n    QueryInboundDataTransferCloud = extractjson(\"$.INBOUND_DATA_TRANSFER_CLOUD\", JsonString),\r\n    QueryInboundDataTransferRegion = extractjson(\"$.INBOUND_DATA_TRANSFER_REGION\", JsonString),\r\n    QueryInboundDataTransferBytes = extractjson(\"$.INBOUND_DATA_TRANSFER_BYTES\", JsonString),\r\n    QueryPartitionsScanned = extractjson(\"$.PARTITIONS_SCANNED\", JsonString),\r\n    QueryPartitionsTotal = extractjson(\"$.PARTITIONS_TOTAL\", JsonString),\r\n    QueryBytesSpilledToLocalStorage = extractjson(\"$.BYTES_SPILLED_TO_LOCAL_STORAGE\", JsonString),\r\n    QueryBytesSpilledToRemoteStorage = extractjson(\"$.BYTES_SPILLED_TO_REMOTE_STORAGE\", JsonString),\r\n    QueryBytesSentOverTheNetwork = extractjson(\"$.BYTES_SENT_OVER_THE_NETWORK\", JsonString),\r\n    QueryCompilationTime = extractjson(\"$.COMPILATION_TIME\", JsonString),\r\n    QueryExecutionStatus = extractjson(\"$.EXECUTION_STATUS\", JsonString),\r\n    QueryErrorCode = extractjson(\"$.ERROR_CODE\", JsonString),\r\n    QueryErrorMessage = extractjson(\"$.ERROR_MESSAGE\", JsonString),\r\n    QueryListExternalFilesTime = extractjson(\"$.LIST_EXTERNAL_FILES_TIME\", JsonString),\r\n    QueryCreditsUsedCloudServices = extractjson(\"$.CREDITS_USED_CLOUD_SERVICES\", JsonString),\r\n    QueryReleaseVersion = extractjson(\"$.RELEASE_VERSION\", JsonString),\r\n    QueryExternalFunctionTotalInvocations = extractjson(\"$.EXTERNAL_FUNCTION_TOTAL_INVOCATIONS\", JsonString),\r\n    QueryExternalFunctionTotalSentRows = extractjson(\"$.EXTERNAL_FUNCTION_TOTAL_SENT_ROWS\", JsonString),\r\n    QueryExternalFunctionTotalReceivedRows = extractjson(\"$.EXTERNAL_FUNCTION_TOTAL_RECEIVED_ROWS\", JsonString),\r\n    QueryExternalFunctionTotalSentBytes = extractjson(\"$.EXTERNAL_FUNCTION_TOTAL_SENT_BYTES\", JsonString),\r\n    QueryExternalFunctionTotalReceivedBytes = extractjson(\"$.EXTERNAL_FUNCTION_TOTAL_RECEIVED_BYTES\", JsonString),\r\n    QueryIsClientGeneratedStatement = extractjson(\"$.IS_CLIENT_GENERATED_STATEMENT\", JsonString),\r\n    QueryAccelerationBytesScanned = extractjson(\"$.ACCELERATION_BYTES_SCANNED\", JsonString),\r\n    QueryAccelerationPartitionsScanned = extractjson(\"$.ACCELERATION_PARTITIONS_SCANNED\", JsonString),\r\n    QueryAccelerationUpperLimitScaleFactor = extractjson(\"$.ACCELERATION_UPPER_LIMIT_SCALE_FACTOR\", JsonString),\r\n    QueryTransactionId = extractjson(\"$.TRANSACTION_ID\", JsonString),\r\n    QueryLoadPercent = extractjson(\"$.QUERY_LOAD_PERCENT\", JsonString),\r\n    ChildQueriesWaitTime = extractjson(\"$.CHILD_QUERIES_WAIT_TIME\", JsonString),\r\n    QueryRoleType = extractjson(\"$.ROLE_TYPE\", JsonString),\r\n    QueryHash = extractjson(\"$.HASH\", JsonString),\r\n    QueryHashVersion = extractjson(\"$.HASH_VERSION\", JsonString),\r\n    QueryParameterizedHash = extractjson(\"$.PARAMETERIZED_HASH\", JsonString),\r\n    QueryParameterizedHashVersion = extractjson(\"$.PARAMETERIZED_HASH_VERSION\", JsonString),\r\n    QuerySecondaryRoleStats = extractjson(\"$.SECONDARY_ROLE_STATS\", JsonString),\r\n    QueryRowsWrittenToResult = extractjson(\"$.ROWS_WRITTEN_TO_RESULT\", JsonString),\r\n    QueryRetryTime = extractjson(\"$.RETRY_TIME\", JsonString),\r\n    QueryRetryCause = extractjson(\"$.RETRY_CAUSE\", JsonString),\r\n    QueryFaultHandlingTime = extractjson(\"$.FAULT_HANDLING_TIME\", JsonString),\r\n    QueryUserType = extractjson(\"$.USER_TYPE\", JsonString),\r\n    QueryUserDatabaseName = extractjson(\"$.USER_DATABASE_NAME\", JsonString),\r\n    QueryUserDatabaseId = extractjson(\"$.USER_DATABASE_ID\", JsonString),\r\n    QueryUserSchemaId = extractjson(\"$.USER_SCHEMA_ID\", JsonString),\r\n    QueryUserSchemaName = extractjson(\"$.USER_SCHEMA_NAME\", JsonString)\r\n| project-away Data, OuterArray, innerArray, JsonString\r\n| take 10"
       },
       {
         "description": "Get Sample User Grant Events of Snowflake",
-        "query": "SnowflakeUserGrant_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend\r\n    CTime = toreal(extractjson(\"$.CREATED_ON\", JsonString)),\r\n    DTime = toreal(extractjson(\"$.DELETED_ON\", JsonString))\r\n| extend\r\n    UserGrantCreatedOn = unixtime_seconds_todatetime(CTime),\r\n    UserGrantDeletedOn = unixtime_seconds_todatetime(DTime),\r\n    UserRole = extractjson(\"$.ROLE\", JsonString),\r\n    UserGrantGrantedTo = extractjson(\"$.GRANTED_TO\", JsonString),\r\n    UserGrantGranteeName = extractjson(\"$.GRANTEE_NAME\", JsonString),\r\n    UserGrantGrantedBy = extractjson(\"$.GRANTED_BY\", JsonString)\r\n| project-away Data, OuterArray, JsonString\r\n| take 10"
+        "query": "SnowflakeUserGrant_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend\r\n    CTime = toreal(extractjson(\"$.CREATED_ON\", JsonString)),\r\n    DTime = toreal(extractjson(\"$.DELETED_ON\", JsonString))\r\n| extend\r\n    UserGrantCreatedOn = unixtime_seconds_todatetime(CTime),\r\n    UserGrantDeletedOn = unixtime_seconds_todatetime(DTime),\r\n    UserRole = extractjson(\"$.ROLE\", JsonString),\r\n    UserGrantGrantedTo = extractjson(\"$.GRANTED_TO\", JsonString),\r\n    UserGrantGranteeName = extractjson(\"$.GRANTEE_NAME\", JsonString),\r\n    UserGrantGrantedBy = extractjson(\"$.GRANTED_BY\", JsonString)\r\n| project-away Data, OuterArray, innerArray, JsonString\r\n| take 10"
       },
       {
         "description": "Get Sample Role Grant Events of Snowflake",
-        "query": "SnowflakeRoleGrant_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend \r\n    CTime = toreal(extractjson(\"$.CREATED_ON\", JsonString)),\r\n    MTime = toreal(extractjson(\"$.MODIFIED_ON\", JsonString)),\r\n    DTime = toreal(extractjson(\"$.DELETED_ON\", JsonString))\r\n| extend\r\n    RoleGrantCreatedOn = unixtime_seconds_todatetime(CTime),\r\n    RoleGrantModifiedOn = unixtime_seconds_todatetime(MTime),\r\n    RoleGrantPrivilege = extractjson(\"$.PRIVILEGE\", JsonString),\r\n    RoleGrantGrantedOn = extractjson(\"$.GRANTED_ON\", JsonString),\r\n    RoleGrantName = extractjson(\"$.NAME\", JsonString),\r\n    RoleGrantTableCatalog = extractjson(\"$.TABLE_CATALOG\", JsonString),\r\n    RoleGrantTableSchema = extractjson(\"$.TABLE_SCHEMA\", JsonString),\r\n    RoleGrantGrantedTo = extractjson(\"$.GRANTED_TO\", JsonString),\r\n    RoleGrantGranteeName = extractjson(\"$.GRANTEE_NAME\", JsonString),\r\n    RoleGrantGrantOption = extractjson(\"$.GRANT_OPTION\", JsonString),\r\n    RoleGrantGrantedBy = extractjson(\"$.GRANTED_BY\", JsonString),\r\n    RoleGrantDeletedOn = unixtime_seconds_todatetime(DTime),\r\n    RoleGrantGrantedByRoleType = extractjson(\"$.GRANTED_BY_ROLE_TYPE\", JsonString),\r\n    RoleGrantObjectInstance = extractjson(\"$.OBJECT_INSTANCE\", JsonString)\r\n| project-away Data, OuterArray, JsonString\r\n| take 10"
+        "query": "SnowflakeRoleGrant_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend \r\n    CTime = toreal(extractjson(\"$.CREATED_ON\", JsonString)),\r\n    MTime = toreal(extractjson(\"$.MODIFIED_ON\", JsonString)),\r\n    DTime = toreal(extractjson(\"$.DELETED_ON\", JsonString))\r\n| extend\r\n    RoleGrantCreatedOn = unixtime_seconds_todatetime(CTime),\r\n    RoleGrantModifiedOn = unixtime_seconds_todatetime(MTime),\r\n    RoleGrantPrivilege = extractjson(\"$.PRIVILEGE\", JsonString),\r\n    RoleGrantGrantedOn = extractjson(\"$.GRANTED_ON\", JsonString),\r\n    RoleGrantName = extractjson(\"$.NAME\", JsonString),\r\n    RoleGrantTableCatalog = extractjson(\"$.TABLE_CATALOG\", JsonString),\r\n    RoleGrantTableSchema = extractjson(\"$.TABLE_SCHEMA\", JsonString),\r\n    RoleGrantGrantedTo = extractjson(\"$.GRANTED_TO\", JsonString),\r\n    RoleGrantGranteeName = extractjson(\"$.GRANTEE_NAME\", JsonString),\r\n    RoleGrantGrantOption = extractjson(\"$.GRANT_OPTION\", JsonString),\r\n    RoleGrantGrantedBy = extractjson(\"$.GRANTED_BY\", JsonString),\r\n    RoleGrantDeletedOn = unixtime_seconds_todatetime(DTime),\r\n    RoleGrantGrantedByRoleType = extractjson(\"$.GRANTED_BY_ROLE_TYPE\", JsonString),\r\n    RoleGrantObjectInstance = extractjson(\"$.OBJECT_INSTANCE\", JsonString)\r\n| project-away Data, OuterArray, innerArray, JsonString\r\n| take 10"
       },
       {
         "description": "Get Sample Load History Events of Snowflake",
-        "query": "SnowflakeLoad_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend LTime = toreal(extractjson(\"$.LAST_LOAD_TIME\", JsonString))\r\n| extend\r\n    LoadTableId = extractjson(\"$.TABLE_ID\", JsonString),\r\n    LoadTableName = extractjson(\"$.TABLE_NAME\", JsonString),\r\n    LoadSchemaId = extractjson(\"$.SCHEMA_ID\", JsonString),\r\n    LoadSchemaName = extractjson(\"$.SCHEMA_NAME\", JsonString),\r\n    LoadCatalogId = extractjson(\"$.CATALOG_ID\", JsonString),\r\n    LoadCatalogName = extractjson(\"$.CATALOG_NAME\", JsonString),\r\n    LoadFileName = extractjson(\"$.FILE_NAME\", JsonString),\r\n    LastLoadTime = unixtime_seconds_todatetime(LTime),\r\n    LoadStatus = extractjson(\"$.STATUS\", JsonString),\r\n    LoadRowCount = extractjson(\"$.ROW_COUNT\", JsonString),\r\n    LoadRowParsed = extractjson(\"$.ROW_PARSED\", JsonString),\r\n    LoadFirstErrorMessage = extractjson(\"$.FIRST_ERROR_MESSAGE\", JsonString),\r\n    LoadFirstErrorLineNumber = extractjson(\"$.FIRST_ERROR_LINE_NUMBER\", JsonString),\r\n    LoadFirstErrorCharacterPosition = extractjson(\"$.FIRST_ERROR_CHARACTER_POSITION\", JsonString),\r\n    LoadFirstErrorColName = extractjson(\"$.FIRST_ERROR_COL_NAME\", JsonString),\r\n    LoadErrorCount = extractjson(\"$.ERROR_COUNT\", JsonString),\r\n    LoadErrorLimit = extractjson(\"$.ERROR_LIMIT\", JsonString)\r\n| project-away Data, OuterArray, JsonString\r\n| take 10"
+        "query": "SnowflakeLoad_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend LTime = toreal(extractjson(\"$.LAST_LOAD_TIME\", JsonString))\r\n| extend\r\n    LoadTableId = extractjson(\"$.TABLE_ID\", JsonString),\r\n    LoadTableName = extractjson(\"$.TABLE_NAME\", JsonString),\r\n    LoadSchemaId = extractjson(\"$.SCHEMA_ID\", JsonString),\r\n    LoadSchemaName = extractjson(\"$.SCHEMA_NAME\", JsonString),\r\n    LoadCatalogId = extractjson(\"$.CATALOG_ID\", JsonString),\r\n    LoadCatalogName = extractjson(\"$.CATALOG_NAME\", JsonString),\r\n    LoadFileName = extractjson(\"$.FILE_NAME\", JsonString),\r\n    LastLoadTime = unixtime_seconds_todatetime(LTime),\r\n    LoadStatus = extractjson(\"$.STATUS\", JsonString),\r\n    LoadRowCount = extractjson(\"$.ROW_COUNT\", JsonString),\r\n    LoadRowParsed = extractjson(\"$.ROW_PARSED\", JsonString),\r\n    LoadFirstErrorMessage = extractjson(\"$.FIRST_ERROR_MESSAGE\", JsonString),\r\n    LoadFirstErrorLineNumber = extractjson(\"$.FIRST_ERROR_LINE_NUMBER\", JsonString),\r\n    LoadFirstErrorCharacterPosition = extractjson(\"$.FIRST_ERROR_CHARACTER_POSITION\", JsonString),\r\n    LoadFirstErrorColName = extractjson(\"$.FIRST_ERROR_COL_NAME\", JsonString),\r\n    LoadErrorCount = extractjson(\"$.ERROR_COUNT\", JsonString),\r\n    LoadErrorLimit = extractjson(\"$.ERROR_LIMIT\", JsonString)\r\n| project-away Data, OuterArray, innerArray, JsonString\r\n| take 10"
       },
       {
         "description": "Get Sample Materialized View Refresh History Events of Snowflake",
-        "query": "SnowflakeMaterializedView_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend\r\n    STime = toreal(extractjson(\"$.START_TIME\", JsonString)),\r\n    ETime = toreal(extractjson(\"$.END_TIME\", JsonString))\r\n| extend\r\n    MaterializedViewStartTime = unixtime_seconds_todatetime(STime),\r\n    MaterializedViewEndTime = unixtime_seconds_todatetime(ETime),\r\n    MaterializedViewCreditsUsed = extractjson(\"$.CREDITS_USED\", JsonString),\r\n    MaterializedViewTableId = extractjson(\"$.TABLE_ID\", JsonString),\r\n    MaterializedViewTableName = extractjson(\"$.TABLE_NAME\", JsonString),\r\n    MaterializedViewSchemaId = extractjson(\"$.SCHEMA_ID\", JsonString),\r\n    MaterializedViewSchemaName = extractjson(\"$.SCHEMA_NAME\", JsonString),\r\n    MaterializedViewDatabaseId = extractjson(\"$.DATABASE_ID\", JsonString),\r\n    MaterializedViewDatabaseName = extractjson(\"$.DATABASE_NAME\", JsonString)\r\n| project-away Data, OuterArray, JsonString\r\n| take 10"
+        "query": "SnowflakeMaterializedView_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend\r\n    STime = toreal(extractjson(\"$.START_TIME\", JsonString)),\r\n    ETime = toreal(extractjson(\"$.END_TIME\", JsonString))\r\n| extend\r\n    MaterializedViewStartTime = unixtime_seconds_todatetime(STime),\r\n    MaterializedViewEndTime = unixtime_seconds_todatetime(ETime),\r\n    MaterializedViewCreditsUsed = extractjson(\"$.CREDITS_USED\", JsonString),\r\n    MaterializedViewTableId = extractjson(\"$.TABLE_ID\", JsonString),\r\n    MaterializedViewTableName = extractjson(\"$.TABLE_NAME\", JsonString),\r\n    MaterializedViewSchemaId = extractjson(\"$.SCHEMA_ID\", JsonString),\r\n    MaterializedViewSchemaName = extractjson(\"$.SCHEMA_NAME\", JsonString),\r\n    MaterializedViewDatabaseId = extractjson(\"$.DATABASE_ID\", JsonString),\r\n    MaterializedViewDatabaseName = extractjson(\"$.DATABASE_NAME\", JsonString)\r\n| project-away Data, OuterArray, innerArray, JsonString\r\n| take 10"
       },
       {
         "description": "Get Sample Role Events of Snowflake",
-        "query": "SnowflakeRoles_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend \r\n    CTime = toreal(extractjson(\"$.CREATED_ON\", JsonString)),\r\n    DTime = toreal(extractjson(\"$.DELETED_ON\", JsonString))\r\n| extend\r\n    RoleId = extractjson(\"$.ROLE_ID\", JsonString),\r\n    RoleCreatedOn = unixtime_seconds_todatetime(CTime),\r\n    RoleDeletedOn = unixtime_seconds_todatetime(DTime),\r\n    RoleName = extractjson(\"$.NAME\", JsonString),\r\n    RoleComment = extractjson(\"$.COMMENT\", JsonString),\r\n    RoleOwner = extractjson(\"$.OWNER\", JsonString),\r\n    RoleType = extractjson(\"$.ROLE_TYPE\", JsonString),\r\n    RoleDatabaseName = extractjson(\"$.ROLE_DATABASE_NAME\", JsonString),\r\n    RoleInstanceId = extractjson(\"$.ROLE_INSTANCE_ID\", JsonString),\r\n    OwnerRoleType = extractjson(\"$.OWNER_ROLE_TYPE\", JsonString)\r\n| project-away Data, OuterArray, JsonString\r\n| take 10"
+        "query": "SnowflakeRoles_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend \r\n    CTime = toreal(extractjson(\"$.CREATED_ON\", JsonString)),\r\n    DTime = toreal(extractjson(\"$.DELETED_ON\", JsonString))\r\n| extend\r\n    RoleId = extractjson(\"$.ROLE_ID\", JsonString),\r\n    RoleCreatedOn = unixtime_seconds_todatetime(CTime),\r\n    RoleDeletedOn = unixtime_seconds_todatetime(DTime),\r\n    RoleName = extractjson(\"$.NAME\", JsonString),\r\n    RoleComment = extractjson(\"$.COMMENT\", JsonString),\r\n    RoleOwner = extractjson(\"$.OWNER\", JsonString),\r\n    RoleType = extractjson(\"$.ROLE_TYPE\", JsonString),\r\n    RoleDatabaseName = extractjson(\"$.ROLE_DATABASE_NAME\", JsonString),\r\n    RoleInstanceId = extractjson(\"$.ROLE_INSTANCE_ID\", JsonString),\r\n    OwnerRoleType = extractjson(\"$.OWNER_ROLE_TYPE\", JsonString)\r\n| project-away Data, OuterArray, innerArray, JsonString\r\n| take 10"
       },
       {
         "description": "Get Sample Table Events of Snowflake",
-        "query": "SnowflakeTables_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend\r\n    TCTime = toreal(extractjson(\"$.CREATED\", JsonString)),\r\n    LATime = toreal(extractjson(\"$.LAST_ALTERED\", JsonString)),\r\n    LDTime = toreal(extractjson(\"$.LAST_DDL\", JsonString)),\r\n    TDTime = toreal(extractjson(\"$.DELETED\", JsonString))\r\n| extend\r\n    TableId = extractjson(\"$.TABLE_ID\", JsonString),\r\n    TableName = extractjson(\"$.TABLE_NAME\", JsonString),\r\n    TableSchemaId = extractjson(\"$.TABLE_SCHEMA_ID\", JsonString),\r\n    TableSchema = extractjson(\"$.TABLE_SCHEMA\", JsonString),\r\n    TableCatalogId = extractjson(\"$.TABLE_CATALOG_ID\", JsonString),\r\n    TableCatalog = extractjson(\"$.TABLE_CATALOG\", JsonString),\r\n    TableOwner = extractjson(\"$.TABLE_OWNER\", JsonString),\r\n    TableType = extractjson(\"$.TABLE_TYPE\", JsonString),\r\n    TableIsTransient = extractjson(\"$.IS_TRANSIENT\", JsonString),\r\n    TableIsIceberg = extractjson(\"$.IS_ICEBERG\", JsonString),\r\n    TableIsDynamic = extractjson(\"$.IS_DYNAMIC\", JsonString),\r\n    TableIsHybrid = extractjson(\"$.IS_HYBRID\", JsonString),\r\n    TableClusteringKey = extractjson(\"$.CLUSTERING_KEY\", JsonString),\r\n    TableRowCount = extractjson(\"$.ROW_COUNT\", JsonString),\r\n    TableBytes = extractjson(\"$.BYTES\", JsonString),\r\n    TableRetentionTime = extractjson(\"$.RETENTION_TIME\", JsonString),\r\n    TableSelfReferencingColumnName = extractjson(\"$.SELF_REFERENCING_COLUMN_NAME\", JsonString),\r\n    TableReferenceGeneration = extractjson(\"$.REFERENCE_GENERATION\", JsonString),\r\n    TableUserDefinedTypeCatalog = extractjson(\"$.USER_DEFINED_TYPE_CATALOG\", JsonString),\r\n    TableUserDefinedTypeSchema = extractjson(\"$.USER_DEFINED_TYPE_SCHEMA\", JsonString),\r\n    TableUserDefinedTypeName = extractjson(\"$.USER_DEFINED_TYPE_NAME\", JsonString),\r\n    TableIsInsertableInto = extractjson(\"$.IS_INSERTABLE_INTO\", JsonString),\r\n    TableIsTyped = extractjson(\"$.IS_TYPED\", JsonString),\r\n    TableCommitAction = extractjson(\"$.COMMIT_ACTION\", JsonString),\r\n    TableCreated = unixtime_seconds_todatetime(TCTime),\r\n    TableLastAltered = unixtime_seconds_todatetime(LATime),\r\n    TableLastDDL = unixtime_seconds_todatetime(LDTime),\r\n    TableLastDDLBy = extractjson(\"$.LAST_DDL_BY\", JsonString),\r\n    TableDeleted = unixtime_seconds_todatetime(TDTime),\r\n    TableAutoClusteringOn = extractjson(\"$.AUTO_CLUSTERING_ON\", JsonString),\r\n    TableComment = extractjson(\"$.COMMENT\", JsonString),\r\n    TableOwnerRoleType = extractjson(\"$.OWNER_ROLE_TYPE\", JsonString),\r\n    TableInstanceId = extractjson(\"$.INSTANCE_ID\", JsonString)\r\n| project-away Data, OuterArray, JsonString\r\n| take 10"
+        "query": "SnowflakeTables_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend\r\n    TCTime = toreal(extractjson(\"$.CREATED\", JsonString)),\r\n    LATime = toreal(extractjson(\"$.LAST_ALTERED\", JsonString)),\r\n    LDTime = toreal(extractjson(\"$.LAST_DDL\", JsonString)),\r\n    TDTime = toreal(extractjson(\"$.DELETED\", JsonString))\r\n| extend\r\n    TableId = extractjson(\"$.TABLE_ID\", JsonString),\r\n    TableName = extractjson(\"$.TABLE_NAME\", JsonString),\r\n    TableSchemaId = extractjson(\"$.TABLE_SCHEMA_ID\", JsonString),\r\n    TableSchema = extractjson(\"$.TABLE_SCHEMA\", JsonString),\r\n    TableCatalogId = extractjson(\"$.TABLE_CATALOG_ID\", JsonString),\r\n    TableCatalog = extractjson(\"$.TABLE_CATALOG\", JsonString),\r\n    TableOwner = extractjson(\"$.TABLE_OWNER\", JsonString),\r\n    TableType = extractjson(\"$.TABLE_TYPE\", JsonString),\r\n    TableIsTransient = extractjson(\"$.IS_TRANSIENT\", JsonString),\r\n    TableIsIceberg = extractjson(\"$.IS_ICEBERG\", JsonString),\r\n    TableIsDynamic = extractjson(\"$.IS_DYNAMIC\", JsonString),\r\n    TableIsHybrid = extractjson(\"$.IS_HYBRID\", JsonString),\r\n    TableClusteringKey = extractjson(\"$.CLUSTERING_KEY\", JsonString),\r\n    TableRowCount = extractjson(\"$.ROW_COUNT\", JsonString),\r\n    TableBytes = extractjson(\"$.BYTES\", JsonString),\r\n    TableRetentionTime = extractjson(\"$.RETENTION_TIME\", JsonString),\r\n    TableSelfReferencingColumnName = extractjson(\"$.SELF_REFERENCING_COLUMN_NAME\", JsonString),\r\n    TableReferenceGeneration = extractjson(\"$.REFERENCE_GENERATION\", JsonString),\r\n    TableUserDefinedTypeCatalog = extractjson(\"$.USER_DEFINED_TYPE_CATALOG\", JsonString),\r\n    TableUserDefinedTypeSchema = extractjson(\"$.USER_DEFINED_TYPE_SCHEMA\", JsonString),\r\n    TableUserDefinedTypeName = extractjson(\"$.USER_DEFINED_TYPE_NAME\", JsonString),\r\n    TableIsInsertableInto = extractjson(\"$.IS_INSERTABLE_INTO\", JsonString),\r\n    TableIsTyped = extractjson(\"$.IS_TYPED\", JsonString),\r\n    TableCommitAction = extractjson(\"$.COMMIT_ACTION\", JsonString),\r\n    TableCreated = unixtime_seconds_todatetime(TCTime),\r\n    TableLastAltered = unixtime_seconds_todatetime(LATime),\r\n    TableLastDDL = unixtime_seconds_todatetime(LDTime),\r\n    TableLastDDLBy = extractjson(\"$.LAST_DDL_BY\", JsonString),\r\n    TableDeleted = unixtime_seconds_todatetime(TDTime),\r\n    TableAutoClusteringOn = extractjson(\"$.AUTO_CLUSTERING_ON\", JsonString),\r\n    TableComment = extractjson(\"$.COMMENT\", JsonString),\r\n    TableOwnerRoleType = extractjson(\"$.OWNER_ROLE_TYPE\", JsonString),\r\n    TableInstanceId = extractjson(\"$.INSTANCE_ID\", JsonString)\r\n| project-away Data, OuterArray, innerArray, JsonString\r\n| take 10"
       },
       {
         "description": "Get Sample Table Storage Metrics Events of Snowflake",
-        "query": "SnowflakeTableStorageMetrics_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend\r\n    TCTime = toreal(extractjson(\"$.TABLE_CREATED\", JsonString)),\r\n    TDTime = toreal(extractjson(\"$.TABLE_DROPPED\", JsonString)),\r\n    TFTime = toreal(extractjson(\"$.TABLE_ENTERED_FAILSAFE\", JsonString)),\r\n    SCTime = toreal(extractjson(\"$.SCHEMA_CREATED\", JsonString)),\r\n    SDTime = toreal(extractjson(\"$.SCHEMA_DROPPED\", JsonString)),\r\n    CCTime = toreal(extractjson(\"$.CATALOG_CREATED\", JsonString)),\r\n    CDTime = toreal(extractjson(\"$.CATALOG_DROPPED\", JsonString))\r\n| extend\r\n    TableStorageMetricsId = extractjson(\"$.ID\", JsonString),\r\n    TableStorageMetricsTableName = extractjson(\"$.TABLE_NAME\", JsonString),\r\n    TableStorageMetricsTableSchemaId = extractjson(\"$.TABLE_SCHEMA_ID\", JsonString),\r\n    TableStorageMetricsTableSchema = extractjson(\"$.TABLE_SCHEMA\", JsonString),\r\n    TableStorageMetricsTableCatalogId = extractjson(\"$.TABLE_CATALOG_ID\", JsonString),\r\n    TableStorageMetricsTableCatalog = extractjson(\"$.TABLE_CATALOG\", JsonString),\r\n    TableStorageMetricsCloneGroupId = extractjson(\"$.CLONE_GROUP_ID\", JsonString),\r\n    TableStorageMetricsIsTransient = extractjson(\"$.IS_TRANSIENT\", JsonString),\r\n    TableStorageMetricsActiveBytes = extractjson(\"$.ACTIVE_BYTES\", JsonString),\r\n    TableStorageMetricsTimeTravelBytes = extractjson(\"$.TIME_TRAVEL_BYTES\", JsonString),\r\n    TableStorageMetricsFailsafeBytes = extractjson(\"$.FAILSAFE_BYTES\", JsonString),\r\n    TableStorageMetricsRetainedForCloneBytes = extractjson(\"$.RETAINED_FOR_CLONE_BYTES\", JsonString),\r\n    TableStorageMetricsDeleted = extractjson(\"$.DELETED\", JsonString),\r\n    TableStorageMetricsTableCreated = unixtime_seconds_todatetime(TCTime),\r\n    TableStorageMetricsTableDropped = unixtime_seconds_todatetime(TDTime),\r\n    TableStorageMetricsTableEnteredFailsafe = unixtime_seconds_todatetime(TFTime),\r\n    TableStorageMetricsSchemaCreated = unixtime_seconds_todatetime(SCTime),\r\n    TableStorageMetricsSchemaDropped = unixtime_seconds_todatetime(SDTime),\r\n    TableStorageMetricsCatalogCreated = unixtime_seconds_todatetime(CCTime),\r\n    TableStorageMetricsCatalogDropped = unixtime_seconds_todatetime(CDTime),\r\n    TableStorageMetricsComment = extractjson(\"$.COMMENT\", JsonString),\r\n    TableStorageMetricsInstanceId = extractjson(\"$.INSTANCE_ID\", JsonString)\r\n| project-away Data, OuterArray, JsonString\r\n| take 10"
+        "query": "SnowflakeTableStorageMetrics_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend\r\n    TCTime = toreal(extractjson(\"$.TABLE_CREATED\", JsonString)),\r\n    TDTime = toreal(extractjson(\"$.TABLE_DROPPED\", JsonString)),\r\n    TFTime = toreal(extractjson(\"$.TABLE_ENTERED_FAILSAFE\", JsonString)),\r\n    SCTime = toreal(extractjson(\"$.SCHEMA_CREATED\", JsonString)),\r\n    SDTime = toreal(extractjson(\"$.SCHEMA_DROPPED\", JsonString)),\r\n    CCTime = toreal(extractjson(\"$.CATALOG_CREATED\", JsonString)),\r\n    CDTime = toreal(extractjson(\"$.CATALOG_DROPPED\", JsonString))\r\n| extend\r\n    TableStorageMetricsId = extractjson(\"$.ID\", JsonString),\r\n    TableStorageMetricsTableName = extractjson(\"$.TABLE_NAME\", JsonString),\r\n    TableStorageMetricsTableSchemaId = extractjson(\"$.TABLE_SCHEMA_ID\", JsonString),\r\n    TableStorageMetricsTableSchema = extractjson(\"$.TABLE_SCHEMA\", JsonString),\r\n    TableStorageMetricsTableCatalogId = extractjson(\"$.TABLE_CATALOG_ID\", JsonString),\r\n    TableStorageMetricsTableCatalog = extractjson(\"$.TABLE_CATALOG\", JsonString),\r\n    TableStorageMetricsCloneGroupId = extractjson(\"$.CLONE_GROUP_ID\", JsonString),\r\n    TableStorageMetricsIsTransient = extractjson(\"$.IS_TRANSIENT\", JsonString),\r\n    TableStorageMetricsActiveBytes = extractjson(\"$.ACTIVE_BYTES\", JsonString),\r\n    TableStorageMetricsTimeTravelBytes = extractjson(\"$.TIME_TRAVEL_BYTES\", JsonString),\r\n    TableStorageMetricsFailsafeBytes = extractjson(\"$.FAILSAFE_BYTES\", JsonString),\r\n    TableStorageMetricsRetainedForCloneBytes = extractjson(\"$.RETAINED_FOR_CLONE_BYTES\", JsonString),\r\n    TableStorageMetricsDeleted = extractjson(\"$.DELETED\", JsonString),\r\n    TableStorageMetricsTableCreated = unixtime_seconds_todatetime(TCTime),\r\n    TableStorageMetricsTableDropped = unixtime_seconds_todatetime(TDTime),\r\n    TableStorageMetricsTableEnteredFailsafe = unixtime_seconds_todatetime(TFTime),\r\n    TableStorageMetricsSchemaCreated = unixtime_seconds_todatetime(SCTime),\r\n    TableStorageMetricsSchemaDropped = unixtime_seconds_todatetime(SDTime),\r\n    TableStorageMetricsCatalogCreated = unixtime_seconds_todatetime(CCTime),\r\n    TableStorageMetricsCatalogDropped = unixtime_seconds_todatetime(CDTime),\r\n    TableStorageMetricsComment = extractjson(\"$.COMMENT\", JsonString),\r\n    TableStorageMetricsInstanceId = extractjson(\"$.INSTANCE_ID\", JsonString)\r\n| project-away Data, OuterArray, innerArray, JsonString\r\n| take 10"
       },
       {
         "description": "Get Sample Users of Snowflake",
-        "query": "SnowflakeUsers_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend\r\n    CTime = toreal(extractjson(\"$.CREATED_ON\", JsonString)),\r\n    DTime = toreal(extractjson(\"$.DELETED_ON\", JsonString)),\r\n    BMTime = toreal(extractjson(\"$.BYPASS_MFA_UNTIL\", JsonString)),\r\n    LSLTime = toreal(extractjson(\"$.LAST_SUCCESS_LOGIN\", JsonString)),\r\n    ETime = toreal(extractjson(\"$.EXPIRES_AT\", JsonString)),\r\n    LUTime = toreal(extractjson(\"$.LOCKED_UNTIL_TIME\", JsonString)),\r\n    PLSTime = toreal(extractjson(\"$.PASSWORD_LAST_SET_TIME\", JsonString))\r\n| extend\r\n    UserId = extractjson(\"$.USER_ID\", JsonString),\r\n    UserName = extractjson(\"$.NAME\", JsonString),\r\n    UserCreatedOn = extractjson(\"$.CREATED_ON\", JsonString),\r\n    UserDeletedOn = extractjson(\"$.DELETED_ON\", JsonString),\r\n    UserLoginName = extractjson(\"$.LOGIN_NAME\", JsonString),\r\n    UserDisplayName = extractjson(\"$.DISPLAY_NAME\", JsonString),\r\n    UserFirstName = extractjson(\"$.FIRST_NAME\", JsonString),\r\n    UserLastName = extractjson(\"$.LAST_NAME\", JsonString),\r\n    UserEmail = extractjson(\"$.EMAIL\", JsonString),\r\n    UserMustChangePassword = extractjson(\"$.MUST_CHANGE_PASSWORD\", JsonString),\r\n    UserHasPassword = extractjson(\"$.HAS_PASSWORD\", JsonString),\r\n    UserComment = extractjson(\"$.COMMENT\", JsonString),\r\n    UserDisabled = extractjson(\"$.DISABLED\", JsonString),\r\n    UserSnowflakeLock = extractjson(\"$.SNOWFLAKE_LOCK\", JsonString),\r\n    UserDefaultWarehouse = extractjson(\"$.DEFAULT_WAREHOUSE\", JsonString),\r\n    UserDefaultNamespace = extractjson(\"$.DEFAULT_NAMESPACE\", JsonString),\r\n    UserDefaultRole = extractjson(\"$.DEFAULT_ROLE\", JsonString),\r\n    UserExtAuthnDuo = extractjson(\"$.EXT_AUTHN_DUO\", JsonString),\r\n    UserExtAuthnUid = extractjson(\"$.EXT_AUTHN_UID\", JsonString),\r\n    UserHasMFA = extractjson(\"$.HAS_MFA\", JsonString),\r\n    UserBypassMFAUntil = unixtime_seconds_todatetime(BMTime),\r\n    UserLastSuccessLogin = unixtime_seconds_todatetime(LSLTime),\r\n    UserExpiresAt = unixtime_seconds_todatetime(ETime),\r\n    UserLockedUntilTime = unixtime_seconds_todatetime(LUTime),\r\n    UserHasRSAPublicKey = extractjson(\"$.HAS_RSA_PUBLIC_KEY\", JsonString),\r\n    UserPasswordLastSetTime = unixtime_seconds_todatetime(PLSTime),\r\n    UserOwner = extractjson(\"$.OWNER\", JsonString),\r\n    UserDefaultSecondaryRole = extractjson(\"$.DEFAULT_SECONDARY_ROLE\", JsonString),\r\n    UserType = extractjson(\"$.TYPE\", JsonString),\r\n    UserDatabaseName = extractjson(\"$.DATABASE_NAME\", JsonString),\r\n    UserDatabaseId = extractjson(\"$.DATABASE_ID\", JsonString),\r\n    UserSchemaName = extractjson(\"$.SCHEMA_NAME\", JsonString),\r\n    UserSchemaId = extractjson(\"$.SCHEMA_ID\", JsonString)\r\n| project-away Data, OuterArray, JsonString\r\n| take 10"
+        "query": "SnowflakeUsers_CL\r\n| mv-expand OuterArray = todynamic(Data)\r\n| mv-expand innerArray = OuterArray\r\n| extend JsonString = tostring(innerArray)\r\n| extend\r\n    CTime = toreal(extractjson(\"$.CREATED_ON\", JsonString)),\r\n    DTime = toreal(extractjson(\"$.DELETED_ON\", JsonString)),\r\n    BMTime = toreal(extractjson(\"$.BYPASS_MFA_UNTIL\", JsonString)),\r\n    LSLTime = toreal(extractjson(\"$.LAST_SUCCESS_LOGIN\", JsonString)),\r\n    ETime = toreal(extractjson(\"$.EXPIRES_AT\", JsonString)),\r\n    LUTime = toreal(extractjson(\"$.LOCKED_UNTIL_TIME\", JsonString)),\r\n    PLSTime = toreal(extractjson(\"$.PASSWORD_LAST_SET_TIME\", JsonString))\r\n| extend\r\n    UserId = extractjson(\"$.USER_ID\", JsonString),\r\n    UserName = extractjson(\"$.NAME\", JsonString),\r\n    UserCreatedOn = extractjson(\"$.CREATED_ON\", JsonString),\r\n    UserDeletedOn = extractjson(\"$.DELETED_ON\", JsonString),\r\n    UserLoginName = extractjson(\"$.LOGIN_NAME\", JsonString),\r\n    UserDisplayName = extractjson(\"$.DISPLAY_NAME\", JsonString),\r\n    UserFirstName = extractjson(\"$.FIRST_NAME\", JsonString),\r\n    UserLastName = extractjson(\"$.LAST_NAME\", JsonString),\r\n    UserEmail = extractjson(\"$.EMAIL\", JsonString),\r\n    UserMustChangePassword = extractjson(\"$.MUST_CHANGE_PASSWORD\", JsonString),\r\n    UserHasPassword = extractjson(\"$.HAS_PASSWORD\", JsonString),\r\n    UserComment = extractjson(\"$.COMMENT\", JsonString),\r\n    UserDisabled = extractjson(\"$.DISABLED\", JsonString),\r\n    UserSnowflakeLock = extractjson(\"$.SNOWFLAKE_LOCK\", JsonString),\r\n    UserDefaultWarehouse = extractjson(\"$.DEFAULT_WAREHOUSE\", JsonString),\r\n    UserDefaultNamespace = extractjson(\"$.DEFAULT_NAMESPACE\", JsonString),\r\n    UserDefaultRole = extractjson(\"$.DEFAULT_ROLE\", JsonString),\r\n    UserExtAuthnDuo = extractjson(\"$.EXT_AUTHN_DUO\", JsonString),\r\n    UserExtAuthnUid = extractjson(\"$.EXT_AUTHN_UID\", JsonString),\r\n    UserHasMFA = extractjson(\"$.HAS_MFA\", JsonString),\r\n    UserBypassMFAUntil = unixtime_seconds_todatetime(BMTime),\r\n    UserLastSuccessLogin = unixtime_seconds_todatetime(LSLTime),\r\n    UserExpiresAt = unixtime_seconds_todatetime(ETime),\r\n    UserLockedUntilTime = unixtime_seconds_todatetime(LUTime),\r\n    UserHasRSAPublicKey = extractjson(\"$.HAS_RSA_PUBLIC_KEY\", JsonString),\r\n    UserPasswordLastSetTime = unixtime_seconds_todatetime(PLSTime),\r\n    UserOwner = extractjson(\"$.OWNER\", JsonString),\r\n    UserDefaultSecondaryRole = extractjson(\"$.DEFAULT_SECONDARY_ROLE\", JsonString),\r\n    UserType = extractjson(\"$.TYPE\", JsonString),\r\n    UserDatabaseName = extractjson(\"$.DATABASE_NAME\", JsonString),\r\n    UserDatabaseId = extractjson(\"$.DATABASE_ID\", JsonString),\r\n    UserSchemaName = extractjson(\"$.SCHEMA_NAME\", JsonString),\r\n    UserSchemaId = extractjson(\"$.SCHEMA_ID\", JsonString)\r\n| project-away Data, OuterArray, innerArray, JsonString\r\n| take 10"
       }
     ],
     "dataTypes": [
@@ -50076,6 +50304,37 @@
     "availability": {
       "isPreview": false,
       "status": 1
+    },
+    "metadata": null
+  },
+  {
+    "id": "SOCPrimeAuditLogsDataConnector",
+    "title": "SOC Prime Platform Audit Logs Data Connector",
+    "publisher": "Microsoft",
+    "descriptionMarkdown": "The [SOC Prime Audit Logs](https://tdm.socprime.com/login) data connector allows ingesting logs from the SOC Prime Platform API into Microsoft Sentinel. The data connector is built on Microsoft Sentinel Codeless Connector Platform. It uses the SOC Prime Platform API to fetch SOC Prime platform audit logs and it supports DCR-based [ingestion time transformations](https://docs.microsoft.com/azure/azure-monitor/logs/custom-logs-overview) that parses the received security data into a custom table, thus resulting in better performance.",
+    "graphQueries": [
+      {
+        "metricName": "Total Audit Logs received",
+        "legend": "SOC Prime Audit Logs",
+        "baseQuery": "SOCPrimeAuditLogs_CL"
+      }
+    ],
+    "sampleQueries": [
+      {
+        "description": "Get Sample of SOC Prime  logs",
+        "query": "SOCPrimeAuditLogs_CL | take 10"
+      }
+    ],
+    "dataTypes": [
+      {
+        "name": "SOCPrimeAuditLogs_CL",
+        "lastDataReceivedQuery": "SOCPrimeAuditLogs_CL\n       | where TimeGenerated > ago(12h)                | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
+      }
+    ],
+    "connectivityCriterias": null,
+    "availability": {
+      "status": 1,
+      "isPreview": false
     },
     "metadata": null
   },
@@ -53626,95 +53885,6 @@
     "graphQueries": [
       {
         "metricName": "Total data received",
-        "legend": "ThreatIntelligenceIndicator",
-        "baseQuery": "ThreatIntelligenceIndicator | where SourceSystem == \"SecurityGraph\""
-      }
-    ],
-    "sampleQueries": [
-      {
-        "description": "Summarize by threat type",
-        "query": "ThreatIntelligenceIndicator\n| where ExpirationDateTime > now()\n| where SourceSystem == \"SecurityGraph\"\n| join (\n    SigninLogs\n) on $left.NetworkIP == $right.IPAddress\n| summarize count() by ThreatType"
-      },
-      {
-        "description": "Summarize by 1 hour bins",
-        "query": "CommonSecurityLog\n| where DestinationIP in\n((\n    ThreatIntelligenceIndicator\n    | where ExpirationDateTime > now()\n    | where SourceSystem == \"SecurityGraph\"\n    | where ThreatType == \"DDoS\"\n    | project NetworkIP\n))\n| summarize count() by bin(TimeGenerated, 1d)​​"
-      }
-    ],
-    "connectivityCriterias": [
-      {
-        "type": "SentinelKinds",
-        "value": [
-          "ThreatIntelligence"
-        ]
-      }
-    ],
-    "dataTypes": [
-      {
-        "name": "ThreatIntelligenceIndicator",
-        "lastDataReceivedQuery": "ThreatIntelligenceIndicator | where SourceSystem == \"SecurityGraph\"\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
-      }
-    ],
-    "availability": {
-      "status": 2,
-      "isPreview": true,
-      "featureFlag": {
-        "feature": "TIConnector",
-        "featureStates": {
-          "1": 2,
-          "2": 2,
-          "3": 2,
-          "4": 2
-        }
-      }
-    },
-    "permissions": {
-      "resourceProvider": [
-        {
-          "provider": "Microsoft.OperationalInsights/workspaces",
-          "permissionsDisplayText": "read and write permissions.",
-          "providerDisplayName": "Workspace",
-          "scope": "Workspace",
-          "requiredPermissions": {
-            "read": true,
-            "write": true,
-            "delete": true
-          }
-        }
-      ],
-      "tenant": [
-        "GlobalAdmin",
-        "SecurityAdmin"
-      ]
-    },
-    "instructionSteps": [
-      {
-        "title": "You can connect your threat intelligence data sources to Microsoft Sentinel by either:",
-        "description": "- Using an integrated Threat Intelligence Platform (TIP), such as Threat Connect, Palo Alto Networks MindMeld, MISP, and others.\n\n- Calling the Microsoft Graph Security API directly from another application."
-      },
-      {
-        "title": "Follow These Steps to Connect your Threat Intelligence:",
-        "description": "1) [Register an application](https://docs.microsoft.com/graph/auth-v2-service#1-register-your-app) in Azure Active Directory.\n\n2) [Configure permissions](https://docs.microsoft.com/graph/auth-v2-service#2-configure-permissions-for-microsoft-graph) and be sure to add the ThreatIndicators.ReadWrite.OwnedBy permission to the application.\n\n3) Ask your Azure AD tenant administrator to [grant consent](https://docs.microsoft.com/graph/auth-v2-service#3-get-administrator-consent) to the application.\n\n4) Configure your TIP or other integrated application to push indicators to Microsoft Sentinel by specifying the following:\n\n    a. The application ID and secret you received when registering the app (step 1 above). \n\n    b. Set “Microsoft Sentinel” as the target.\n\n    c. Set an action for each indicator - ‘alert’ is most relevant for Microsoft Sentinel use cases \n\nFor the latest list of integrated Threat Intelligence Platforms and detailed configuration instructions, see the [full documentation](https://docs.microsoft.com/azure/sentinel/import-threat-intelligence#adding-threat-indicators-to-azure-sentinel-with-the-threat-intelligence-platforms-data-connector).\n\nClick on \"Connect\" below\n\n> Data from all regions will be sent to and stored in the workspace's region.",
-        "instructions": [
-          {
-            "parameters": {},
-            "type": "ThreatIntelligence"
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "id": "ThreatIntelligence",
-    "title": "Threat Intelligence Platforms",
-    "publisher": "Microsoft",
-    "logo": {
-      "type": 258,
-      "options": null
-    },
-    "descriptionMarkdown": "Microsoft Sentinel integrates with Microsoft Graph Security API data sources to enable monitoring, alerting, and hunting using your threat intelligence. Use this connector to send threat indicators to Microsoft Sentinel from your Threat Intelligence Platform (TIP), such as Threat Connect, Palo Alto Networks MindMeld, MISP, or other integrated applications. Threat indicators can include IP addresses, domains, URLs, and file hashes. For more information, see the [Microsoft Sentinel documentation >](https://go.microsoft.com/fwlink/p/?linkid=2223729&wt.mc_id=sentinel_dataconnectordocs_content_cnl_csasci).",
-    "graphQueries": [
-      {
-        "metricName": "Total data received",
         "legend": "ThreatIntelIndicators",
         "baseQuery": "ThreatIntelIndicators | where SourceSystem == \"SecurityGraph\""
       },
@@ -53810,6 +53980,95 @@
     ]
   },
   {
+    "id": "ThreatIntelligence",
+    "title": "Threat Intelligence Platforms",
+    "publisher": "Microsoft",
+    "logo": {
+      "type": 258,
+      "options": null
+    },
+    "descriptionMarkdown": "Microsoft Sentinel integrates with Microsoft Graph Security API data sources to enable monitoring, alerting, and hunting using your threat intelligence. Use this connector to send threat indicators to Microsoft Sentinel from your Threat Intelligence Platform (TIP), such as Threat Connect, Palo Alto Networks MindMeld, MISP, or other integrated applications. Threat indicators can include IP addresses, domains, URLs, and file hashes. For more information, see the [Microsoft Sentinel documentation >](https://go.microsoft.com/fwlink/p/?linkid=2223729&wt.mc_id=sentinel_dataconnectordocs_content_cnl_csasci).",
+    "graphQueries": [
+      {
+        "metricName": "Total data received",
+        "legend": "ThreatIntelligenceIndicator",
+        "baseQuery": "ThreatIntelligenceIndicator | where SourceSystem == \"SecurityGraph\""
+      }
+    ],
+    "sampleQueries": [
+      {
+        "description": "Summarize by threat type",
+        "query": "ThreatIntelligenceIndicator\n| where ExpirationDateTime > now()\n| where SourceSystem == \"SecurityGraph\"\n| join (\n    SigninLogs\n) on $left.NetworkIP == $right.IPAddress\n| summarize count() by ThreatType"
+      },
+      {
+        "description": "Summarize by 1 hour bins",
+        "query": "CommonSecurityLog\n| where DestinationIP in\n((\n    ThreatIntelligenceIndicator\n    | where ExpirationDateTime > now()\n    | where SourceSystem == \"SecurityGraph\"\n    | where ThreatType == \"DDoS\"\n    | project NetworkIP\n))\n| summarize count() by bin(TimeGenerated, 1d)​​"
+      }
+    ],
+    "connectivityCriterias": [
+      {
+        "type": "SentinelKinds",
+        "value": [
+          "ThreatIntelligence"
+        ]
+      }
+    ],
+    "dataTypes": [
+      {
+        "name": "ThreatIntelligenceIndicator",
+        "lastDataReceivedQuery": "ThreatIntelligenceIndicator | where SourceSystem == \"SecurityGraph\"\n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
+      }
+    ],
+    "availability": {
+      "status": 2,
+      "isPreview": true,
+      "featureFlag": {
+        "feature": "TIConnector",
+        "featureStates": {
+          "1": 2,
+          "2": 2,
+          "3": 2,
+          "4": 2
+        }
+      }
+    },
+    "permissions": {
+      "resourceProvider": [
+        {
+          "provider": "Microsoft.OperationalInsights/workspaces",
+          "permissionsDisplayText": "read and write permissions.",
+          "providerDisplayName": "Workspace",
+          "scope": "Workspace",
+          "requiredPermissions": {
+            "read": true,
+            "write": true,
+            "delete": true
+          }
+        }
+      ],
+      "tenant": [
+        "GlobalAdmin",
+        "SecurityAdmin"
+      ]
+    },
+    "instructionSteps": [
+      {
+        "title": "You can connect your threat intelligence data sources to Microsoft Sentinel by either:",
+        "description": "- Using an integrated Threat Intelligence Platform (TIP), such as Threat Connect, Palo Alto Networks MindMeld, MISP, and others.\n\n- Calling the Microsoft Graph Security API directly from another application."
+      },
+      {
+        "title": "Follow These Steps to Connect your Threat Intelligence:",
+        "description": "1) [Register an application](https://docs.microsoft.com/graph/auth-v2-service#1-register-your-app) in Azure Active Directory.\n\n2) [Configure permissions](https://docs.microsoft.com/graph/auth-v2-service#2-configure-permissions-for-microsoft-graph) and be sure to add the ThreatIndicators.ReadWrite.OwnedBy permission to the application.\n\n3) Ask your Azure AD tenant administrator to [grant consent](https://docs.microsoft.com/graph/auth-v2-service#3-get-administrator-consent) to the application.\n\n4) Configure your TIP or other integrated application to push indicators to Microsoft Sentinel by specifying the following:\n\n    a. The application ID and secret you received when registering the app (step 1 above). \n\n    b. Set “Microsoft Sentinel” as the target.\n\n    c. Set an action for each indicator - ‘alert’ is most relevant for Microsoft Sentinel use cases \n\nFor the latest list of integrated Threat Intelligence Platforms and detailed configuration instructions, see the [full documentation](https://docs.microsoft.com/azure/sentinel/import-threat-intelligence#adding-threat-indicators-to-azure-sentinel-with-the-threat-intelligence-platforms-data-connector).\n\nClick on \"Connect\" below\n\n> Data from all regions will be sent to and stored in the workspace's region.",
+        "instructions": [
+          {
+            "parameters": {},
+            "type": "ThreatIntelligence"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": "ThreatIntelligenceTaxii",
     "title": "Threat intelligence - TAXII",
     "publisher": "Microsoft",
@@ -53817,18 +54076,31 @@
     "graphQueries": [
       {
         "metricName": "Total data received",
-        "legend": "ThreatIntelligenceIndicator",
-        "baseQuery": "ThreatIntelligenceIndicator | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") "
+        "legend": "ThreatIntelIndicators",
+        "baseQuery": "ThreatIntelIndicators | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") "
+      },
+      {
+        "metricName": "Total data received",
+        "legend": "ThreatIntelObjects",
+        "baseQuery": "ThreatIntelObjects | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") "
       }
     ],
     "sampleQueries": [
       {
         "description": "Summarize by threat type",
-        "query": "ThreatIntelligenceIndicator | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            and ExpirationDateTime > now() | join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
+        "query": "ThreatIntelIndicators | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            and ExpirationDateTime > now() | join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
       },
       {
         "description": "Summarize by 1 hour bins",
-        "query": "ThreatIntelligenceIndicator | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            and TimeGenerated >= ago(1d) | summarize count()"
+        "query": "ThreatIntelIndicators | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            and TimeGenerated >= ago(1d) | summarize count()"
+      },
+      {
+        "description": "Summarize by threat type",
+        "query": "ThreatIntelObjects | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            and ExpirationDateTime > now() | join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
+      },
+      {
+        "description": "Summarize by 1 hour bins",
+        "query": "ThreatIntelObjects | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            and TimeGenerated >= ago(1d) | summarize count()"
       }
     ],
     "connectivityCriterias": [
@@ -53841,8 +54113,12 @@
     ],
     "dataTypes": [
       {
-        "name": "ThreatIntelligenceIndicator",
-        "lastDataReceivedQuery": "ThreatIntelligenceIndicator | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
+        "name": "ThreatIntelIndicators",
+        "lastDataReceivedQuery": "ThreatIntelIndicators | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
+      },
+      {
+        "name": "ThreatIntelObjects",
+        "lastDataReceivedQuery": "ThreatIntelObjects | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
       }
     ],
     "availability": {
@@ -53904,31 +54180,18 @@
     "graphQueries": [
       {
         "metricName": "Total data received",
-        "legend": "ThreatIntelIndicators",
-        "baseQuery": "ThreatIntelIndicators | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") "
-      },
-      {
-        "metricName": "Total data received",
-        "legend": "ThreatIntelObjects",
-        "baseQuery": "ThreatIntelObjects | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") "
+        "legend": "ThreatIntelligenceIndicator",
+        "baseQuery": "ThreatIntelligenceIndicator | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") "
       }
     ],
     "sampleQueries": [
       {
         "description": "Summarize by threat type",
-        "query": "ThreatIntelIndicators | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            and ExpirationDateTime > now() | join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
+        "query": "ThreatIntelligenceIndicator | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            and ExpirationDateTime > now() | join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
       },
       {
         "description": "Summarize by 1 hour bins",
-        "query": "ThreatIntelIndicators | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            and TimeGenerated >= ago(1d) | summarize count()"
-      },
-      {
-        "description": "Summarize by threat type",
-        "query": "ThreatIntelObjects | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            and ExpirationDateTime > now() | join ( SigninLogs ) on $left.NetworkIP == $right.IPAddress | summarize count() by ThreatType"
-      },
-      {
-        "description": "Summarize by 1 hour bins",
-        "query": "ThreatIntelObjects | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            and TimeGenerated >= ago(1d) | summarize count()"
+        "query": "ThreatIntelligenceIndicator | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            and TimeGenerated >= ago(1d) | summarize count()"
       }
     ],
     "connectivityCriterias": [
@@ -53941,12 +54204,8 @@
     ],
     "dataTypes": [
       {
-        "name": "ThreatIntelIndicators",
-        "lastDataReceivedQuery": "ThreatIntelIndicators | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
-      },
-      {
-        "name": "ThreatIntelObjects",
-        "lastDataReceivedQuery": "ThreatIntelObjects | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
+        "name": "ThreatIntelligenceIndicator",
+        "lastDataReceivedQuery": "ThreatIntelligenceIndicator | where SourceSystem !in (\"SecurityGraph\", \"Azure Sentinel\", \"Microsoft Sentinel\") \n            | summarize Time = max(TimeGenerated)\n            | where isnotempty(Time)"
       }
     ],
     "availability": {
@@ -54072,89 +54331,6 @@
             "type": "ThreatIntelligenceTaxii"
           }
         ]
-      }
-    ]
-  },
-  {
-    "id": "ThreatIntelligenceUploadIndicatorsAPI",
-    "title": "Threat Intelligence Upload API (Preview)",
-    "publisher": "Microsoft",
-    "descriptionMarkdown": "Microsoft Sentinel offers a data plane API to bring in threat intelligence from your Threat Intelligence Platform (TIP), such as Threat Connect, Palo Alto Networks MineMeld, MISP, or other integrated applications. Threat indicators can include IP addresses, domains, URLs, file hashes and email addresses. For more information, see the [Microsoft Sentinel documentation](https://go.microsoft.com/fwlink/p/?linkid=2269830&wt.mc_id=sentinel_dataconnectordocs_content_cnl_csasci).",
-    "graphQueries": [
-      {
-        "metricName": "Total indicators received",
-        "legend": "Connection Events",
-        "baseQuery": "ThreatIntelIndicators | where SourceSystem != 'Microsoft Sentinel'"
-      },
-      {
-        "metricName": "Total indicators received",
-        "legend": "Connection Events",
-        "baseQuery": "ThreatIntelObjects | where SourceSystem != 'Microsoft Sentinel'"
-      }
-    ],
-    "sampleQueries": [
-      {
-        "description": "All Threat Intelligence APIs Indicators",
-        "query": "ThreatIntelIndicators | where SourceSystem !in ('SecurityGraph', 'Azure Sentinel', 'Microsoft Sentinel')| sort by TimeGenerated desc"
-      },
-      {
-        "description": "All Threat Intelligence APIs Indicators",
-        "query": "ThreatIntelObjects | where SourceSystem !in ('SecurityGraph', 'Azure Sentinel', 'Microsoft Sentinel')| sort by TimeGenerated desc"
-      }
-    ],
-    "dataTypes": [
-      {
-        "name": "ThreatIntelIndicators",
-        "lastDataReceivedQuery": "ThreatIntelIndicators | where isnotempty(TimeGenerated) and SourceSystem !in ('SecurityGraph', 'Azure Sentinel', 'Microsoft Sentinel')| summarize Time = max(TimeGenerated)"
-      },
-      {
-        "name": "ThreatIntelObjects",
-        "lastDataReceivedQuery": "ThreatIntelObjects| where isnotempty(TimeGenerated) and SourceSystem !in ('SecurityGraph', 'Azure Sentinel', 'Microsoft Sentinel')| summarize Time = max(TimeGenerated)"
-      }
-    ],
-    "connectivityCriterias": [
-      {
-        "type": "IsConnectedQuery",
-        "value": [
-          "ThreatIntelIndicators | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = false"
-        ]
-      }
-    ],
-    "availability": {
-      "status": 1,
-      "isPreview": true
-    },
-    "permissions": {
-      "resourceProvider": [
-        {
-          "provider": "Microsoft.SecurityInsights/threatintelligence/write",
-          "permissionsDisplayText": "write permissions are required.",
-          "providerDisplayName": "Workspace",
-          "scope": "Workspace",
-          "requiredPermissions": {
-            "write": true,
-            "read": true,
-            "delete": true
-          }
-        }
-      ]
-    },
-    "instructionSteps": [
-      {
-        "title": "You can connect your threat intelligence data sources to Microsoft Sentinel by either: ",
-        "description": "\n>Using an integrated Threat Intelligence Platform (TIP), such as Threat Connect, Palo Alto Networks MineMeld, MISP, and others. \n\n>Calling the Microsoft Sentinel data plane API directly from another application. \n - Note: The 'Status' of the connector will not appear as 'Connected' here, because the data is ingested by making an API call."
-      },
-      {
-        "title": "Follow These Steps to Connect to your Threat Intelligence: ",
-        "description": ""
-      },
-      {
-        "title": "1. Get Microsoft Entra ID Access Token",
-        "description": "To send request to the APIs, you need to acquire Microsoft Entra ID access token. You can follow instruction in this page: https://docs.microsoft.com/azure/databricks/dev-tools/api/latest/aad/app-aad-token#get-an-azure-ad-access-token \n  - Notice: Please request Microsoft Entra ID access token with scope value: https://management.azure.com/.default  "
-      },
-      {
-        "title": "2. Send STIX objects to Sentinel",
-        "description": "You can send the supported STIX object types by calling our Upload API. For more information about the API, click [here](https://learn.microsoft.com/azure/sentinel/stix-objects-api). \n\n>HTTP method: POST \n\n>Endpoint: https://api.ti.sentinel.azure.com/workspaces/[WorkspaceID]/threatintelligence-stix-objects:upload?api-version=2024-02-01-preview \n\n>WorkspaceID: the workspace that the STIX objects are uploaded to.  \n\n\n>Header Value 1: \"Authorization\" = \"Bearer [Microsoft Entra ID Access Token from step 1]\" \n\n\n> Header Value 2: \"Content-Type\" = \"application/json\"  \n \n>Body: The body is a JSON object containing an array of STIX objects."
       }
     ]
   },
@@ -54340,6 +54516,89 @@
         "type": "IsConnectedQuery",
         "value": [
           "ThreatIntelligenceIndicator | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = false"
+        ]
+      }
+    ],
+    "availability": {
+      "status": 1,
+      "isPreview": true
+    },
+    "permissions": {
+      "resourceProvider": [
+        {
+          "provider": "Microsoft.SecurityInsights/threatintelligence/write",
+          "permissionsDisplayText": "write permissions are required.",
+          "providerDisplayName": "Workspace",
+          "scope": "Workspace",
+          "requiredPermissions": {
+            "write": true,
+            "read": true,
+            "delete": true
+          }
+        }
+      ]
+    },
+    "instructionSteps": [
+      {
+        "title": "You can connect your threat intelligence data sources to Microsoft Sentinel by either: ",
+        "description": "\n>Using an integrated Threat Intelligence Platform (TIP), such as Threat Connect, Palo Alto Networks MineMeld, MISP, and others. \n\n>Calling the Microsoft Sentinel data plane API directly from another application. \n - Note: The 'Status' of the connector will not appear as 'Connected' here, because the data is ingested by making an API call."
+      },
+      {
+        "title": "Follow These Steps to Connect to your Threat Intelligence: ",
+        "description": ""
+      },
+      {
+        "title": "1. Get Microsoft Entra ID Access Token",
+        "description": "To send request to the APIs, you need to acquire Microsoft Entra ID access token. You can follow instruction in this page: https://docs.microsoft.com/azure/databricks/dev-tools/api/latest/aad/app-aad-token#get-an-azure-ad-access-token \n  - Notice: Please request Microsoft Entra ID access token with scope value: https://management.azure.com/.default  "
+      },
+      {
+        "title": "2. Send STIX objects to Sentinel",
+        "description": "You can send the supported STIX object types by calling our Upload API. For more information about the API, click [here](https://learn.microsoft.com/azure/sentinel/stix-objects-api). \n\n>HTTP method: POST \n\n>Endpoint: https://api.ti.sentinel.azure.com/workspaces/[WorkspaceID]/threatintelligence-stix-objects:upload?api-version=2024-02-01-preview \n\n>WorkspaceID: the workspace that the STIX objects are uploaded to.  \n\n\n>Header Value 1: \"Authorization\" = \"Bearer [Microsoft Entra ID Access Token from step 1]\" \n\n\n> Header Value 2: \"Content-Type\" = \"application/json\"  \n \n>Body: The body is a JSON object containing an array of STIX objects."
+      }
+    ]
+  },
+  {
+    "id": "ThreatIntelligenceUploadIndicatorsAPI",
+    "title": "Threat Intelligence Upload API (Preview)",
+    "publisher": "Microsoft",
+    "descriptionMarkdown": "Microsoft Sentinel offers a data plane API to bring in threat intelligence from your Threat Intelligence Platform (TIP), such as Threat Connect, Palo Alto Networks MineMeld, MISP, or other integrated applications. Threat indicators can include IP addresses, domains, URLs, file hashes and email addresses. For more information, see the [Microsoft Sentinel documentation](https://go.microsoft.com/fwlink/p/?linkid=2269830&wt.mc_id=sentinel_dataconnectordocs_content_cnl_csasci).",
+    "graphQueries": [
+      {
+        "metricName": "Total indicators received",
+        "legend": "Connection Events",
+        "baseQuery": "ThreatIntelIndicators | where SourceSystem != 'Microsoft Sentinel'"
+      },
+      {
+        "metricName": "Total indicators received",
+        "legend": "Connection Events",
+        "baseQuery": "ThreatIntelObjects | where SourceSystem != 'Microsoft Sentinel'"
+      }
+    ],
+    "sampleQueries": [
+      {
+        "description": "All Threat Intelligence APIs Indicators",
+        "query": "ThreatIntelIndicators | where SourceSystem !in ('SecurityGraph', 'Azure Sentinel', 'Microsoft Sentinel')| sort by TimeGenerated desc"
+      },
+      {
+        "description": "All Threat Intelligence APIs Indicators",
+        "query": "ThreatIntelObjects | where SourceSystem !in ('SecurityGraph', 'Azure Sentinel', 'Microsoft Sentinel')| sort by TimeGenerated desc"
+      }
+    ],
+    "dataTypes": [
+      {
+        "name": "ThreatIntelIndicators",
+        "lastDataReceivedQuery": "ThreatIntelIndicators | where isnotempty(TimeGenerated) and SourceSystem !in ('SecurityGraph', 'Azure Sentinel', 'Microsoft Sentinel')| summarize Time = max(TimeGenerated)"
+      },
+      {
+        "name": "ThreatIntelObjects",
+        "lastDataReceivedQuery": "ThreatIntelObjects| where isnotempty(TimeGenerated) and SourceSystem !in ('SecurityGraph', 'Azure Sentinel', 'Microsoft Sentinel')| summarize Time = max(TimeGenerated)"
+      }
+    ],
+    "connectivityCriterias": [
+      {
+        "type": "IsConnectedQuery",
+        "value": [
+          "ThreatIntelIndicators | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = false"
         ]
       }
     ],
@@ -55335,6 +55594,90 @@
     }
   },
   {
+    "id": "TropicoAlertsDefinition",
+    "title": "Tropico Security - Alerts",
+    "publisher": "Tropico Security",
+    "descriptionMarkdown": "Ingest security alerts from Tropico Security Platform in OCSF Security Finding format.",
+    "graphQueries": [
+      {
+        "metricName": "Total alerts received",
+        "legend": "Tropico Alerts",
+        "baseQuery": "{{graphQueriesTableName}}"
+      }
+    ],
+    "sampleQueries": [
+      {
+        "description": "All Tropico alerts",
+        "query": "{{graphQueriesTableName}}"
+      }
+    ],
+    "dataTypes": [
+      {
+        "name": "{{graphQueriesTableName}}",
+        "lastDataReceivedQuery": "{{graphQueriesTableName}}\n|summarize Time = max(TimeGenerated)\n|where isnotempty(Time)"
+      }
+    ],
+    "connectivityCriterias": null,
+    "availability": null,
+    "metadata": null
+  },
+  {
+    "id": "TropicoEventsDefinition",
+    "title": "Tropico Security - Events",
+    "publisher": "Tropico Security",
+    "descriptionMarkdown": "Ingest security events from Tropico Security Platform in OCSF Security Finding format.",
+    "graphQueries": [
+      {
+        "metricName": "Total events received",
+        "legend": "Tropico Events",
+        "baseQuery": "{{graphQueriesTableName}}"
+      }
+    ],
+    "sampleQueries": [
+      {
+        "description": "All Tropico events",
+        "query": "{{graphQueriesTableName}}"
+      }
+    ],
+    "dataTypes": [
+      {
+        "name": "{{graphQueriesTableName}}",
+        "lastDataReceivedQuery": "{{graphQueriesTableName}}\n|summarize Time = max(TimeGenerated)\n|where isnotempty(Time)"
+      }
+    ],
+    "connectivityCriterias": null,
+    "availability": null,
+    "metadata": null
+  },
+  {
+    "id": "TropicoIncidentsDefinition",
+    "title": "Tropico Security - Incidents",
+    "publisher": "Tropico Security",
+    "descriptionMarkdown": "Ingest attacker session incidents from Tropico Security Platform.",
+    "graphQueries": [
+      {
+        "metricName": "Total incidents received",
+        "legend": "Tropico Incidents",
+        "baseQuery": "{{graphQueriesTableName}}"
+      }
+    ],
+    "sampleQueries": [
+      {
+        "description": "All Tropico incidents",
+        "query": "{{graphQueriesTableName}}"
+      }
+    ],
+    "dataTypes": [
+      {
+        "name": "{{graphQueriesTableName}}",
+        "lastDataReceivedQuery": "{{graphQueriesTableName}}\n|summarize Time = max(TimeGenerated)\n|where isnotempty(Time)"
+      }
+    ],
+    "connectivityCriterias": null,
+    "availability": null,
+    "metadata": null
+  },
+  {
     "id": "UbiquitiUnifi",
     "title": "[Deprecated] Ubiquiti UniFi",
     "publisher": "Ubiquiti",
@@ -55944,6 +56287,11 @@
         "baseQuery": "VaronisAlerts_CL\n| where Severity_s == \"Low\"",
         "legend": "Low severity alerts",
         "metricName": "Low severity alerts"
+      },
+      {
+        "baseQuery": "VaronisAlerts_CL\n| where Severity_s == \"Informational\"",
+        "legend": "Informational severity alerts",
+        "metricName": "Informational severity alerts"
       }
     ],
     "sampleQueries": [

@@ -2,6 +2,11 @@
 #requires -Modules Az.Accounts, Az.Resources, Az.Monitor, Az.SecurityInsights
 
 <#
+
+Disclaimer: This script is provided "as-is" without any warranties.
+
+# Version: 2026.01.06.05
+
 .SYNOPSIS
   Microsoft Sentinel Data Connectors management & health runbook.
 
@@ -29,6 +34,9 @@
     Additional QueryStatus values: NoKql, MetricsUnavailable (query infra issue), QueryFailed (final failure).
 
   Enhanced connector mappings include hardcoded metadata (Id, Title, Publisher, ConnectivityCriteria) and custom KQL queries.
+
+.PARAMETER SubscriptionId
+     (Local execution only) Target subscription ID containing the Log Analytics workspace.
 
  .PARAMETER VerboseLogging
      Accepts boolean-like values (true/false, yes/no, 1/0). Enables DEBUG level log output when true.
@@ -79,6 +87,9 @@
             }
         }
     The Logic App parses JSON then iterate over each item for downstream actions.
+.NOTES
+ Use at your own risk. No warranty or support is provided.
+
 #>
 # Requires Az.Accounts, Az.Resources, Az.Monitor, Az.SecurityInsights modules.
 # Tested in Azure Automation with PowerShell 7.4 runtime.
@@ -214,6 +225,13 @@ $ConnectorInfo = @(
         )
         ActivityKql     = 'SecurityAlert | where TimeGenerated >= ago(7d) | where ProductName == "Azure Security Center" | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
     },
+        @{
+        Id              = 'Barracuda'
+        Title           = 'Barracuda'
+        Publisher       = 'Barracuda'
+        ConnectivityKql = @('CommonSecurityLog​ | where DeviceVendor == "Barracuda" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)')
+        ActivityKql     = 'BarracudaEvents_CL | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
     @{
         Id              = 'BoxDataConnector'
         Title           = 'Box'
@@ -263,6 +281,76 @@ $ConnectorInfo = @(
         ConnectivityKql = 'Event | where EventLog == "MSExchange Management" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
         ActivityKql     = 'Event | where TimeGenerated >= ago(7d) | where EventLog == "MSExchange Management" | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
     }, 
+    @{
+        Id              = 'ESI-ExchangeOnlineCollector'
+        Title           = '[Deprecated] Microsoft Exchange Online Collector'
+        Publisher       = 'Microsoft'
+        ConnectivityKql = 'ESIExchangeOnlineConfig_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        ActivityKql     = 'ESIExchangeOnlineConfig_CL | where TimeGenerated >= ago(7d)  | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
+    @{
+        Id              = 'ESI-ExchangeOnPremisesCollector'
+        Title           = 'Exchange Security Insights On-Premises Collector'
+        Publisher       = 'Microsoft'
+        ConnectivityKql = 'ESIExchangeConfig_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        ActivityKql     = 'ESIExchangeConfig_CL | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
+    @{
+        Id              = 'ESI-Opt1ExchangeAdminAuditLogsByEventLogs'
+        Title           = 'Microsoft Exchange Admin Audit Logs by Event Logs'
+        Publisher       = 'Microsoft'
+        ConnectivityKql = 'Event | where EventLog == "MSExchange Management" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        ActivityKql     = 'Event | where EventLog == "MSExchange Management" | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
+    @{
+        Id              = 'ESI-Opt2ExchangeServersEventLogs'
+        Title           = 'Microsoft Exchange Logs and Events'
+        Publisher       = 'Microsoft'
+        ConnectivityKql = 'Event | where EventLog == "Application" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        ActivityKql     = 'Event | where EventLog == "Application" | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
+    @{
+        Id              = 'ESI-Opt34DomainControllersSecurityEventLogs'
+        Title           = 'Microsoft Active-Directory Domain Controllers Security Event Logs'
+        Publisher       = 'Microsoft'
+        ConnectivityKql = 'SecurityEvent | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        ActivityKql     = 'SecurityEvent | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
+    @{
+        Id              = 'ESI-Opt5ExchangeIISLogs'
+        Title           = 'IIS Logs of Microsoft Exchange Servers'
+        Publisher       = 'Microsoft'
+        ConnectivityKql = 'W3CIISLog | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        ActivityKql     = 'W3CIISLog | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
+    @{
+        Id              = 'ESI-Opt6ExchangeMessageTrackingLogs'
+        Title           = 'Microsoft Exchange Message Tracking Logs'
+        Publisher       = 'Microsoft'
+        ConnectivityKql = 'MessageTrackingLog_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        ActivityKql     = 'MessageTrackingLog_CL | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
+    @{
+        Id              = 'ESI-Opt7ExchangeHTTPProxyLogs'
+        Title           = 'Microsoft Exchange HTTP Proxy Logs'
+        Publisher       = 'Microsoft'
+        ConnectivityKql = 'ExchangeHttpProxy_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        ActivityKql     = 'ExchangeHttpProxy_CL | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
+    @{
+        Id              = 'F5'
+        Title           = '[Deprecated] F5 Networks via Legacy Agent'
+        Publisher       = 'F5 Networks'
+        ConnectivityKql = 'CommonSecurityLog | where DeviceVendor == "F5" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        ActivityKql     = 'CommonSecurityLog | where DeviceVendor == "F5" | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
+    @{
+        Id              = 'F5Ama'
+        Title           = '[Deprecated] F5 Networks via AMA'
+        Publisher       = 'F5 Networks'
+        ConnectivityKql = 'CommonSecurityLog | where DeviceVendor =~ "F5" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        ActivityKql     = 'CommonSecurityLog | where DeviceVendor =~ "F5" | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
     @{
         Id              = 'GCPIAMDataConnector'
         Title           = 'Google Cloud Platform IAM'
@@ -366,13 +454,34 @@ $ConnectorInfo = @(
         ConnectivityKql = 'ThreatIntelligenceIndicator | where SourceSystem == "Premium Microsoft Defender Threat Intelligence" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
         ActivityKql     = 'ThreatIntelligenceIndicator | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
     },
+        @{
+        Id              = 'SAP'
+        Title           = 'SAP'
+        Publisher       = 'Microsoft'
+        ConnectivityKql = 'SAPConnectorOverview() | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        ActivityKql     = 'SAPConnectorOverview() | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    }, 
     @{
         Id              = 'SecurityEvents'
         Title           = 'Security Events'
         Publisher       = 'Microsoft'
         ConnectivityKql = 'SecurityEvent | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
         ActivityKql     = 'SecurityEvent | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
-    }, 
+    },
+    @{
+        Id              = 'SentinelOne'
+        Title           = 'SentinelOne'
+        Publisher       = 'SentinelOne'
+        ConnectivityKql = 'SentinelOne_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
+        ActivityKql     = 'SentinelOne_CL | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
+    @{
+        Id              = 'SentinelOneCCP'
+        Title           = 'SentinelOne'
+        Publisher       = 'SentinelOne'
+        ConnectivityKql = @('SentinelOneActivities_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)','SentinelOneAgents_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)','SentinelOneThreats_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)','SentinelOneGroups_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)','SentinelOneAlerts_CL | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)')
+        ActivityKql     = 'SentinelOne | where TimeGenerated >= ago(7d) | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
+    },
     @{
         Id              = 'SlackAuditLogsCCPDefinition'
         Title           = 'SlackAudit (via Codeless Connector Framework)'
@@ -2115,7 +2224,7 @@ function Get-LogIngestionMetrics {
     # ===== PART 2: Execute ActivityKql queries to get activity metrics =====
     if ($activityQueries.Count -gt 0) {
         try {
-            Write-Log -Level DEBUG -Message "Executing $($activityQueries.Count) ActivityKql quer(y/ies) for '$ConnectorName'"
+            Write-Log -Level DEBUG -Message "Executing $($activityQueries.Count) ActivityKql queries for '$ConnectorName'"
             
             $allExtracted = $false
             $anySuccess = $false
