@@ -5,7 +5,7 @@
 
 Disclaimer: This script is provided "as-is" without any warranties.
 
-# Version: 2026.01.06.05
+# Version: 2026.01.07.01
 
 .SYNOPSIS
   Microsoft Sentinel Data Connectors management & health runbook.
@@ -428,7 +428,7 @@ $ConnectorInfo = @(
     }, 
     @{
         Id              = 'OfficeATP'
-        Title           = 'Office Advanced Threat Protection'
+        Title           = 'Microsoft Defender for Office 365 (Preview)'
         Publisher       = 'Microsoft'
         ConnectivityKql = 'SecurityAlert | where ProviderName == "OATP" | summarize LastLogReceived = max(TimeGenerated) | project IsConnected = LastLogReceived > ago(7d)'
         ActivityKql     = 'SecurityAlert | where TimeGenerated >= ago(7d) | where ProviderName == "OATP" | extend alertWasCustomized = bag_has_key(todynamic(ExtendedProperties), "OriginalProductName") | where alertWasCustomized == false | summarize LastLogTime=max(TimeGenerated), LogsLastHour=countif(TimeGenerated >= ago(1h)), TotalLogs24h=count() | project LastLogTime, LogsLastHour, TotalLogs24h'
