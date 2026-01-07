@@ -2,7 +2,7 @@
 
 BeforeAll {
   # Import the script to test
-  $scriptPath = Join-Path $PSScriptRoot 'Update-AppRegistrationCredentialCheck.ps1'
+  $scriptPath = Join-Path $PSScriptRoot 'Update-AppRegistrationCredential.ps1'
 
   # Mock external modules and functions that would normally be available in Azure Automation
   function Get-AutomationVariable { param($Name) }
@@ -117,7 +117,7 @@ Describe 'New-AppRegCredential Function Tests' {
       }
       Mock New-SecretNotification { return $true }
 
-      New-AppRegCredential -ApplicationId 'test-app-id' -SecretApiUri 'https://test.com' -AppId 'test-app' -AppDisplayName 'Test App' -WhatIf
+      New-AppRegCredential -ApplicationId 'test-app-id' -SecretLAUri 'https://test.com' -AppId 'test-app' -AppDisplayName 'Test App' -WhatIf
 
       $script:SummaryStats.SecretsCreated | Should -Be 1
       $script:ValidAppRegExists | Should -Be $true
@@ -129,7 +129,7 @@ Describe 'New-AppRegCredential Function Tests' {
       Mock Add-MgApplicationPassword { throw 'Permission denied' }
       Mock Write-Error { }
 
-      $result = New-AppRegCredential -ApplicationId 'test-app-id' -SecretApiUri 'https://test.com' -AppDisplayName 'Test App' -WhatIf
+      $result = New-AppRegCredential -ApplicationId 'test-app-id' -SecretLAUri 'https://test.com' -AppDisplayName 'Test App' -WhatIf
 
       $result | Should -Be $false
       $script:SummaryStats.SecretsFailedToCreate | Should -Be 1
@@ -145,7 +145,7 @@ Describe 'New-AppRegCredential Function Tests' {
       }
       Mock Write-Warning { }
 
-      New-AppRegCredential -ApplicationId 'test-app-id' -SecretApiUri 'https://test.com' -AppDisplayName 'Test App' -WhatIf
+      New-AppRegCredential -ApplicationId 'test-app-id' -SecretLAUri 'https://test.com' -AppDisplayName 'Test App' -WhatIf
 
       $script:SummaryStats.SecretsFailedToCreate | Should -Be 1
       $script:ValidAppRegExists | Should -Be $false
@@ -246,58 +246,59 @@ Describe 'Credential Expiration Logic' {
   }
 }
 
-Describe 'UMI Monitoring Metrics Role Assignment Tests' {
-  BeforeEach {
-    Mock Get-AzContext { return @{ Subscription = @{ Id = 'test-subscription-id' } } }
-    Mock Get-AzADServicePrincipal { return @{ Id = 'test-umi-sp-id' } }
-    Mock Get-AzRoleAssignment { return $null }
-    Mock New-AzRoleAssignment { return @{} }
-    Mock Write-Output { }
-    Mock Write-Verbose { }
-    Mock Write-Warning { }
+Describe 'Parameter Guard Functions' {
+  Context 'Assert-ValidGuid' {
+    It 'Accepts properly formatted GUID' {
+      { Assert-ValidGuid -Value ([guid]::NewGuid().ToString()) -ParameterName 'TestGuid' } | Should -Not -Throw
+    }
+
+    It 'Rejects empty value' {
+      { Assert-ValidGuid -Value '' -ParameterName 'TestGuid' } | Should -Throw 'TestGuid cannot be empty.'
+    }
+
+    It 'Rejects GUID that looks like URI' {
+      { Assert-ValidGuid -Value 'https://contoso' -ParameterName 'TestGuid' } | Should -Throw 'TestGuid must be a GUID, not a URI.'
+    }
+
+    It 'Rejects malformed GUID' {
+      { Assert-ValidGuid -Value 'not-a-guid' -ParameterName 'TestGuid' } | Should -Throw 'TestGuid must be a valid GUID*'
+    }
   }
 
-  Context 'UMI Role Assignment' {
-    It 'Should check for existing monitoring metrics role assignment' {
-      Mock Get-AzRoleAssignment { 
-        return @{
-          RoleDefinitionId = '3913510d-42f4-4e42-8a64-420c390055eb'
-          ObjectId = 'test-umi-sp-id'
-        }
-      }
-
-      # This would be part of the main script execution
-      Should -Invoke Get-AzRoleAssignment -ParameterFilter {
-        $ObjectId -eq 'test-umi-sp-id' -and $Scope -eq '/subscriptions/test-subscription-id'
-      } -Times 0 # Not called yet since we're just setting up the mock
+  Context 'Assert-ValidUri' {
+    It 'Accepts absolute https URI' {
+      { Assert-ValidUri -Value 'https://contoso.com/api' -ParameterName 'TestUri' } | Should -Not -Throw
     }
 
-    It 'Should add monitoring metrics role when missing' {
-      Mock Get-AzRoleAssignment { return $null }
-      Mock New-AzRoleAssignment { return @{} }
-
-      # This would be part of the main script execution
-      Should -Invoke New-AzRoleAssignment -ParameterFilter {
-        $RoleDefinitionId -eq '3913510d-42f4-4e42-8a64-420c390055eb'
-      } -Times 0 # Not called yet since we're just setting up the mock
+    It 'Rejects empty URI' {
+      { Assert-ValidUri -Value '  ' -ParameterName 'TestUri' } | Should -Throw 'TestUri cannot be empty.'
     }
 
-    It 'Should handle role assignment conflicts gracefully' {
-      Mock New-AzRoleAssignment { 
-        $exception = New-Object System.Exception('Conflict')
-        throw $exception
-      }
-      Mock Write-Verbose { }
-
-      # This would handle the conflict scenario
-      { New-AzRoleAssignment -RoleDefinitionId '3913510d-42f4-4e42-8a64-420c390055eb' -ObjectId 'test-id' -Scope '/subscriptions/test' } | Should -Throw 'Conflict'
+    It 'Rejects relative URI' {
+      { Assert-ValidUri -Value '/relative/path' -ParameterName 'TestUri' } | Should -Throw 'TestUri must be a valid absolute URI*'
     }
 
-    It 'Should handle other role assignment errors' {
-      Mock New-AzRoleAssignment { throw 'Permission denied' }
-      Mock Write-Warning { }
+    It 'Rejects non-http scheme' {
+      { Assert-ValidUri -Value 'ftp://contoso.com' -ParameterName 'TestUri' } | Should -Throw 'TestUri must be an absolute http or https URI.'
+    }
+  }
 
-      { New-AzRoleAssignment -RoleDefinitionId '3913510d-42f4-4e42-8a64-420c390055eb' -ObjectId 'test-id' -Scope '/subscriptions/test' } | Should -Throw 'Permission denied'
+  Context 'Assert-SafeAppRegName' {
+    It 'Accepts friendly display name' {
+      { Assert-SafeAppRegName -Value 'Contoso Sentinel Connector' -ParameterName 'AppRegName' } | Should -Not -Throw
+    }
+
+    It 'Rejects URI value' {
+      { Assert-SafeAppRegName -Value 'https://contoso' -ParameterName 'AppRegName' } | Should -Throw 'AppRegName must be a descriptive name, not a URI.'
+    }
+
+    It 'Rejects overly long name' {
+      $name = 'A' * 121
+      { Assert-SafeAppRegName -Value $name -ParameterName 'AppRegName' } | Should -Throw 'AppRegName exceeds the maximum allowed length*'
+    }
+
+    It 'Rejects name containing line breaks' {
+      { Assert-SafeAppRegName -Value "Line1`nLine2" -ParameterName 'AppRegName' } | Should -Throw 'AppRegName must not contain line breaks.'
     }
   }
 }

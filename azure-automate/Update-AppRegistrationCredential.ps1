@@ -65,6 +65,79 @@ param (
   [bool]$CreateNewAppReg = $false
 )
 
+  function Assert-ValidGuid {
+    param(
+      [Parameter(Mandatory)]
+      [string]$Value,
+      [Parameter(Mandatory)]
+      [string]$ParameterName
+    )
+
+    $trimmed = $Value.Trim()
+    if ([string]::IsNullOrWhiteSpace($trimmed)) {
+      throw "$ParameterName cannot be empty."
+    }
+
+    if ($trimmed -match '://') {
+      throw "$ParameterName must be a GUID, not a URI."
+    }
+
+    if ($trimmed -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+      throw "$ParameterName must be a valid GUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)."
+    }
+  }
+
+  function Assert-ValidUri {
+    param(
+      [Parameter(Mandatory)]
+      [string]$Value,
+      [Parameter(Mandatory)]
+      [string]$ParameterName
+    )
+
+    $trimmed = $Value.Trim()
+    if ([string]::IsNullOrWhiteSpace($trimmed)) {
+      throw "$ParameterName cannot be empty."
+    }
+
+    try {
+      $uri = [Uri]::new($trimmed, [UriKind]::Absolute)
+    }
+    catch {
+      throw "$ParameterName must be a valid absolute URI (http/https)."
+    }
+
+    if (-not $uri.IsAbsoluteUri -or ($uri.Scheme -ne 'http' -and $uri.Scheme -ne 'https')) {
+      throw "$ParameterName must be an absolute http or https URI."
+    }
+  }
+
+  function Assert-SafeAppRegName {
+    param(
+      [Parameter(Mandatory)]
+      [string]$Value,
+      [Parameter(Mandatory)]
+      [string]$ParameterName
+    )
+
+    $trimmed = $Value.Trim()
+    if ([string]::IsNullOrWhiteSpace($trimmed)) {
+      throw "$ParameterName cannot be empty."
+    }
+
+    if ($trimmed -match 'https?://') {
+      throw "$ParameterName must be a descriptive name, not a URI."
+    }
+
+    if ($trimmed.Length -gt 120) {
+      throw "$ParameterName exceeds the maximum allowed length (120 characters)."
+    }
+
+    if ($trimmed -match '[\r\n]') {
+      throw "$ParameterName must not contain line breaks."
+    }
+  }
+
 # Set variables from automation account variables if not already set.
 if ([string]::IsNullOrWhiteSpace($UMIId)) {
   $UMIId = Get-AutomationVariable -Name 'UMI_ID'
@@ -97,6 +170,14 @@ if ($null -eq $SecretLAUri) {
 if ($null -eq $AppRegName) {
   throw 'No New App Reg Name specified'
 }
+
+$UMIId = [string]$UMIId
+$SecretLAUri = [string]$SecretLAUri
+$AppRegName = [string]$AppRegName
+
+Assert-ValidGuid -Value $UMIId -ParameterName 'UMIId'
+Assert-ValidUri -Value $SecretLAUri -ParameterName 'SecretLAUri'
+Assert-SafeAppRegName -Value $AppRegName -ParameterName 'AppRegName'
 
 function New-SecretNotification {
   <#
@@ -353,10 +434,7 @@ function New-AppRegCredential {
     # This may not be a catostrophic problem if another AppRegistration has a valid credential
     # We will check at the end to see if this is a real problem.
     Write-Warning "A new secret could not be created for $($AppDisplayName) $($ApplicationId)"
-  # Safely emit warning even if $_ or $_.Exception is null
-  $warnMsg = if ($null -ne $_ -and $null -ne $_.Exception -and -not [string]::IsNullOrWhiteSpace($_.Exception.Message)) { $_.Exception.Message } else { 'Unknown warning condition encountered removing credential.' }
-  Write-Warning $warnMsg
-    #$Script:ValidAppRegExists = $false
+    Write-Warning 'Graph API did not return a valid KeyId; inspect service principal for additional details.'
     $script:SummaryStats.SecretsFailedToCreate++
   }
 }
@@ -373,8 +451,8 @@ try {
   $azureContext = Set-AzContext -SubscriptionName $azureAutomationContext.Subscription `
     -DefaultProfile $azureAutomationContext
 
-# Connect to Graph
-Connect-MgGraph -Identity -ClientId $UmiId -NoWelcome
+  # Connect to Graph
+  Connect-MgGraph -Identity -ClientId $UmiId -NoWelcome
 }
 catch {
   Write-Error "Failed to authenticate to Azure or Microsoft Graph: $($_.Exception.Message)"

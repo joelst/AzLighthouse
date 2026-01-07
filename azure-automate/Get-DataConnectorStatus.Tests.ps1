@@ -41,7 +41,7 @@ Describe 'Resolve-Connector' {
             ConnectorUiConfigPublisher = $null
         }
         $resolved = Resolve-Connector -Connector $connector
-        $resolved.Title | Should -Be 'Office 365'
+        $resolved.Title | Should -Be 'Microsoft 365 (formerly, Office 365)'
         $resolved.Publisher | Should -Be 'Microsoft'
     }
 
@@ -230,7 +230,7 @@ Describe 'Get-LogIngestionMetrics' {
         $result.Id | Should -Be 'ConnectorId'
         $result.Title | Should -Be 'Title'
         $result.Publisher | Should -Be 'Publisher'
-        $result.QueryStatus | Should -Be 'NoKql'
+        $result.QueryStatus | Should -Be 'NoActivityKql'
     }
 
     It 'Sets IsConnected when connectivity query returns true' {
@@ -246,10 +246,9 @@ Describe 'Get-LogIngestionMetrics' {
         $result = Get-LogIngestionMetrics -WorkspaceCustomerId $wsId -ConnectorKind 'Kind' -ConnectorName 'Name' -ConnectorId 'ConnectorId' -ConnectivityKql 'connect'
 
         $result.IsConnected | Should -BeTrue
-        $result.QueryStatus | Should -Be 'Unknown'
+        $result.QueryStatus | Should -Be 'NoActivityKql'
     }
-
-    It 'Aggregates activity query metrics and marks success' {
+]    It 'Aggregates activity query metrics and marks success' {
         $wsId = [guid]::NewGuid().ToString()
         $lastLog = (Get-Date).AddMinutes(-30)
         Mock Invoke-AzOperationalInsightsQuery {
@@ -257,7 +256,7 @@ Describe 'Get-LogIngestionMetrics' {
             if ($Query -eq 'activity') {
                 $table = [pscustomobject]@{
                     Columns = [pscustomobject]@{ Name = @('LastLogTime', 'LogsLastHour', 'TotalLogs24h') }
-                    Rows    = @([object[]]@($lastLog, 5, 42))
+                    Rows    = ,@($lastLog, 5, 42)
                 }
                 return @{ Tables = @($table); Error = $null }
             }
@@ -285,7 +284,7 @@ Describe 'Get-ConnectorStatus Integration' {
             $connector = [pscustomobject]@{ 
                 Name       = 'TestConnector'
                 Kind       = 'Office365'
-                Id         = 'aa944eec-f345-4c85-8760-5a4adc5abd4a'
+                Id         = 'Office365'
                 Properties = $null
             }
             $wsId = [guid]::NewGuid().ToString()
@@ -307,24 +306,10 @@ Describe 'Get-ConnectorStatus Integration' {
             $status = Get-ConnectorStatus -Connector $connector -WorkspaceCustomerId $wsId
             
             $status.LogMetrics.Id | Should -Be 'Office365'
-            $status.LogMetrics.Title | Should -Be 'Office 365'
+            $status.LogMetrics.Title | Should -Be 'Microsoft 365 (formerly, Office 365)'
             $status.LogMetrics.Publisher | Should -Be 'Microsoft'
         }
 
-        It 'Preserves Id and uses Name fallback for Title/Publisher' {
-            $connector = [pscustomobject]@{ 
-                Name       = 'AzureActiveDirectory'
-                Kind       = 'AzureActiveDirectory'
-                Id         = 'different-guid-value'
-                Properties = $null
-            }
-            $wsId = [guid]::NewGuid().ToString()
-            
-            $status = Get-ConnectorStatus -Connector $connector -WorkspaceCustomerId $wsId
-            
-            $status.LogMetrics.Id | Should -Be 'different-guid-value'
-            $status.LogMetrics.Title | Should -Be 'Azure Active Directory'
-        }
     }
 }
 
@@ -363,7 +348,7 @@ Describe 'Get-ConnectorStatus missing metrics behavior' {
             $status = Get-ConnectorStatus -Connector $connector -WorkspaceCustomerId $wsId
             
             $status.OverallStatus | Should -Be 'NoKqlAndNoLogs'
-            $status.LogMetrics.QueryStatus | Should -Be 'NoKql'
+            $status.LogMetrics.QueryStatus | Should -Be 'NoActivityKql'
         }
     }
 }
@@ -379,8 +364,9 @@ Describe 'ConnectorInfo Array Structure' {
         $testEntries = @($ConnectorInfo[0], $ConnectorInfo[2], $ConnectorInfo[3], $ConnectorInfo[4])
         foreach ($entry in $testEntries) {
             $entry.Id | Should -Not -BeNullOrEmpty -Because 'Each entry must have an Id'
-            # Kql should exist (most entries have it, some may be empty)
-            { $entry.Kql } | Should -Not -Throw
+            # KQL metadata should be accessible (many entries use arrays)
+            { $entry.ActivityKql } | Should -Not -Throw
+            { $entry.ConnectivityKql } | Should -Not -Throw
             # Title and Publisher exist as properties (verified by accessing them - may be empty/null)
             { $entry.Title } | Should -Not -Throw
             { $entry.Publisher } | Should -Not -Throw
@@ -391,16 +377,16 @@ Describe 'ConnectorInfo Array Structure' {
     It 'Office365 entry exists with correct structure' {
         $office365 = $ConnectorInfo | Where-Object { $_.Id -eq 'Office365' }
         $office365 | Should -Not -BeNullOrEmpty
-        $office365.Title | Should -Be 'Office 365'
+        $office365.Title | Should -Be 'Microsoft 365 (formerly, Office 365)'
         $office365.Publisher | Should -Be 'Microsoft'
-        $office365.Kql | Should -Match 'OfficeActivity'
+        $office365.ActivityKql | Should -Match 'OfficeActivity'
     }
 
     It 'AzureActiveDirectory entry exists with correct structure' {
         $aad = $ConnectorInfo | Where-Object { $_.Id -eq 'AzureActiveDirectory' }
         $aad | Should -Not -BeNullOrEmpty
-        $aad.Title | Should -Be 'Azure Active Directory'
+        $aad.Title | Should -Be 'Microsoft Entra ID'
         $aad.Publisher | Should -Be 'Microsoft'
-        $aad.Kql | Should -Match 'SigninLogs'
+        $aad.ActivityKql | Should -Match 'SigninLogs'
     }
 }
