@@ -2,10 +2,11 @@
 
 ## Overview
 
-This solution deploys an Azure Automation account with runbooks to manage Microsoft Sentinel data connectors and service principal credentials for MSSP (Managed Security Service Provider) environments. The automation enables centralized monitoring of Sentinel data connector health and automated credential rotation.
+This solution deploys an Azure Automation account with runbooks to manage Microsoft Sentinel data connectors and service principal
+credentials for MSSP (Managed Security Service Provider) environments. The automation enables centralized monitoring of Sentinel
+data connector health and automated credential rotation.
 
 > **I did not create the Logic Apps nor the pricing tier runbook so they are not included in this repo.**
-
 
 ## Architecture
 
@@ -138,7 +139,6 @@ Navigate to: **Automation Account → Shared Resources → Variables**
 | `LOGIC_APP_URI` | String | Logic App endpoint | MSSP tenant Logic App URI |
 
 
-
 ### 2. Verify Deployment
 
 Test the runbooks manually before relying on automated schedules:
@@ -156,6 +156,7 @@ Test the runbooks manually before relying on automated schedules:
 **Purpose:** Monitors Microsoft Sentinel data connector health and ingestion metrics.
 
 **Key Features:**
+
 - Enumerates all Sentinel data connectors
 - Executes KQL queries to determine connectivity status
 - Calculates ingestion metrics (LastLogTime, LogsLastHour, TotalLogs24h)
@@ -163,6 +164,7 @@ Test the runbooks manually before relying on automated schedules:
 - Sends status updates to MSSP Logic App
 
 **Status Classifications:**
+
 - `ActivelyIngesting` - Logs received within last hour
 - `RecentlyActive` - Logs received within last 24 hours
 - `Stale` - Logs exist but last received >24h ago
@@ -171,6 +173,7 @@ Test the runbooks manually before relying on automated schedules:
 - `Error` - Query or processing error occurred
 
 **Common Parameters:**
+
 - `-VerboseLogging` - Enable detailed DEBUG logging
 - `-WhatIf` - Preview changes without executing
 - `-KindFilter` - Filter by connector kind (e.g., 'AzureActiveDirectory')
@@ -182,6 +185,7 @@ Test the runbooks manually before relying on automated schedules:
 **Purpose:** Automates service principal credential rotation for enhanced security.
 
 **Key Features:**
+
 - Monitors app registration credential expiration (configurable threshold)
 - Creates new client secrets with configurable validity periods
 - Automatically removes expired credentials
@@ -190,11 +194,13 @@ Test the runbooks manually before relying on automated schedules:
 - Handles both existing app registrations and creates new ones when needed
 
 **Recent Updates (2024-10-24):**
+
 - Fixed Write-AppGroupSummary parameter type issue for better object handling
 - Enhanced error handling for role assignment conflicts
 - Improved summary reporting with detailed application status
 
 **Parameters:**
+
 - `-UMIId` - User Managed Identity Client ID for authentication
 - `-DaysBeforeExpiration` - Days before expiration to trigger rotation (default: 30)
 - `-CredentialValidDays` - How long new credentials remain valid (default: 180)
@@ -207,17 +213,20 @@ Test the runbooks manually before relying on automated schedules:
 ### Common Issues
 
 **Issue: Runbook fails with "UnauthorizedAccess"**
+
 ```
 Solution: Verify UAMI has required role assignments (Sentinel Reader, Log Analytics Reader)
 ```
 
 **Issue: KQL queries return "Failed to resolve table expression"**
+
 ```
 Solution: Check that connector KQL mappings match your Sentinel workspace tables
 Review InnerError details in runbook output logs
 ```
 
 **Issue: Logic App not receiving data**
+
 ```
 Solution: Verify Logic App URI is correct and includes SAS token
 Test URI with manual HTTP POST using tools like Postman
@@ -225,6 +234,7 @@ Check Network Security Group rules if using private endpoints
 ```
 
 **Issue: Runbook job hangs or times out**
+
 ```
 Solution: Reduce query timeout values in runbook parameters
 Consider using -Parallel parameter for faster execution
@@ -263,12 +273,13 @@ Runbooks are automatically imported from GitHub during deployment. To update:
 ### Monitoring Runbook Execution
 
 View job history and logs:
+
 ```powershell
 # Get recent job history
 Get-AzAutomationJob `
   -ResourceGroupName "SOC-Automation-RG" `
   -AutomationAccountName "SOC-Automation" `
-  -RunbookName "Get-DataConnectorStatus" | 
+  -RunbookName "Get-DataConnectorStatus" |
   Select-Object -First 10
 
 # Get job output
