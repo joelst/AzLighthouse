@@ -399,6 +399,42 @@
       }
     },
     {
+      "type": "Microsoft.Automation/automationAccounts/jobSchedules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), guid(parameters('newGuid'), parameters('connectorRunbookName')))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('automationAccountName'), parameters('connectorRunbookName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/schedules', parameters('automationAccountName'), variables('runbookScheduleName'))]"
+      ],
+      "properties": {
+        "runbook": {
+          "name": "[parameters('connectorRunbookName')]"
+        },
+        "schedule": {
+          "name": "[variables('runbookScheduleName')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/jobSchedules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), guid(parameters('newGuid'), parameters('pricingRunbookName')))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('automationAccountName'), parameters('pricingRunbookName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/schedules', parameters('automationAccountName'), variables('runbookScheduleName'))]"
+      ],
+      "properties": {
+        "runbook": {
+          "name": "[parameters('pricingRunbookName')]"
+        },
+        "schedule": {
+          "name": "[variables('runbookScheduleName')]"
+        }
+      }
+    },
+    {
       "type": "Microsoft.Automation/automationAccounts/variables",
       "apiVersion": "2023-11-01",
       "name": "[concat(parameters('automationAccountName'), '/APP_REG_NAME')]",
