@@ -94,17 +94,63 @@
         "label": "Runbooks",
         "elements": [
           {
+            "name": "runbookNamesHeader",
+            "type": "Microsoft.Common.TextBlock",
+            "visible": true,
+            "options": {
+              "text": "Runbook names (read-only)"
+            }
+          },
+          {
+            "name": "servicePrincipalCredentialRunbookNameText",
+            "type": "Microsoft.Common.TextBlock",
+            "visible": true,
+            "options": {
+              "text": "Service principal credential runbook name: Update-AppRegistrationCredential"
+            }
+          },
+          {
+            "name": "servicePrincipalCredentialRunbookContentUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Service principal credential runbook content URI",
+            "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/azure-automate/Update-AppRegistrationCredential.ps1",
+            "toolTip": "URL for the service principal credential runbook content."
+          },
+          {
+            "name": "connectorRunbookNameText",
+            "type": "Microsoft.Common.TextBlock",
+            "visible": true,
+            "options": {
+              "text": "Data connector runbook name: Get-DataConnectorStatus"
+            }
+          },
+          {
+            "name": "connectorRunbookContentUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Data connector runbook content URI",
+            "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/azure-automate/Get-DataConnectorStatus.ps1",
+            "toolTip": "URL for the data connector runbook content."
+          },
+          {
+            "name": "pricingRunbookNameText",
+            "type": "Microsoft.Common.TextBlock",
+            "visible": true,
+            "options": {
+              "text": "Pricing runbook name: Get-SentinelPricing"
+            }
+          },
+          {
             "name": "pricingRunbookContentUri",
             "type": "Microsoft.Common.TextBox",
             "label": "Pricing runbook content URI",
-            "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/azure-automate/Get-DataConnectorStatus.ps1",
+            "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/azure-automate/Get-SentinelPricing.ps1",
             "toolTip": "URL for the pricing runbook content."
           }
         ]
       },
       {
         "name": "endpoints",
-        "label": "Endpoints",
+        "label": "Automation Variables",
         "elements": [
           {
             "name": "servicePrincipalCredentialLogicAppUri",
@@ -144,6 +190,11 @@
       "userAssignedIdentityLocation": "[location()]",
       "userAssignedIdentityClientId": "[basics('umiGetApi').properties.clientId]",
       "sentinelWorkspaceName": "[steps('sentinel').sentinelWorkspace.id]",
+      "servicePrincipalCredentialRunbookName": "Update-AppRegistrationCredential",
+      "connectorRunbookName": "Get-DataConnectorStatus",
+      "pricingRunbookName": "Get-SentinelPricing",
+      "servicePrincipalCredentialRunbookContentUri": "[steps('runbooks').servicePrincipalCredentialRunbookContentUri]",
+      "connectorRunbookContentUri": "[steps('runbooks').connectorRunbookContentUri]",
       "pricingRunbookContentUri": "[steps('runbooks').pricingRunbookContentUri]",
       "servicePrincipalCredentialLogicAppUri": "[steps('endpoints').servicePrincipalCredentialLogicAppUri]",
       "servicePrincipalCredentialAppReg": "[steps('endpoints').servicePrincipalCredentialAppReg]",
