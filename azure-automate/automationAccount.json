@@ -92,7 +92,7 @@
     "sentinelWorkspaceName": {
       "type": "string",
       "metadata": {
-        "description": "Select the Sentinel Log Analytics workspace",
+        "description": "Select the Sentinel Log Analytics workspace"
       },
       "defaultValue": "-Sentinel-eastus"
     },
