@@ -59,7 +59,7 @@
       "metadata": {
         "description": "User assigned identity name"
       },
-      "defaultValue": "MSSP-Sentinel-Ingestion-UMI"
+      "defaultValue": "SOC-Sentinel-Ingestion-UMI"
     },
     "userAssignedIdentityLocation": {
       "type": "string",
@@ -87,7 +87,7 @@
       "metadata": {
         "description": "Sentinel ingestion app registration (service principal) name"
       },
-      "defaultValue": "MSSP-Sentinel-Ingestion"
+      "defaultValue": "SOC-Sentinel-Ingestion"
     },
     "sentinelResourceGroupName": {
       "type": "string",
