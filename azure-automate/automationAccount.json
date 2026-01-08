@@ -93,8 +93,8 @@
       "type": "string",
       "metadata": {
         "description": "Select the Sentinel Log Analytics workspace",
-        "strongType": "Microsoft.OperationalInsights/workspaces"
-      }
+      },
+      "defaultValue": "-Sentinel-eastus"
     },
     "dataConnectorLogicAppUri": {
       "type": "string",
