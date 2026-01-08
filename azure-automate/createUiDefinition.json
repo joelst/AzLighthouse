@@ -28,27 +28,36 @@
         }
       },
       {
-        "name": "userAssignedIdentityName",
-        "type": "Microsoft.Common.TextBox",
-        "label": "User Assigned Managed Identity name",
-        "defaultValue": "SOC-Sentinel-Ingestion-UMI",
-        "toolTip": "Name of an existing User Assigned Managed Identity in the deployment resource group.",
-        "constraints": {
-          "required": true,
-          "regex": "^[A-Za-z0-9][A-Za-z0-9-_\\.]{0,127}$",
-          "validationMessage": "Enter a valid managed identity resource name."
+        "name": "umiListApi",
+        "type": "Microsoft.Solutions.ArmApiControl",
+        "request": {
+          "method": "GET",
+          "path": "[concat(resourceGroup().id, '/providers/Microsoft.ManagedIdentity/userAssignedIdentities?api-version=2018-11-30')]"
         }
       },
       {
-        "name": "userAssignedIdentityClientId",
-        "type": "Microsoft.Common.TextBox",
-        "label": "User Assigned Managed Identity clientId (GUID)",
-        "defaultValue": "",
-        "toolTip": "ClientId of the user assigned managed identity (GUID).",
+        "name": "userAssignedIdentityName",
+        "type": "Microsoft.Common.DropDown",
+        "label": "User Assigned Managed Identity (in selected resource group)",
+        "placeholder": "Select a managed identity",
+        "toolTip": "Select an existing User Assigned Managed Identity in the resource group chosen on the Basics tab.",
+        "multiselect": false,
+        "defaultValue": [
+          {
+            "value": "SOC-Sentinel-Ingestion-UMI"
+          }
+        ],
         "constraints": {
-          "required": true,
-          "regex": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
-          "validationMessage": "Enter a valid GUID (clientId)."
+          "allowedValues": "[map(basics('umiListApi').value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.name, '\"}')))]",
+          "required": true
+        }
+      },
+      {
+        "name": "umiGetApi",
+        "type": "Microsoft.Solutions.ArmApiControl",
+        "request": {
+          "method": "GET",
+          "path": "[concat(resourceGroup().id, '/providers/Microsoft.ManagedIdentity/userAssignedIdentities/', basics('userAssignedIdentityName'), '?api-version=2018-11-30')]"
         }
       }
     ],
@@ -81,6 +90,19 @@
         ]
       },
       {
+        "name": "runbooks",
+        "label": "Runbooks",
+        "elements": [
+          {
+            "name": "pricingRunbookContentUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Pricing runbook content URI",
+            "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/azure-automate/Get-DataConnectorStatus.ps1",
+            "toolTip": "URL for the pricing runbook content."
+          }
+        ]
+      },
+      {
         "name": "endpoints",
         "label": "Endpoints",
         "elements": [
@@ -90,6 +112,13 @@
             "label": "Service principal credential Logic App URI",
             "defaultValue": "https://logicapp.azure.com/",
             "toolTip": "HTTP endpoint used by the runbook to update credentials via Logic App."
+          },
+          {
+            "name": "servicePrincipalCredentialAppReg",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Sentinel ingestion app registration name",
+            "defaultValue": "SOC-Sentinel-Ingestion",
+            "toolTip": "Name of the app registration (service principal) used for Sentinel ingestion."
           },
           {
             "name": "dataConnectorLogicAppUri",
@@ -113,9 +142,11 @@
       "applicationResourceName": "[basics('automationAccountName')]",
       "userAssignedIdentityName": "[basics('userAssignedIdentityName')]",
       "userAssignedIdentityLocation": "[location()]",
-      "userAssignedIdentityClientId": "[basics('userAssignedIdentityClientId')]",
+      "userAssignedIdentityClientId": "[basics('umiGetApi').properties.clientId]",
       "sentinelWorkspaceName": "[steps('sentinel').sentinelWorkspace.id]",
+      "pricingRunbookContentUri": "[steps('runbooks').pricingRunbookContentUri]",
       "servicePrincipalCredentialLogicAppUri": "[steps('endpoints').servicePrincipalCredentialLogicAppUri]",
+      "servicePrincipalCredentialAppReg": "[steps('endpoints').servicePrincipalCredentialAppReg]",
       "dataConnectorLogicAppUri": "[steps('endpoints').dataConnectorLogicAppUri]",
       "PricingTierLogicAppUri": "[steps('endpoints').PricingTierLogicAppUri]"
     }
