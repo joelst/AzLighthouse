@@ -89,13 +89,6 @@
       },
       "defaultValue": "SOC-Sentinel-Ingestion"
     },
-    "sentinelResourceGroupName": {
-      "type": "string",
-      "metadata": {
-        "description": "Resource group where the Sentinel workspace is located"
-      },
-      "defaultValue": "[resourceGroup().name]"
-    },
     "sentinelWorkspaceName": {
       "type": "string",
       "metadata": {
@@ -206,7 +199,7 @@
         "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
       ]
     },
-        {
+    {
       "type": "Microsoft.Automation/automationAccounts/runbooks",
       "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('pricingRunbookName'))]",
@@ -461,7 +454,7 @@
       "name": "[concat(parameters('automationAccountName'), '/RESOURCE_GROUP_NAME')]",
       "properties": {
         "isEncrypted": false,
-        "value": "\"[resourceGroup().name]\"",
+        "value": "\"[split(parameters('sentinelWorkspaceName'), '/')[4]]\"",
         "description": "Name of the resource group where Sentinel workspace is located"
       },
       "dependsOn": [
@@ -474,7 +467,7 @@
       "name": "[concat(parameters('automationAccountName'), '/SUBSCRIPTION_ID')]",
       "properties": {
         "isEncrypted": false,
-        "value": "\"[subscription().subscriptionId]\"",
+        "value": "\"[split(parameters('sentinelWorkspaceName'), '/')[2]]\"",
         "description": "Azure subscription ID"
       },
       "dependsOn": [

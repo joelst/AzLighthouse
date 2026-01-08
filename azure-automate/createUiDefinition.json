@@ -1,0 +1,123 @@
+{
+  "handler": "Microsoft.Azure.CreateUIDef",
+  "version": "0.1.2-preview",
+  "parameters": {
+    "config": {
+      "basics": {
+        "description": "Deploy an Azure Automation account (PowerShell 7.4 runtime) and runbooks for MSSP/SOC operations.",
+        "location": {
+          "label": "Location",
+          "toolTip": "Location for the Automation Account.",
+          "resourceTypes": [
+            "Microsoft.Automation/automationAccounts"
+          ]
+        }
+      }
+    },
+    "basics": [
+      {
+        "name": "automationAccountName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Automation Account name",
+        "defaultValue": "SOC-Automation",
+        "toolTip": "Name of the new Automation Account.",
+        "constraints": {
+          "required": true,
+          "regex": "^[A-Za-z0-9][A-Za-z0-9-]{0,48}[A-Za-z0-9]$",
+          "validationMessage": "Use 2-50 characters: letters, numbers, and hyphens. Must start and end with alphanumeric."
+        }
+      },
+      {
+        "name": "userAssignedIdentityName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "User Assigned Managed Identity name",
+        "defaultValue": "SOC-Sentinel-Ingestion-UMI",
+        "toolTip": "Name of an existing User Assigned Managed Identity in the deployment resource group.",
+        "constraints": {
+          "required": true,
+          "regex": "^[A-Za-z0-9][A-Za-z0-9-_\\.]{0,127}$",
+          "validationMessage": "Enter a valid managed identity resource name."
+        }
+      },
+      {
+        "name": "userAssignedIdentityClientId",
+        "type": "Microsoft.Common.TextBox",
+        "label": "User Assigned Managed Identity clientId (GUID)",
+        "defaultValue": "",
+        "toolTip": "ClientId of the user assigned managed identity (GUID).",
+        "constraints": {
+          "required": true,
+          "regex": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "validationMessage": "Enter a valid GUID (clientId)."
+        }
+      }
+    ],
+    "steps": [
+      {
+        "name": "sentinel",
+        "label": "Sentinel",
+        "elements": [
+          {
+            "name": "infoWorkspace",
+            "type": "Microsoft.Common.InfoBox",
+            "visible": true,
+            "options": {
+              "icon": "Info",
+              "text": "Select the Log Analytics workspace that Microsoft Sentinel uses. This picker returns the workspace resourceId."
+            }
+          },
+          {
+            "name": "sentinelWorkspace",
+            "type": "Microsoft.Solutions.ResourceSelector",
+            "label": "Sentinel Log Analytics workspace",
+            "toolTip": "Pick the workspace resource. The template stores the workspace name for runbooks.",
+            "resourceType": "Microsoft.OperationalInsights/workspaces",
+            "options": {
+              "filter": {
+                "subscription": "onBasics"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "endpoints",
+        "label": "Endpoints",
+        "elements": [
+          {
+            "name": "servicePrincipalCredentialLogicAppUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Service principal credential Logic App URI",
+            "defaultValue": "https://logicapp.azure.com/",
+            "toolTip": "HTTP endpoint used by the runbook to update credentials via Logic App."
+          },
+          {
+            "name": "dataConnectorLogicAppUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Data connector Logic App URI",
+            "defaultValue": "https://logicapp.azure.com/",
+            "toolTip": "HTTP endpoint used by the runbook to post connector status via Logic App."
+          },
+          {
+            "name": "PricingTierLogicAppUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Pricing tier API URI",
+            "defaultValue": "https://logicapp.azure.com/",
+            "toolTip": "HTTP endpoint used by the runbook to retrieve Sentinel pricing tier information."
+          }
+        ]
+      }
+    ],
+    "outputs": {
+      "automationAccountName": "[basics('automationAccountName')]",
+      "applicationResourceName": "[basics('automationAccountName')]",
+      "userAssignedIdentityName": "[basics('userAssignedIdentityName')]",
+      "userAssignedIdentityLocation": "[location()]",
+      "userAssignedIdentityClientId": "[basics('userAssignedIdentityClientId')]",
+      "sentinelWorkspaceName": "[steps('sentinel').sentinelWorkspace.id]",
+      "servicePrincipalCredentialLogicAppUri": "[steps('endpoints').servicePrincipalCredentialLogicAppUri]",
+      "dataConnectorLogicAppUri": "[steps('endpoints').dataConnectorLogicAppUri]",
+      "PricingTierLogicAppUri": "[steps('endpoints').PricingTierLogicAppUri]"
+    }
+  }
+}
