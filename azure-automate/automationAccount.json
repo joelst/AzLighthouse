@@ -117,7 +117,7 @@
       },
       "defaultValue": "\"https://logicapp.azure.com/\""
     },
-    "PricingTierApiUri": {
+    "PricingTierLogicAppUri": {
       "type": "string",
       "metadata": {
         "description": "URI for the pricing tier API used for cost estimation of sentinel workspaces"
@@ -507,7 +507,7 @@
       "name": "[concat(parameters('automationAccountName'), '/PRICINGTIER_API')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[parameters('PricingTierApiUri')]",
+        "value": "[parameters('PricingTierLogicAppUri')]",
         "description": "URI for the pricing tier API used for cost estimation of new service principals"
       },
       "dependsOn": [
