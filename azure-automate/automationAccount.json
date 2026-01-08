@@ -95,7 +95,7 @@
         "description": "Sentinel Log Analytics workspace. Enter either the workspace name (same RG/sub as this deployment) or a full workspace resourceId.",
         "strongType": "Microsoft.OperationalInsights/workspaces"
       },
-      "defaultValue": "-Sentinel-eastus"
+      "defaultValue": "xxx-Sentinel-eastus"
     },
     "dataConnectorLogicAppUri": {
       "type": "string",
@@ -404,7 +404,7 @@
       "name": "[concat(parameters('automationAccountName'), '/APP_REG_NAME')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[parameters('servicePrincipalCredentialAppReg')]",
+        "value": "[concat('\"', parameters('servicePrincipalCredentialAppReg'), '\"')]",
         "description": "Name of the data ingestion app registration"
       },
       "dependsOn": [
@@ -417,7 +417,7 @@
       "name": "[concat(parameters('automationAccountName'), '/SECRET_API')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[parameters('servicePrincipalCredentialLogicAppUri')]",
+        "value": "[concat('\"', parameters('servicePrincipalCredentialLogicAppUri'), '\"')]",
         "description": "URI for the service principal credential update to Logic App endpoint"
       },
       "dependsOn": [
@@ -430,7 +430,7 @@
       "name": "[concat(parameters('automationAccountName'), '/UMI_ID')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[parameters('userAssignedIdentityClientId')]",
+        "value": "[concat('\"', parameters('userAssignedIdentityClientId'), '\"')]",
         "description": "User managed identity client GUID"
       },
       "dependsOn": [
@@ -443,7 +443,7 @@
       "name": "[concat(parameters('automationAccountName'), '/DATACONNECTOR_API')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[parameters('dataConnectorLogicAppUri')]",
+        "value": "[concat('\"', parameters('dataConnectorLogicAppUri'), '\"')]",
         "description": "Data collector Logic App URI"
       },
       "dependsOn": [
@@ -456,7 +456,7 @@
       "name": "[concat(parameters('automationAccountName'), '/RESOURCE_GROUP_NAME')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[split(variables('sentinelWorkspaceResourceId'), '/')[4]]",
+        "value": "[concat('\"', split(variables('sentinelWorkspaceResourceId'), '/')[4], '\"')]",
         "description": "Name of the resource group where Sentinel workspace is located"
       },
       "dependsOn": [
@@ -469,7 +469,7 @@
       "name": "[concat(parameters('automationAccountName'), '/SUBSCRIPTION_ID')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[split(variables('sentinelWorkspaceResourceId'), '/')[2]]",
+        "value": "[concat('\"', split(variables('sentinelWorkspaceResourceId'), '/')[2], '\"')]",
         "description": "Azure subscription ID"
       },
       "dependsOn": [
@@ -482,7 +482,7 @@
       "name": "[concat(parameters('automationAccountName'), '/WORKSPACE_NAME')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[last(split(variables('sentinelWorkspaceResourceId'), '/'))]",
+        "value": "[concat('\"', last(split(variables('sentinelWorkspaceResourceId'), '/')), '\"')]",
         "description": "Name of the Sentinel Log Analytics workspace"
       },
       "dependsOn": [
@@ -495,7 +495,7 @@
       "name": "[concat(parameters('automationAccountName'), '/PRICINGTIER_API')]",
       "properties": {
         "isEncrypted": false,
-        "value": "[parameters('PricingTierLogicAppUri')]",
+        "value": "[concat('\"', parameters('PricingTierLogicAppUri'), '\"')]",
         "description": "URI for the pricing tier API used for cost estimation of new service principals"
       },
       "dependsOn": [
