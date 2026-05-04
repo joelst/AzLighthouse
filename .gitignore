@@ -1,0 +1,8 @@
+.vscode
+automation/tests/*Testing.ps1
+.fake
+automation/Get-SentinelPricing.ps1
+**/TestResults*.xml
+**/coverage*.xml
+__azurite_db*.json
+.github/copilot-instructions.md
