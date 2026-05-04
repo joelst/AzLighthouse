@@ -1,0 +1,38 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "umiName": {
+            "type": "string",
+            "defaultValue": "MSSP-Sentinel-UMI"
+        },
+        "customerPrefix": {
+            "type": "string",
+            "defaultValue": "TXXX"
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Resources/deploymentScripts",
+            "dependsOn": [],
+            "apiVersion": "2023-08-01",
+            "name": "pshell",
+            "location": "[resourceGroup().location]",
+            "kind": "AzurePowerShell",
+            "properties": {
+                "forceUpdateTag": "1",
+                "azPowerShellVersion": "13.2",
+                "arguments": "[concat(' -CustomerPrefix ',parameters('customerPrefix'),' -SubscriptionId ',subscription().subscriptionId,' -UmiName ',parameters('umiName'))]",
+                "primaryScriptUri": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/identity/umi/deploy-umi.ps1",
+                "supportingScriptUris": [],
+                "timeout": "PT30M",
+                "cleanupPreference": "OnSuccess",
+                "retentionInterval": "P1D"
+            }
+        }
+    ],
+    "variables": {
+    },
+    "outputs": {
+    }
+}

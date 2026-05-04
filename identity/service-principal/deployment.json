@@ -1,0 +1,70 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "utcValue": {
+            "type": "String",
+            "defaultValue": "[utcNow()]"
+        },
+        "userAssignedIdentityName": {
+            "type": "String",
+            "defaultValue": "MsspName-SOC-UMI"
+        }
+    },
+    "variables": {
+        // This should be customized in the template to reflect the naming standard.
+        "appRegistrationDisplayName": "MsspNameSOC-Sentinel-LogIngest"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Resources/deploymentScripts",
+            "apiVersion": "2020-10-01",
+            "name": "newAppRegistration",
+            "location": "[resourceGroup().location]",
+            "kind": "AzurePowerShell",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[concat(subscription().id, '/resourceGroups/', resourceGroup().name, '/providers/Microsoft.ManagedIdentity/userAssignedIdentities/', parameters('userAssignedIdentityName'))]": {}
+                }
+            },
+            "properties": {
+                "forceUpdateTag": "[parameters('utcValue')]",
+                "azPowerShellVersion": "10.0",
+                "timeout": "PT30M",
+                "arguments": "[concat('-AppName ', variables('appRegistrationDisplayName'), ' -Subscription ', subscription().id)]",
+                "scriptContent": "param([string] $AppName, [string] $Subscription)\r\n$output = New-AzAdServicePrincipal -DisplayName $AppName; Start-Sleep 20; $adsp = Get-AzAdServicePrincipal -DisplayName $AppName; New-AzRoleAssignment -RoleDefinitionId '3913510d-42f4-4e42-8a64-420c390055eb' -ObjectId $adsp.Id -Scope $Subscription;$DeploymentScriptOutputs = @{};$DeploymentScriptOutputs['text'] = $output",
+                "supportingScriptUris": [],
+                "cleanupPreference": "Always",
+                "retentionInterval": "PT8H"
+            }
+        }
+
+    ],
+    "outputs": {
+        "AppId": {
+            "type": "string",
+            "value": "[reference('newAppRegistration').outputs.text.AppId]"
+        },
+        "DisplayName": {
+            "type": "string",
+            "value": "[reference('newAppRegistration').outputs.text.DisplayName]"
+        },
+        "Id": {
+            "type": "string",
+            "value": "[reference('newAppRegistration').outputs.text.Id]"
+        },
+        "Credentials": {
+            "type": "array",
+            "value": "[reference('newAppRegistration').outputs.text.PasswordCredentials]"
+        },
+        "ServicePrincipalName": {
+            "type": "array",
+            "value": "[reference('newAppRegistration').outputs.text.ServicePrincipalName]"
+        },
+        "rawResults": {
+            "type": "object",
+            "value": "[reference('newAppRegistration').outputs]"
+        }
+    }
+}
