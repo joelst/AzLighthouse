@@ -1,0 +1,124 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-08-01/subscriptionDeploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "managedByTenantId": {
+            "type": "string"
+        }
+    },
+    "variables": {
+        "mspOfferName": "MSSP SOC Services",
+        "mspOfferDescription": "MSSP SOC management services",
+        "mspRegistrationName": "[guid(variables('mspOfferName'))]",
+        "mspAssignmentName": "[guid(variables('mspOfferName'))]",
+        "level2GroupPrincipalIdDisplayName": "MSSP-SOC-Engineers",
+        "level2GroupPrincipalId": "049a8d41-2b62-4d8a-a781-e327f77c56f1",
+        "level1GroupPrincipalIdDisplayName": "MSSP-SOC-Analysts",
+        "level1GroupPrincipalId": "eb5e30f9-fad2-4fe8-9c2b-656d794a1d64",
+        "msspAzureSecurityInsightsPrincipalId": "452aa3d4-0bc3-403b-8c82-e8eedeee7b2a",
+        "authorizations": [
+            {
+                "principalId": "[variables('level1GroupPrincipalId')]",
+                "roleDefinitionId": "3e150937-b8fe-4cfb-8069-0eaf05ecd056",
+                "principalIdDisplayName": "[variables('level1GroupPrincipalIdDisplayName')]"
+            },
+            {
+                "principalId": "[variables('level2GroupPrincipalId')]",
+                "roleDefinitionId": "ab8e14d6-4a74-4a29-9ba8-549422addade",
+                "principalIdDisplayName": "[variables('level2GroupPrincipalIdDisplayName')]"
+            },
+            {
+                "principalId": "[variables('level2GroupPrincipalId')]",
+                "roleDefinitionId": "92aaf0da-9dab-42b6-94a3-d43ce8d16293",
+                "principalIdDisplayName": "[variables('level2GroupPrincipalIdDisplayName')]"
+            },
+            {
+                "principalId": "[variables('msspAzureSecurityInsightsPrincipalId')]",
+                "roleDefinitionId": "f4c81013-99ee-4d62-a7ee-b3f1f648599a",
+                "principalIdDisplayName": "MSSP Azure Security Insights"
+            },
+            {
+                "principalId": "[variables('level2GroupPrincipalId')]",
+                "roleDefinitionId": "51d6186e-6489-4900-b93f-92e23144cca5",
+                "principalIdDisplayName": "[variables('level2GroupPrincipalIdDisplayName')]"
+            },
+            {
+                "principalId": "[variables('level2GroupPrincipalId')]",
+                "roleDefinitionId": "b24988ac-6180-42a0-ab88-20f7382dd24c",
+                "principalIdDisplayName": "[variables('level2GroupPrincipalIdDisplayName')]"
+            },
+            {
+                "principalId": "[variables('level1GroupPrincipalId')]",
+                "roleDefinitionId": "acdd72a7-3385-48ef-bd42-f606fba81ae7",
+                "principalIdDisplayName": "[variables('level1GroupPrincipalIdDisplayName')]"
+            },
+            {
+                "principalId": "[variables('level2GroupPrincipalId')]",
+                "roleDefinitionId": "acdd72a7-3385-48ef-bd42-f606fba81ae7",
+                "principalIdDisplayName": "[variables('level2GroupPrincipalIdDisplayName')]"
+            },
+            {
+                "principalId": "[variables('level2GroupPrincipalId')]",
+                "roleDefinitionId": "91c1777a-f3dc-4fae-b103-61d183457e46",
+                "principalIdDisplayName": "[variables('level2GroupPrincipalIdDisplayName')]"
+            },
+            {
+
+                "principalId": "[variables('level2GroupPrincipalId')]",
+                "roleDefinitionId": "18d7d88d-d35e-4fb5-a5c3-7773c20a72d9",
+                "principalIdDisplayName": "[variables('level2GroupPrincipalIdDisplayName')]",
+                "delegatedRoleDefinitionIds": [
+                    "b24988ac-6180-42a0-ab88-20f7382dd24c",
+                    "92aaf0da-9dab-42b6-94a3-d43ce8d16293",
+                    "3913510d-42f4-4e42-8a64-420c390055eb",
+                    "749f88d5-cbae-40b8-bcfc-e573ddc772fa",
+                    "ab8e14d6-4a74-4a29-9ba8-549422addade",
+                    "91c1777a-f3dc-4fae-b103-61d183457e46",
+                    "acdd72a7-3385-48ef-bd42-f606fba81ae7",
+                    "00482a5a-887f-4fb3-b363-3b7fe8e74483",
+                    "f25e0fa2-a7c8-4377-a976-54943a77a395",
+                    "21090545-7ca7-4776-b22c-e363652d74d2",
+                    "4633458b-17de-408a-b874-0445c86b69e6",
+                    "14b46e9e-c2b7-41b4-b07b-48a6ebf60603",
+                    "b86a8fe4-44ce-4948-aee5-eccb2c155cd7",
+                    "12338af0-0e69-4776-bea7-57ae8d297424",
+                    "1c9b6475-caf0-4164-b5a1-2142a7116f4b"
+                ]
+            }
+        ]
+    },
+    "resources": [
+        {
+            "type": "Microsoft.ManagedServices/registrationDefinitions",
+            "apiVersion": "2022-10-01",
+            "name": "[variables('mspRegistrationName')]",
+            "properties": {
+                "registrationDefinitionName": "[variables('mspOfferName')]",
+                "description": "[variables('mspOfferDescription')]",
+                "managedByTenantId": "[parameters('managedByTenantId')]",
+                "authorizations": "[variables('authorizations')]"
+            }
+        },
+        {
+            "type": "Microsoft.ManagedServices/registrationAssignments",
+            "apiVersion": "2022-10-01",
+            "name": "[variables('mspAssignmentName')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ManagedServices/registrationDefinitions/', variables('mspRegistrationName'))]"
+            ],
+            "properties": {
+                "registrationDefinitionId": "[resourceId('Microsoft.ManagedServices/registrationDefinitions/', variables('mspRegistrationName'))]"
+            }
+        }
+    ],
+    "outputs": {
+        "mspOfferName": {
+            "type": "string",
+            "value": "[concat('Managed by', ' ', variables('mspOfferName'))]"
+        },
+        "authorizations": {
+            "type": "array",
+            "value": "[variables('authorizations')]"
+        }
+    }
+}

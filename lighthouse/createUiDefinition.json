@@ -1,0 +1,21 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+    "handler": "Microsoft.Azure.CreateUIDef",
+    "version": "0.1.2-preview",
+    "parameters": {
+        "basics": [
+            {
+                "name": "managedByTenantId",
+                "type": "Microsoft.Common.TextBox",
+                "label": "MSSP Tenant Id",
+                "defaultValue": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+                "toolTip": "Enter the correct MSSP Tenant Id",
+                "visible": true
+            }
+        ],
+        "steps": [],
+        "outputs": {
+            "managedByTenantId": "[basics('managedByTenantId')]"
+        }
+    }
+}
