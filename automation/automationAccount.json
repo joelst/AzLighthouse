@@ -1,0 +1,579 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.202510.10.0",
+  "metadata": {
+    "description": "Deploys an Azure Automation account with a runbook to manage service principals for the MSSP SOC."
+  },
+  "parameters": {
+    "automationAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the new automation account"
+      },
+      "defaultValue": "SOC-Automation"
+    },
+    "servicePrincipalCredentialRunbookContentUri": {
+      "type": "string",
+      "metadata": {
+        "description": "URL for the service principal credential runbook content"
+      },
+      "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/automation/Update-AppRegistrationCredential.ps1"
+    },
+    "servicePrincipalCredentialRunbookName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the service principal credential runbook"
+      },
+      "defaultValue": "Update-AppRegistrationCredential"
+    },
+    "connectorRunbookContentUri": {
+      "type": "string",
+      "metadata": {
+        "description": "URL for the data connector runbook content"
+      },
+      "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/automation/Get-DataConnectorStatus.ps1"
+    },
+    "connectorRunbookName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the data connector runbook"
+      },
+      "defaultValue": "Get-DataConnectorStatus"
+    },
+    "pricingRunbookContentUri": {
+      "type": "string",
+      "metadata": {
+        "description": "URL for the pricing runbook content"
+      },
+      "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/automation/Get-SentinelPricing.ps1"
+    },
+    "pricingRunbookName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the pricing runbook"
+      },
+      "defaultValue": "Get-SentinelPricing"
+    },
+    "searchJobRunbookContentUri": {
+      "type": "string",
+      "metadata": {
+        "description": "URL for the Sentinel search job runbook content"
+      },
+      "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/automation/Invoke-AzSentinelSearchJob.ps1"
+    },
+    "searchJobRunbookName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Sentinel search job runbook"
+      },
+      "defaultValue": "Invoke-AzSentinelSearchJob"
+    },
+    "userAssignedIdentityName": {
+      "type": "string",
+      "metadata": {
+        "description": "User assigned identity name"
+      },
+      "defaultValue": "SOC-Sentinel-Ingestion-UMI"
+    },
+    "userAssignedIdentityLocation": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for user assigned managed identity"
+      }
+    },
+    "userAssignedIdentityClientId": {
+      "type": "string",
+      "metadata": {
+        "description": "User managed identity client GUID"
+      },
+      "defaultValue": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    },
+    "servicePrincipalCredentialLogicAppUri": {
+      "type": "string",
+      "metadata": {
+        "description": "Service Principal credential update Logic App URI"
+      },
+      "defaultValue": "https://logicapp.azure.com/"
+    },
+    "servicePrincipalCredentialAppReg": {
+      "type": "string",
+      "metadata": {
+        "description": "Sentinel ingestion app registration (service principal) name"
+      },
+      "defaultValue": "SOC-Sentinel-Ingestion"
+    },
+    "sentinelWorkspaceName": {
+      "type": "string",
+      "metadata": {
+        "description": "Sentinel Log Analytics workspace. Enter either the workspace name (same RG/sub as this deployment) or a full workspace resourceId.",
+        "strongType": "Microsoft.OperationalInsights/workspaces"
+      },
+      "defaultValue": "xxx-Sentinel-eastus"
+    },
+    "dataConnectorLogicAppUri": {
+      "type": "string",
+      "metadata": {
+        "description": "Data connector Logic App URI"
+      },
+      "defaultValue": "https://logicapp.azure.com/"
+    },
+    "PricingTierLogicAppUri": {
+      "type": "string",
+      "metadata": {
+        "description": "URI for the pricing tier API used for cost estimation of sentinel workspaces"
+      },
+      "defaultValue": "https://logicapp.azure.com/"
+    },
+    "scheduleStartDate": {
+      "type": "string",
+      "defaultValue": "[dateTimeAdd(utcNow(), 'PT90M')]",
+      "metadata": {
+        "description": "UTC date time now plus 90 minutes for when the schedule will become active, not when the schedule runs"
+      }
+    },
+    "newGuid": {
+      "type": "string",
+      "defaultValue": "[newGuid()]",
+      "metadata": {
+        "description": "Enter new GUID to be used to create a unique job schedule name"
+      }
+    }
+  },
+  "variables": {
+    "pwshRuntimeName": "PowerShell_74_Plus",
+    "runbookScheduleName": "SP_daily_8am",
+    "servicePrincipalCredentialRunbookDescription": "Runbook to manage service principal credentials on behalf of the SOC",
+    "dataConnectorRunbookDescription": "Runbook to report the data connector status for Sentinel",
+    "pricingRunbookDescription": "Runbook to retrieve pricing tier information for Sentinel",
+    "searchJobRunbookDescription": "Runbook to create Sentinel search jobs in Log Analytics",
+    "sentinelWorkspaceResourceId": "[if(startsWith(parameters('sentinelWorkspaceName'), '/subscriptions/'), parameters('sentinelWorkspaceName'), resourceId('Microsoft.OperationalInsights/workspaces', parameters('sentinelWorkspaceName')))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Automation/automationAccounts",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('automationAccountName')]",
+      "location": "[parameters('userAssignedIdentityLocation')]",
+      "tags": {},
+      "identity": {
+        "type": "SystemAssigned, UserAssigned",
+        "userAssignedIdentities": {
+          "[format('/subscriptions/{0}/resourceGroups/{1}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{2}', subscription().subscriptionId, resourceGroup().name, parameters('userAssignedIdentityName'))]": {}
+        }
+      },
+      "properties": {
+        "sku": {
+          "name": "Basic"
+        },
+        "encryption": {
+          "keySource": "Microsoft.Automation",
+          "identity": {}
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runbooks",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('servicePrincipalCredentialRunbookName'))]",
+      "location": "[resourceGroup().location]",
+      "tags": {},
+      "properties": {
+        "runbookType": "PowerShell",
+        "runtimeEnvironment": "[variables('pwshRuntimeName')]",
+        "logProgress": false,
+        "logVerbose": false,
+        "description": "[variables('servicePrincipalCredentialRunbookDescription')]",
+        "publishContentLink": {
+          "uri": "[parameters('servicePrincipalCredentialRunbookContentUri')]",
+          "version": "1.0.0.0"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runbooks",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('connectorRunbookName'))]",
+      "location": "[resourceGroup().location]",
+      "tags": {},
+      "properties": {
+        "runbookType": "PowerShell",
+        "runtimeEnvironment": "[variables('pwshRuntimeName')]",
+        "logProgress": false,
+        "logVerbose": false,
+        "description": "[variables('dataConnectorRunbookDescription')]",
+        "publishContentLink": {
+          "uri": "[parameters('connectorRunbookContentUri')]",
+          "version": "1.0.0.0"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runbooks",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('pricingRunbookName'))]",
+      "location": "[resourceGroup().location]",
+      "tags": {},
+      "properties": {
+        "runbookType": "PowerShell",
+        "runtimeEnvironment": "[variables('pwshRuntimeName')]",
+        "logProgress": false,
+        "logVerbose": false,
+        "description": "[variables('pricingRunbookDescription')]",
+        "publishContentLink": {
+          "uri": "[parameters('pricingRunbookContentUri')]",
+          "version": "1.0.0.0"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runbooks",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('searchJobRunbookName'))]",
+      "location": "[resourceGroup().location]",
+      "tags": {},
+      "properties": {
+        "runbookType": "PowerShell",
+        "runtimeEnvironment": "[variables('pwshRuntimeName')]",
+        "logProgress": false,
+        "logVerbose": false,
+        "description": "[variables('searchJobRunbookDescription')]",
+        "publishContentLink": {
+          "uri": "[parameters('searchJobRunbookContentUri')]",
+          "version": "1.0.0.0"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments/packages",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}/Az.Accounts', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Az.Accounts/5.3.4"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments/packages",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}/Az.MonitoringSolutions', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Az.MonitoringSolutions/0.2.0"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments/packages",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}/Microsoft.Graph.Users', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Users/2.36.1"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments/packages",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}/Microsoft.Graph.Authentication', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Authentication/2.36.1"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments/packages",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}/Microsoft.Graph.Applications', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Applications/2.36.1"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments/packages",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}/Microsoft.Graph.Users.Actions', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Users.Actions/2.36.1"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments/packages",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}/Microsoft.Graph.DirectoryObjects', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.DirectoryObjects/2.36.1"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments/packages",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}/Microsoft.Graph.Identity.DirectoryManagement', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Identity.DirectoryManagement/2.36.1"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "runtime": {
+          "language": "PowerShell",
+          "version": "7.4"
+        },
+        "defaultPackages": {
+          "az": "12.3.0",
+          "azure cli": "2.64.0"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/schedules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), variables('runbookScheduleName'))]",
+      "properties": {
+        "startTime": "[parameters('scheduleStartDate')]",
+        "expiryTime": "9999-12-31T17:59:00-06:00",
+        "interval": 1,
+        "frequency": "Week",
+        "timeZone": "America/Chicago",
+        "advancedSchedule": {
+          "weekDays": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday"
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/jobSchedules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('newGuid'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('automationAccountName'), parameters('servicePrincipalCredentialRunbookName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/schedules', parameters('automationAccountName'), variables('runbookScheduleName'))]"
+      ],
+      "properties": {
+        "runbook": {
+          "name": "[parameters('servicePrincipalCredentialRunbookName')]"
+        },
+        "schedule": {
+          "name": "[variables('runbookScheduleName')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/jobSchedules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), guid(parameters('newGuid'), parameters('connectorRunbookName')))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('automationAccountName'), parameters('connectorRunbookName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/schedules', parameters('automationAccountName'), variables('runbookScheduleName'))]"
+      ],
+      "properties": {
+        "runbook": {
+          "name": "[parameters('connectorRunbookName')]"
+        },
+        "schedule": {
+          "name": "[variables('runbookScheduleName')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/jobSchedules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), guid(parameters('newGuid'), parameters('pricingRunbookName')))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('automationAccountName'), parameters('pricingRunbookName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/schedules', parameters('automationAccountName'), variables('runbookScheduleName'))]"
+      ],
+      "properties": {
+        "runbook": {
+          "name": "[parameters('pricingRunbookName')]"
+        },
+        "schedule": {
+          "name": "[variables('runbookScheduleName')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[concat(parameters('automationAccountName'), '/APP_REG_NAME')]",
+      "properties": {
+        "isEncrypted": false,
+        "value": "[concat('\"', parameters('servicePrincipalCredentialAppReg'), '\"')]",
+        "description": "Name of the data ingestion app registration"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[concat(parameters('automationAccountName'), '/SECRET_API')]",
+      "properties": {
+        "isEncrypted": false,
+        "value": "[concat('\"', parameters('servicePrincipalCredentialLogicAppUri'), '\"')]",
+        "description": "URI for the service principal credential update to Logic App endpoint"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[concat(parameters('automationAccountName'), '/UMI_ID')]",
+      "properties": {
+        "isEncrypted": false,
+        "value": "[concat('\"', parameters('userAssignedIdentityClientId'), '\"')]",
+        "description": "User managed identity client GUID"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[concat(parameters('automationAccountName'), '/DATACONNECTOR_API')]",
+      "properties": {
+        "isEncrypted": false,
+        "value": "[concat('\"', parameters('dataConnectorLogicAppUri'), '\"')]",
+        "description": "Data collector Logic App URI"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[concat(parameters('automationAccountName'), '/RESOURCE_GROUP_NAME')]",
+      "properties": {
+        "isEncrypted": false,
+        "value": "[concat('\"', split(variables('sentinelWorkspaceResourceId'), '/')[4], '\"')]",
+        "description": "Name of the resource group where Sentinel workspace is located"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[concat(parameters('automationAccountName'), '/SUBSCRIPTION_ID')]",
+      "properties": {
+        "isEncrypted": false,
+        "value": "[concat('\"', split(variables('sentinelWorkspaceResourceId'), '/')[2], '\"')]",
+        "description": "Azure subscription ID"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[concat(parameters('automationAccountName'), '/WORKSPACE_NAME')]",
+      "properties": {
+        "isEncrypted": false,
+        "value": "[concat('\"', last(split(variables('sentinelWorkspaceResourceId'), '/')), '\"')]",
+        "description": "Name of the Sentinel Log Analytics workspace"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[concat(parameters('automationAccountName'), '/PRICINGTIER_API')]",
+      "properties": {
+        "isEncrypted": false,
+        "value": "[concat('\"', parameters('PricingTierLogicAppUri'), '\"')]",
+        "description": "URI for the pricing tier API used for cost estimation of new service principals"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    }
+  ]
+}

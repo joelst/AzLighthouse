@@ -1,0 +1,205 @@
+{
+  "handler": "Microsoft.Azure.CreateUIDef",
+  "version": "0.1.2-preview",
+  "parameters": {
+    "config": {
+      "basics": {
+        "description": "Deploy an Azure Automation account (PowerShell 7.4 runtime) and runbooks for MSSP/SOC operations.",
+        "location": {
+          "label": "Location",
+          "toolTip": "Location for the Automation Account.",
+          "resourceTypes": [
+            "Microsoft.Automation/automationAccounts"
+          ]
+        }
+      }
+    },
+    "basics": [
+      {
+        "name": "automationAccountName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Automation Account name",
+        "defaultValue": "SOC-Automation",
+        "toolTip": "Name of the new Automation Account.",
+        "constraints": {
+          "required": true,
+          "regex": "^[A-Za-z0-9][A-Za-z0-9-]{0,48}[A-Za-z0-9]$",
+          "validationMessage": "Use 2-50 characters: letters, numbers, and hyphens. Must start and end with alphanumeric."
+        }
+      },
+      {
+        "name": "umiListApi",
+        "type": "Microsoft.Solutions.ArmApiControl",
+        "request": {
+          "method": "GET",
+          "path": "[concat(resourceGroup().id, '/providers/Microsoft.ManagedIdentity/userAssignedIdentities?api-version=2018-11-30')]"
+        }
+      },
+      {
+        "name": "userAssignedIdentityName",
+        "type": "Microsoft.Common.DropDown",
+        "label": "User Assigned Managed Identity (in selected resource group)",
+        "placeholder": "Select a managed identity",
+        "toolTip": "Select an existing User Assigned Managed Identity in the resource group chosen on the Basics tab.",
+        "multiselect": false,
+        "defaultValue": [
+          {
+            "value": "SOC-Sentinel-Ingestion-UMI"
+          }
+        ],
+        "constraints": {
+          "allowedValues": "[map(basics('umiListApi').value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.name, '\"}')))]",
+          "required": true
+        }
+      },
+      {
+        "name": "umiGetApi",
+        "type": "Microsoft.Solutions.ArmApiControl",
+        "request": {
+          "method": "GET",
+          "path": "[concat(resourceGroup().id, '/providers/Microsoft.ManagedIdentity/userAssignedIdentities/', basics('userAssignedIdentityName'), '?api-version=2018-11-30')]"
+        }
+      }
+    ],
+    "steps": [
+      {
+        "name": "sentinel",
+        "label": "Sentinel",
+        "elements": [
+          {
+            "name": "infoWorkspace",
+            "type": "Microsoft.Common.InfoBox",
+            "visible": true,
+            "options": {
+              "icon": "Info",
+              "text": "Select the Log Analytics workspace that Microsoft Sentinel uses. This picker returns the workspace resourceId."
+            }
+          },
+          {
+            "name": "sentinelWorkspace",
+            "type": "Microsoft.Solutions.ResourceSelector",
+            "label": "Sentinel Log Analytics workspace",
+            "toolTip": "Pick the workspace resource. The template stores the workspace name for runbooks.",
+            "resourceType": "Microsoft.OperationalInsights/workspaces",
+            "options": {
+              "filter": {
+                "subscription": "onBasics"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "runbooks",
+        "label": "Runbooks",
+        "elements": [
+          {
+            "name": "runbookNamesHeader",
+            "type": "Microsoft.Common.TextBlock",
+            "visible": true,
+            "options": {
+              "text": "Runbook names (read-only)"
+            }
+          },
+          {
+            "name": "servicePrincipalCredentialRunbookNameText",
+            "type": "Microsoft.Common.TextBlock",
+            "visible": true,
+            "options": {
+              "text": "Service principal credential runbook name: Update-AppRegistrationCredential"
+            }
+          },
+          {
+            "name": "servicePrincipalCredentialRunbookContentUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Service principal credential runbook content URI",
+            "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/automation/Update-AppRegistrationCredential.ps1",
+            "toolTip": "URL for the service principal credential runbook content."
+          },
+          {
+            "name": "connectorRunbookNameText",
+            "type": "Microsoft.Common.TextBlock",
+            "visible": true,
+            "options": {
+              "text": "Data connector runbook name: Get-DataConnectorStatus"
+            }
+          },
+          {
+            "name": "connectorRunbookContentUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Data connector runbook content URI",
+            "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/automation/Get-DataConnectorStatus.ps1",
+            "toolTip": "URL for the data connector runbook content."
+          },
+          {
+            "name": "pricingRunbookNameText",
+            "type": "Microsoft.Common.TextBlock",
+            "visible": true,
+            "options": {
+              "text": "Pricing runbook name: Get-SentinelPricing"
+            }
+          },
+          {
+            "name": "pricingRunbookContentUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Pricing runbook content URI",
+            "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/automation/Get-SentinelPricing.ps1",
+            "toolTip": "URL for the pricing runbook content."
+          }
+        ]
+      },
+      {
+        "name": "endpoints",
+        "label": "Automation Variables",
+        "elements": [
+          {
+            "name": "servicePrincipalCredentialLogicAppUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Service principal credential Logic App URI",
+            "defaultValue": "https://logicapp.azure.com/",
+            "toolTip": "HTTP endpoint used by the runbook to update credentials via Logic App."
+          },
+          {
+            "name": "servicePrincipalCredentialAppReg",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Sentinel ingestion app registration name",
+            "defaultValue": "SOC-Sentinel-Ingestion",
+            "toolTip": "Name of the app registration (service principal) used for Sentinel ingestion."
+          },
+          {
+            "name": "dataConnectorLogicAppUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Data connector Logic App URI",
+            "defaultValue": "https://logicapp.azure.com/",
+            "toolTip": "HTTP endpoint used by the runbook to post connector status via Logic App."
+          },
+          {
+            "name": "PricingTierLogicAppUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Pricing tier API URI",
+            "defaultValue": "https://logicapp.azure.com/",
+            "toolTip": "HTTP endpoint used by the runbook to retrieve Sentinel pricing tier information."
+          }
+        ]
+      }
+    ],
+    "outputs": {
+      "automationAccountName": "[basics('automationAccountName')]",
+      "applicationResourceName": "[basics('automationAccountName')]",
+      "userAssignedIdentityName": "[basics('userAssignedIdentityName')]",
+      "userAssignedIdentityLocation": "[location()]",
+      "userAssignedIdentityClientId": "[basics('umiGetApi').properties.clientId]",
+      "sentinelWorkspaceName": "[steps('sentinel').sentinelWorkspace.id]",
+      "servicePrincipalCredentialRunbookName": "Update-AppRegistrationCredential",
+      "connectorRunbookName": "Get-DataConnectorStatus",
+      "pricingRunbookName": "Get-SentinelPricing",
+      "servicePrincipalCredentialRunbookContentUri": "[steps('runbooks').servicePrincipalCredentialRunbookContentUri]",
+      "connectorRunbookContentUri": "[steps('runbooks').connectorRunbookContentUri]",
+      "pricingRunbookContentUri": "[steps('runbooks').pricingRunbookContentUri]",
+      "servicePrincipalCredentialLogicAppUri": "[steps('endpoints').servicePrincipalCredentialLogicAppUri]",
+      "servicePrincipalCredentialAppReg": "[steps('endpoints').servicePrincipalCredentialAppReg]",
+      "dataConnectorLogicAppUri": "[steps('endpoints').dataConnectorLogicAppUri]",
+      "PricingTierLogicAppUri": "[steps('endpoints').PricingTierLogicAppUri]"
+    }
+  }
+}
