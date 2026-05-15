@@ -321,18 +321,17 @@ Describe 'Get-ConnectorStatus Integration' {
             $status.LogMetrics.Publisher | Should -Be 'Microsoft'
         }
 
-        It 'Preserves Id and uses Name fallback for Title/Publisher' {
+        It 'Uses Kind as lookup Id and enriches Title/Publisher from ConnectorInfo' {
             $connector = [pscustomobject]@{ 
                 Name       = 'AzureActiveDirectory'
                 Kind       = 'AzureActiveDirectory'
-                Id         = 'different-guid-value'
                 Properties = $null
             }
             $wsId = [guid]::NewGuid().ToString()
             
             $status = Get-ConnectorStatus -Connector $connector -WorkspaceCustomerId $wsId
             
-            # Resolve-Connector uses Kind as Id when Kind is meaningful (not StaticUI/GenericUI)
+            # Resolve-Connector uses Kind as Id for ConnectorInfo lookup when Kind is meaningful
             $status.LogMetrics.Id | Should -Be 'AzureActiveDirectory'
             $status.LogMetrics.Title | Should -Be 'Microsoft Entra ID'
         }

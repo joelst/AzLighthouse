@@ -285,14 +285,14 @@ Invoke-AzSentinelSearchJob.ps1 `
 
 **Parameters and fallback variables:**
 
-| Parameter          | Variable Fallback           | Required |
-| ------------------ | --------------------------- | -------- |
-| `UmiClientId`      | `UMI_ID` or `UMI_CLIENT_ID` | Yes      |
-| `SubscriptionId`   | `SUBSCRIPTION_ID`           | Yes      |
-| `WorkspaceName`    | `WORKSPACE_NAME`            | Yes      |
-| `LogicAppUri`      | `POLICYMONITORING_API`      | Yes      |
-| `IncludePolicyRule` | —                          | No       |
-| `VerboseLogging`   | `AZLH_VERBOSE_LOGGING`      | No       |
+| Parameter                              | Variable Fallback           | Required |
+| -------------------------------------- | --------------------------- | -------- |
+| `LogicAppUri` (alias: `policyMonitoringApi`) | `POLICYMONITORING_API` | Yes      |
+| `UmiClientId` (alias: `UMIId`)         | `UMI_ID` or `UMI_CLIENT_ID` | Yes      |
+| `SubscriptionId`                       | `SUBSCRIPTION_ID`           | Yes      |
+| `WorkspaceName`                        | `WORKSPACE_NAME`            | Yes      |
+| `IncludePolicyRule`                    | —                           | No       |
+| `VerboseLogging`                       | `AZLH_VERBOSE_LOGGING`      | No       |
 
 **UAMI role requirements (minimum):**
 

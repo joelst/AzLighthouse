@@ -306,6 +306,8 @@
     },
     {
       "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments/packages",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}/Az.Accounts', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
         "contentLink": {
           "uri": "https://www.powershellgallery.com/api/v2/package/Az.Accounts/5.3.4"
@@ -533,6 +535,8 @@
     },
     {
       "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[concat(parameters('automationAccountName'), '/APP_REG_NAME')]",
       "properties": {
         "isEncrypted": false,
         "value": "[concat('\"', parameters('servicePrincipalCredentialAppReg'), '\"')]",
