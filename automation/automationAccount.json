@@ -68,6 +68,27 @@
       },
       "defaultValue": "Invoke-AzSentinelSearchJob"
     },
+    "policyRunbookContentUri": {
+      "type": "string",
+      "metadata": {
+        "description": "URL for the Azure Policy inventory runbook content"
+      },
+      "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/automation/Get-AzurePolicies.ps1"
+    },
+    "policyRunbookName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Azure Policy inventory runbook"
+      },
+      "defaultValue": "Get-AzurePolicies"
+    },
+    "policyMonitoringLogicAppUri": {
+      "type": "secureString",
+      "metadata": {
+        "description": "Logic App URI for policy monitoring inventory updates (HTTPS with SAS token)"
+      },
+      "defaultValue": "https://logicapp.azure.com/"
+    },
     "userAssignedIdentityName": {
       "type": "string",
       "metadata": {
@@ -147,6 +168,7 @@
     "dataConnectorRunbookDescription": "Runbook to report the data connector status for Sentinel",
     "pricingRunbookDescription": "Runbook to retrieve pricing tier information for Sentinel",
     "searchJobRunbookDescription": "Runbook to create Sentinel search jobs in Log Analytics",
+    "policyRunbookDescription": "Runbook to collect Azure Policy assignments and definitions inventory",
     "sentinelWorkspaceResourceId": "[if(startsWith(parameters('sentinelWorkspaceName'), '/subscriptions/'), parameters('sentinelWorkspaceName'), resourceId('Microsoft.OperationalInsights/workspaces', parameters('sentinelWorkspaceName')))]"
   },
   "resources": [
@@ -261,9 +283,29 @@
       ]
     },
     {
-      "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments/packages",
+      "type": "Microsoft.Automation/automationAccounts/runbooks",
       "apiVersion": "2024-10-23",
-      "name": "[format('{0}/{1}/Az.Accounts', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('policyRunbookName'))]",
+      "location": "[resourceGroup().location]",
+      "tags": {},
+      "properties": {
+        "runbookType": "PowerShell",
+        "runtimeEnvironment": "[variables('pwshRuntimeName')]",
+        "logProgress": false,
+        "logVerbose": false,
+        "description": "[variables('policyRunbookDescription')]",
+        "publishContentLink": {
+          "uri": "[parameters('policyRunbookContentUri')]",
+          "version": "1.0.0.0"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments/packages",
       "properties": {
         "contentLink": {
           "uri": "https://www.powershellgallery.com/api/v2/package/Az.Accounts/5.3.4"
@@ -472,9 +514,25 @@
       }
     },
     {
-      "type": "Microsoft.Automation/automationAccounts/variables",
+      "type": "Microsoft.Automation/automationAccounts/jobSchedules",
       "apiVersion": "2023-11-01",
-      "name": "[concat(parameters('automationAccountName'), '/APP_REG_NAME')]",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), guid(parameters('newGuid'), parameters('policyRunbookName')))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('automationAccountName'), parameters('policyRunbookName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/schedules', parameters('automationAccountName'), variables('runbookScheduleName'))]"
+      ],
+      "properties": {
+        "runbook": {
+          "name": "[parameters('policyRunbookName')]"
+        },
+        "schedule": {
+          "name": "[variables('runbookScheduleName')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
       "properties": {
         "isEncrypted": false,
         "value": "[concat('\"', parameters('servicePrincipalCredentialAppReg'), '\"')]",
@@ -570,6 +628,19 @@
         "isEncrypted": false,
         "value": "[concat('\"', parameters('PricingTierLogicAppUri'), '\"')]",
         "description": "URI for the pricing tier API used for cost estimation of new service principals"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[concat(parameters('automationAccountName'), '/POLICYMONITORING_API')]",
+      "properties": {
+        "isEncrypted": true,
+        "value": "[concat('\"', parameters('policyMonitoringLogicAppUri'), '\"')]",
+        "description": "Logic App URI for Azure Policy inventory monitoring (encrypted)"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"

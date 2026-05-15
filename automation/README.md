@@ -147,6 +147,7 @@ Navigate to: **Automation Account → Shared Resources → Variables**
 | `SEARCH_END_TIME_UTC`   | String | ISO 8601 datetime (UTC)        | `Invoke-AzSentinelSearchJob`            | End of search time range                     |
 | `SEARCH_RETENTION_DAYS` | Int    | Number of days (e.g. `14`)     | `Invoke-AzSentinelSearchJob` (optional) | Retention period for search result table     |
 | `SEARCH_LIMIT`          | Int    | Row limit (e.g. `100000`)      | `Invoke-AzSentinelSearchJob` (optional) | Maximum rows returned by search job          |
+| `POLICYMONITORING_API`  | String | Logic App endpoint (encrypted) | `Get-AzurePolicies`                     | Logic App URI for policy inventory updates   |
 
 ### 2. Verify Deployment
 
@@ -264,6 +265,58 @@ Invoke-AzSentinelSearchJob.ps1 `
   -EndSearchTime "2026-02-21T00:00:00Z" `
   -RetentionInDays 14 `
   -Limit 100000
+```
+
+### Get-AzurePolicies
+
+**Purpose:** Collects Azure Policy assignments and definitions for a subscription and posts the inventory to a Logic App endpoint for MSSP visibility.
+
+**Production behavior:**
+
+- Resolves inputs from runbook parameters first, then environment variables, then Automation variables
+- Validates all required inputs (GUIDs, HTTPS URI) before any Azure API call
+- Authenticates with **user-assigned managed identity only** (`Connect-AzAccount -Identity -AccountId <UAMI ClientId>`)
+- Enumerates policy assignments at subscription scope
+- Resolves both policy definitions and policy set definitions (initiatives)
+- Posts a slim JSON inventory payload to a Logic App endpoint with retry and backoff
+- Emits a structured summary object for downstream automation and auditing
+- Supports `-WhatIf` to preview without posting
+- Never logs the full Logic App URI (SAS-protected webhook); only the host is logged
+
+**Parameters and fallback variables:**
+
+| Parameter          | Variable Fallback           | Required |
+| ------------------ | --------------------------- | -------- |
+| `UmiClientId`      | `UMI_ID` or `UMI_CLIENT_ID` | Yes      |
+| `SubscriptionId`   | `SUBSCRIPTION_ID`           | Yes      |
+| `WorkspaceName`    | `WORKSPACE_NAME`            | Yes      |
+| `LogicAppUri`      | `POLICYMONITORING_API`      | Yes      |
+| `IncludePolicyRule` | —                          | No       |
+| `VerboseLogging`   | `AZLH_VERBOSE_LOGGING`      | No       |
+
+**UAMI role requirements (minimum):**
+
+- `Reader` at subscription scope (covers `Microsoft.Authorization/policyAssignments/read`, `policyDefinitions/read`, and `policySetDefinitions/read`)
+
+**Example runbook execution:**
+
+```powershell
+.\Get-AzurePolicies.ps1 `
+  -UmiClientId 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' `
+  -SubscriptionId 'yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy' `
+  -WorkspaceName 'law-sentinel-eastus' `
+  -LogicAppUri 'https://prod-00.eastus.logic.azure.com/workflows/.../triggers/manual/paths/invoke?...&sig=...'
+```
+
+**With full policy rules:**
+
+```powershell
+.\Get-AzurePolicies.ps1 `
+  -UmiClientId 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' `
+  -SubscriptionId 'yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy' `
+  -WorkspaceName 'law-sentinel-eastus' `
+  -LogicAppUri 'https://prod-00.eastus.logic.azure.com/workflows/...' `
+  -IncludePolicyRule
 ```
 
 ## Troubleshooting

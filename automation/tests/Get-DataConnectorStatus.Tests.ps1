@@ -244,7 +244,7 @@ Describe 'Get-LogIngestionMetrics' {
         $result.Id | Should -Be 'ConnectorId'
         $result.Title | Should -Be 'Title'
         $result.Publisher | Should -Be 'Publisher'
-        $result.QueryStatus | Should -Be 'NoActivityKql'
+        $result.QueryStatus | Should -Be 'NoKql'
     }
 
     It 'Sets IsConnected when connectivity query returns true' {
@@ -262,7 +262,7 @@ Describe 'Get-LogIngestionMetrics' {
         $result.IsConnected | Should -BeTrue
         $result.QueryStatus | Should -Be 'NoActivityKql'
     }
-]    It 'Aggregates activity query metrics and marks success' {
+    It 'Aggregates activity query metrics and marks success' {
         $wsId = [guid]::NewGuid().ToString()
         $lastLog = (Get-Date).AddMinutes(-30)
         Mock Invoke-AzOperationalInsightsQuery {
@@ -332,7 +332,8 @@ Describe 'Get-ConnectorStatus Integration' {
             
             $status = Get-ConnectorStatus -Connector $connector -WorkspaceCustomerId $wsId
             
-            $status.LogMetrics.Id | Should -Be 'different-guid-value'
+            # Resolve-Connector uses Kind as Id when Kind is meaningful (not StaticUI/GenericUI)
+            $status.LogMetrics.Id | Should -Be 'AzureActiveDirectory'
             $status.LogMetrics.Title | Should -Be 'Microsoft Entra ID'
         }
     }
@@ -373,7 +374,8 @@ Describe 'Get-ConnectorStatus missing metrics behavior' {
             $status = Get-ConnectorStatus -Connector $connector -WorkspaceCustomerId $wsId
             
             $status.OverallStatus | Should -Be 'NoKqlAndNoLogs'
-            $status.LogMetrics.QueryStatus | Should -Be 'NoActivityKql'
+            # When both ConnectivityKql and ActivityKql are missing, QueryStatus is 'NoKql'
+            $status.LogMetrics.QueryStatus | Should -Be 'NoKql'
         }
     }
 }
