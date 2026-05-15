@@ -404,9 +404,10 @@ Get-AzAutomationJobOutput -ResourceGroupName "SOC-Automation-RG" `
 
 1. **Limit RBAC Permissions** - Grant minimum required roles to UAMI
 2. **Secure Logic App Endpoints** - Use SAS tokens with expiration dates
-3. **Enable Diagnostic Logging** - Monitor all automation account activities
-4. **Review Job Outputs** - Regularly audit runbook execution logs
-5. **Use Private Endpoints** - Consider private connectivity for sensitive environments
+3. **Protect Logic App URIs at runtime** - Logic App webhook URIs contain SAS tokens in the query string and are bearer secrets. The `POLICYMONITORING_API` and `PRICINGTIER_API` Automation variables store these URIs (the policy variable is encrypted at rest). At runtime, the `Get-AzurePolicies` and `Get-SentinelPricing` runbooks use `Get-UriHostForLog` to log only the host portion — the full URI (including SAS token) never appears in job output, warning, verbose, or error streams.
+4. **Enable Diagnostic Logging** - Monitor all automation account activities
+5. **Review Job Outputs** - Regularly audit runbook execution logs
+6. **Use Private Endpoints** - Consider private connectivity for sensitive environments
 
 ## Support & Documentation
 
