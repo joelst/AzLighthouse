@@ -770,7 +770,7 @@ function Invoke-AzurePolicyInventory {
       if ($_.Exception -and $_.Exception.PSObject.Properties['Response']) {
         try { $postHttpStatus = [int]$_.Exception.Response.StatusCode } catch { $postHttpStatus = $null }
       }
-      Write-Log -Level ERROR -Message "Logic App POST failed (httpStatus=$postHttpStatus): $($_.Exception.Message)"
+      Write-Log -Level ERROR -Message "Logic App POST failed (httpStatus=$postHttpStatus). Check Logic App URI and SAS token validity."
     }
   }
   else {
