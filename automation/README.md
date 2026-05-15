@@ -147,6 +147,7 @@ Navigate to: **Automation Account → Shared Resources → Variables**
 | `SEARCH_END_TIME_UTC`   | String | ISO 8601 datetime (UTC)        | `Invoke-AzSentinelSearchJob`            | End of search time range                     |
 | `SEARCH_RETENTION_DAYS` | Int    | Number of days (e.g. `14`)     | `Invoke-AzSentinelSearchJob` (optional) | Retention period for search result table     |
 | `SEARCH_LIMIT`          | Int    | Row limit (e.g. `100000`)      | `Invoke-AzSentinelSearchJob` (optional) | Maximum rows returned by search job          |
+| `POLICYMONITORING_API`  | String | Logic App endpoint (encrypted) | `Get-AzurePolicies`                     | Logic App URI for policy inventory updates   |
 
 ### 2. Verify Deployment
 
@@ -266,6 +267,58 @@ Invoke-AzSentinelSearchJob.ps1 `
   -Limit 100000
 ```
 
+### Get-AzurePolicies
+
+**Purpose:** Collects Azure Policy assignments and definitions for a subscription and posts the inventory to a Logic App endpoint for MSSP visibility.
+
+**Production behavior:**
+
+- Resolves inputs from runbook parameters first, then environment variables, then Automation variables
+- Validates all required inputs (GUIDs, HTTPS URI) before any Azure API call
+- Authenticates with **user-assigned managed identity only** (`Connect-AzAccount -Identity -AccountId <UAMI ClientId>`)
+- Enumerates policy assignments at subscription scope
+- Resolves both policy definitions and policy set definitions (initiatives)
+- Posts a slim JSON inventory payload to a Logic App endpoint with retry and backoff
+- Emits a structured summary object for downstream automation and auditing
+- Supports `-WhatIf` to preview without posting
+- Never logs the full Logic App URI (SAS-protected webhook); only the host is logged
+
+**Parameters and fallback variables:**
+
+| Parameter                              | Variable Fallback           | Required |
+| -------------------------------------- | --------------------------- | -------- |
+| `LogicAppUri` (alias: `policyMonitoringApi`) | `POLICYMONITORING_API` | Yes      |
+| `UmiClientId` (alias: `UMIId`)         | `UMI_ID` or `UMI_CLIENT_ID` | Yes      |
+| `SubscriptionId`                       | `SUBSCRIPTION_ID`           | Yes      |
+| `WorkspaceName`                        | `WORKSPACE_NAME`            | Yes      |
+| `IncludePolicyRule`                    | —                           | No       |
+| `VerboseLogging`                       | `AZLH_VERBOSE_LOGGING`      | No       |
+
+**UAMI role requirements (minimum):**
+
+- `Reader` at subscription scope (covers `Microsoft.Authorization/policyAssignments/read`, `policyDefinitions/read`, and `policySetDefinitions/read`)
+
+**Example runbook execution:**
+
+```powershell
+.\Get-AzurePolicies.ps1 `
+  -UmiClientId 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' `
+  -SubscriptionId 'yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy' `
+  -WorkspaceName 'law-sentinel-eastus' `
+  -LogicAppUri 'https://prod-00.eastus.logic.azure.com/workflows/.../triggers/manual/paths/invoke?...&sig=...'
+```
+
+**With full policy rules:**
+
+```powershell
+.\Get-AzurePolicies.ps1 `
+  -UmiClientId 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' `
+  -SubscriptionId 'yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy' `
+  -WorkspaceName 'law-sentinel-eastus' `
+  -LogicAppUri 'https://prod-00.eastus.logic.azure.com/workflows/...' `
+  -IncludePolicyRule
+```
+
 ## Troubleshooting
 
 ### Common Issues
@@ -351,9 +404,10 @@ Get-AzAutomationJobOutput -ResourceGroupName "SOC-Automation-RG" `
 
 1. **Limit RBAC Permissions** - Grant minimum required roles to UAMI
 2. **Secure Logic App Endpoints** - Use SAS tokens with expiration dates
-3. **Enable Diagnostic Logging** - Monitor all automation account activities
-4. **Review Job Outputs** - Regularly audit runbook execution logs
-5. **Use Private Endpoints** - Consider private connectivity for sensitive environments
+3. **Protect Logic App URIs at runtime** - Logic App webhook URIs contain SAS tokens in the query string and are bearer secrets. The `POLICYMONITORING_API` and `PRICINGTIER_API` Automation variables store these URIs (the policy variable is encrypted at rest). At runtime, the `Get-AzurePolicies` and `Get-SentinelPricing` runbooks use `Get-UriHostForLog` to log only the host portion — the full URI (including SAS token) never appears in job output, warning, verbose, or error streams.
+4. **Enable Diagnostic Logging** - Monitor all automation account activities
+5. **Review Job Outputs** - Regularly audit runbook execution logs
+6. **Use Private Endpoints** - Consider private connectivity for sensitive environments
 
 ## Support & Documentation
 
