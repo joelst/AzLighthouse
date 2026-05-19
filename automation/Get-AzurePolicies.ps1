@@ -24,13 +24,12 @@ This Azure Automation runbook:
 - Posts a legacy-compatible JSON inventory payload to a Logic App endpoint with retry and backoff.
 - Emits a structured summary object for downstream automation and auditing.
 
-The posted Logic App payload intentionally matches the shape used by _Get-AzurePolicies.ps1:
+The posted Logic App payload:
 - PolicyAssignments: AssignmentName, PolicyDefinitionId
 - PolicyDefinitions: PolicyName, PolicyDefinitionId, PolicyRule, LastModifiedBy, LastModifiedOn
 - CurrentSubscription
 - WorkspaceName
 
-PolicyRule is always included because the downstream Logic App expects that property.
 
 Automation variable names used when parameters are omitted:
 - UMI_ID (or UMI_CLIENT_ID)
