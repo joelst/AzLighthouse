@@ -20,12 +20,16 @@ This Azure Automation runbook:
 - Validates all required inputs before any Azure call.
 - Authenticates using a user-assigned managed identity (UAMI) only.
 - Enumerates policy assignments at subscription scope.
-- Resolves each assignment to its policy definition or policy set (initiative) definition.
-- Posts a JSON inventory payload to a Logic App endpoint with retry and backoff.
+- Resolves assignments to policy definitions and policy set (initiative) definitions for reporting.
+- Posts a legacy-compatible JSON inventory payload to a Logic App endpoint with retry and backoff.
 - Emits a structured summary object for downstream automation and auditing.
 
-The default payload is a slim summary (no policyRule bodies). Use -IncludePolicyRule
-to include the full policyRule for each definition.
+The posted Logic App payload:
+- PolicyAssignments: AssignmentName, PolicyDefinitionId
+- PolicyDefinitions: PolicyName, PolicyDefinitionId, PolicyRule, LastModifiedBy, LastModifiedOn
+- CurrentSubscription
+- WorkspaceName
+
 
 Automation variable names used when parameters are omitted:
 - UMI_ID (or UMI_CLIENT_ID)
@@ -49,10 +53,6 @@ Sentinel Log Analytics workspace name. Alias: workspaceName.
 Logic App HTTP endpoint URI (HTTPS with SAS token) to post the policy inventory payload.
 Alias: policyMonitoringApi.
 
-.PARAMETER IncludePolicyRule
-When specified, includes the full policyRule body in each definition output object.
-By default the policyRule is omitted to reduce payload size.
-
 .PARAMETER VerboseLogging
 When specified, enables verbose-level log output for troubleshooting.
 
@@ -64,22 +64,17 @@ When specified, enables verbose-level log output for troubleshooting.
   -LogicAppUri 'https://prod-00.eastus.logic.azure.com/workflows/.../triggers/manual/paths/invoke?...&sig=...'
 
 Collects all policy assignments and definitions for the subscription and posts
-the slim inventory to the specified Logic App.
-
-.EXAMPLE
-.\Get-AzurePolicies.ps1 `
-  -UmiClientId '11111111-1111-1111-1111-111111111111' `
-  -SubscriptionId '22222222-2222-2222-2222-222222222222' `
-  -WorkspaceName 'law-sentinel-eastus' `
-  -LogicAppUri 'https://prod-00.eastus.logic.azure.com/workflows/...' `
-  -IncludePolicyRule
-
-Same as above but includes the full policyRule body in each definition object.
+the legacy-compatible inventory to the specified Logic App. The posted JSON includes PolicyRule in each policy definition object.
 
 .NOTES
 Logic App URI handling: The URI is treated as a secret (SAS token in query string).
 Only the host portion is ever logged. The full URI never appears in output, warning,
 or verbose streams.
+
+Payload compatibility: The posted JSON is intentionally limited to the fields expected by
+the legacy Logic App workflow. Diagnostic metadata such as RunId, Scope, PolicySetDefinitions,
+and FailedDefinitionLookups is returned in the script summary only; it is not posted.
+PolicyRule is always posted for policy definitions.
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]
@@ -105,10 +100,6 @@ param(
   [ValidateNotNullOrEmpty()]
   [string]
   $LogicAppUri,
-
-  [Parameter()]
-  [switch]
-  $IncludePolicyRule,
 
   [Parameter()]
   [switch]
@@ -358,9 +349,9 @@ function Write-Log {
   $formatted = "[$timestamp] [$Level] [RunId=$($script:RunId)] $Message"
 
   switch ($Level) {
-    'INFO'    { Write-Information $formatted -InformationAction Continue }
-    'WARN'    { Write-Warning $formatted }
-    'ERROR'   { Write-Error $formatted -ErrorAction Continue }
+    'INFO' { Write-Information $formatted -InformationAction Continue }
+    'WARN' { Write-Warning $formatted }
+    'ERROR' { Write-Error $formatted -ErrorAction Continue }
     'VERBOSE' {
       if ($script:EnableVerboseLogging) {
         Write-Information $formatted -InformationAction Continue
@@ -564,7 +555,7 @@ Performs the complete workflow:
 3. Authenticates with user-assigned managed identity
 4. Enumerates policy assignments at subscription scope
 5. Resolves each assignment to its policy definition or policy set definition
-6. Posts the inventory payload to a Logic App endpoint
+6. Posts the legacy-compatible inventory payload to a Logic App endpoint
 7. Returns a structured summary object
 #>
 function Invoke-AzurePolicyInventory {
@@ -574,7 +565,6 @@ function Invoke-AzurePolicyInventory {
     [Parameter()] [string] $SubscriptionId,
     [Parameter()] [string] $WorkspaceName,
     [Parameter()] [string] $LogicAppUri,
-    [Parameter()] [switch] $IncludePolicyRule,
     [Parameter()] [switch] $VerboseLogging
   )
 
@@ -661,13 +651,13 @@ function Invoke-AzurePolicyInventory {
     }
 
     $assignmentObj = [PSCustomObject]@{
-      AssignmentName    = $assignmentName
-      DisplayName       = $assignmentDisplayName
-      AssignmentType    = $assignmentType
+      AssignmentName     = $assignmentName
+      DisplayName        = $assignmentDisplayName
+      AssignmentType     = $assignmentType
       PolicyDefinitionId = $policyDefId
-      EnforcementMode   = $enforcementMode
-      Scope             = $assignmentScope
-      Parameters        = $assignmentParams
+      EnforcementMode    = $enforcementMode
+      Scope              = $assignmentScope
+      Parameters         = $assignmentParams
     }
     $assignmentResults.Add($assignmentObj)
 
@@ -684,13 +674,13 @@ function Invoke-AzurePolicyInventory {
             Get-AzPolicySetDefinition -Id $policyDefId -ErrorAction Stop
           }
           $policySetObj = [PSCustomObject]@{
-            PolicySetName      = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'Name'
-            DisplayName        = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'DisplayName'
+            PolicySetName         = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'Name'
+            DisplayName           = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'DisplayName'
             PolicySetDefinitionId = $policyDefId
-            PolicyType         = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'PolicyType'
-            Description        = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'Description'
-            LastModifiedBy     = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'SystemDataLastModifiedBy'
-            LastModifiedOn     = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'SystemDataLastModifiedAt'
+            PolicyType            = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'PolicyType'
+            Description           = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'Description'
+            LastModifiedBy        = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'SystemDataLastModifiedBy'
+            LastModifiedOn        = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'SystemDataLastModifiedAt'
           }
           $policySetResults.Add($policySetObj)
           $policySetCache[$policyDefId] = $true
@@ -714,12 +704,9 @@ function Invoke-AzurePolicyInventory {
             PolicyDefinitionId = $policyDefId
             PolicyType         = Get-OptionalPropertyValue -inputObject $definition -propertyName 'PolicyType'
             Description        = Get-OptionalPropertyValue -inputObject $definition -propertyName 'Description'
+            PolicyRule         = Get-OptionalPropertyValue -inputObject $definition -propertyName 'PolicyRule'
             LastModifiedBy     = Get-OptionalPropertyValue -inputObject $definition -propertyName 'SystemDataLastModifiedBy'
             LastModifiedOn     = Get-OptionalPropertyValue -inputObject $definition -propertyName 'SystemDataLastModifiedAt'
-          }
-          if ($IncludePolicyRule.IsPresent) {
-            $policyRule = Get-OptionalPropertyValue -inputObject $definition -propertyName 'PolicyRule'
-            $defObj | Add-Member -NotePropertyName 'PolicyRule' -NotePropertyValue $policyRule
           }
           $definitionResults.Add($defObj)
           $definitionCache[$policyDefId] = $true
@@ -736,20 +723,26 @@ function Invoke-AzurePolicyInventory {
   Write-Log -Level INFO -Message "Resolved $($definitionResults.Count) policy definition(s), $($policySetResults.Count) policy set definition(s), $failedDefinitionCount failed lookup(s)."
 
   # -------------------------------------------------------------------
-  # STEP 6: Build and POST payload
+  # STEP 6: Build and POST legacy-compatible payload
   # -------------------------------------------------------------------
 
+  $definitionProperties = @('PolicyName', 'PolicyDefinitionId', 'PolicyRule', 'LastModifiedBy', 'LastModifiedOn')
+
+  # Build the posted payload to match _Get-AzurePolicies.ps1. Do not add diagnostic
+  # summary fields here because the Logic App expects this exact shape.
   $payload = @{
-    RunId               = $script:RunId
+    PolicyAssignments   = @($assignmentResults | ForEach-Object {
+        [PSCustomObject]@{
+          AssignmentName     = $_.AssignmentName
+          PolicyDefinitionId = $_.PolicyDefinitionId
+        }
+      })
+    PolicyDefinitions   = @($definitionResults | ForEach-Object {
+        $_ | Select-Object -Property $definitionProperties
+      })
     CurrentSubscription = $resolvedSubscriptionId
     WorkspaceName       = $resolvedWorkspaceName
-    Scope               = $scope
-    PolicyAssignments   = @($assignmentResults)
-    PolicyDefinitions   = @($definitionResults)
-    PolicySetDefinitions = @($policySetResults)
-    FailedDefinitionLookups = $failedDefinitionCount
   }
-
   $jsonBody = $payload | ConvertTo-Json -Depth 20
 
   Write-Log -Level VERBOSE -Message "Payload size: $($jsonBody.Length) characters, $($assignmentResults.Count) assignment(s)."
@@ -786,22 +779,21 @@ function Invoke-AzurePolicyInventory {
   $durationSec = [Math]::Round(($runEndUtc - $runStartUtc).TotalSeconds, 2)
 
   $summary = [PSCustomObject]@{
-    RunId                   = $script:RunId
-    RunbookVersion          = $script:RunbookVersion
-    StartTimeUtc            = $runStartUtc.ToString('o')
-    EndTimeUtc              = $runEndUtc.ToString('o')
-    DurationSeconds         = $durationSec
-    SubscriptionId          = $resolvedSubscriptionId
-    Scope                   = $scope
-    WorkspaceName           = $resolvedWorkspaceName
-    AssignmentCount         = $assignmentResults.Count
-    PolicyDefinitionCount   = $definitionResults.Count
+    RunId                    = $script:RunId
+    RunbookVersion           = $script:RunbookVersion
+    StartTimeUtc             = $runStartUtc.ToString('o')
+    EndTimeUtc               = $runEndUtc.ToString('o')
+    DurationSeconds          = $durationSec
+    SubscriptionId           = $resolvedSubscriptionId
+    Scope                    = $scope
+    WorkspaceName            = $resolvedWorkspaceName
+    AssignmentCount          = $assignmentResults.Count
+    PolicyDefinitionCount    = $definitionResults.Count
     PolicySetDefinitionCount = $policySetResults.Count
-    FailedDefinitionLookups = $failedDefinitionCount
-    IncludedPolicyRule      = $IncludePolicyRule.IsPresent
-    LogicAppHost            = $logicAppHost
-    PostStatus              = $postStatus
-    PostHttpStatus          = $postHttpStatus
+    FailedDefinitionLookups  = $failedDefinitionCount
+    LogicAppHost             = $logicAppHost
+    PostStatus               = $postStatus
+    PostHttpStatus           = $postHttpStatus
   }
 
   Write-Log -Level INFO -Message "Runbook completed. Assignments=$($assignmentResults.Count), Definitions=$($definitionResults.Count), PolicySets=$($policySetResults.Count), Failed=$failedDefinitionCount, PostStatus=$postStatus, Duration=$($durationSec)s."
@@ -825,5 +817,4 @@ Invoke-AzurePolicyInventory `
   -SubscriptionId $SubscriptionId `
   -WorkspaceName $WorkspaceName `
   -LogicAppUri $LogicAppUri `
-  -IncludePolicyRule:$IncludePolicyRule `
   -VerboseLogging:$VerboseLogging
