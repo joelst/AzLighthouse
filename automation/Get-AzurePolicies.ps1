@@ -358,9 +358,9 @@ function Write-Log {
   $formatted = "[$timestamp] [$Level] [RunId=$($script:RunId)] $Message"
 
   switch ($Level) {
-    'INFO'    { Write-Information $formatted -InformationAction Continue }
-    'WARN'    { Write-Warning $formatted }
-    'ERROR'   { Write-Error $formatted -ErrorAction Continue }
+    'INFO' { Write-Information $formatted -InformationAction Continue }
+    'WARN' { Write-Warning $formatted }
+    'ERROR' { Write-Error $formatted -ErrorAction Continue }
     'VERBOSE' {
       if ($script:EnableVerboseLogging) {
         Write-Information $formatted -InformationAction Continue
@@ -661,13 +661,13 @@ function Invoke-AzurePolicyInventory {
     }
 
     $assignmentObj = [PSCustomObject]@{
-      AssignmentName    = $assignmentName
-      DisplayName       = $assignmentDisplayName
-      AssignmentType    = $assignmentType
+      AssignmentName     = $assignmentName
+      DisplayName        = $assignmentDisplayName
+      AssignmentType     = $assignmentType
       PolicyDefinitionId = $policyDefId
-      EnforcementMode   = $enforcementMode
-      Scope             = $assignmentScope
-      Parameters        = $assignmentParams
+      EnforcementMode    = $enforcementMode
+      Scope              = $assignmentScope
+      Parameters         = $assignmentParams
     }
     $assignmentResults.Add($assignmentObj)
 
@@ -684,13 +684,13 @@ function Invoke-AzurePolicyInventory {
             Get-AzPolicySetDefinition -Id $policyDefId -ErrorAction Stop
           }
           $policySetObj = [PSCustomObject]@{
-            PolicySetName      = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'Name'
-            DisplayName        = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'DisplayName'
+            PolicySetName         = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'Name'
+            DisplayName           = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'DisplayName'
             PolicySetDefinitionId = $policyDefId
-            PolicyType         = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'PolicyType'
-            Description        = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'Description'
-            LastModifiedBy     = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'SystemDataLastModifiedBy'
-            LastModifiedOn     = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'SystemDataLastModifiedAt'
+            PolicyType            = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'PolicyType'
+            Description           = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'Description'
+            LastModifiedBy        = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'SystemDataLastModifiedBy'
+            LastModifiedOn        = Get-OptionalPropertyValue -inputObject $policySet -propertyName 'SystemDataLastModifiedAt'
           }
           $policySetResults.Add($policySetObj)
           $policySetCache[$policyDefId] = $true
@@ -739,17 +739,23 @@ function Invoke-AzurePolicyInventory {
   # STEP 6: Build and POST payload
   # -------------------------------------------------------------------
 
+
+  # Build payload to match _Get-AzurePolicies.ps1
   $payload = @{
-    RunId               = $script:RunId
+    PolicyAssignments   = @($assignmentResults | ForEach-Object {
+        [PSCustomObject]@{
+          AssignmentName     = $_.AssignmentName
+          PolicyDefinitionId = $_.PolicyDefinitionId
+        }
+      })
+    PolicyDefinitions   = @($definitionResults | ForEach-Object {
+        # Only include fields present in _Get-AzurePolicies.ps1
+        $obj = $_ | Select-Object PolicyName, PolicyDefinitionId, PolicyRule, LastModifiedBy, LastModifiedOn
+        $obj
+      })
     CurrentSubscription = $resolvedSubscriptionId
     WorkspaceName       = $resolvedWorkspaceName
-    Scope               = $scope
-    PolicyAssignments   = @($assignmentResults)
-    PolicyDefinitions   = @($definitionResults)
-    PolicySetDefinitions = @($policySetResults)
-    FailedDefinitionLookups = $failedDefinitionCount
   }
-
   $jsonBody = $payload | ConvertTo-Json -Depth 20
 
   Write-Log -Level VERBOSE -Message "Payload size: $($jsonBody.Length) characters, $($assignmentResults.Count) assignment(s)."
@@ -786,22 +792,22 @@ function Invoke-AzurePolicyInventory {
   $durationSec = [Math]::Round(($runEndUtc - $runStartUtc).TotalSeconds, 2)
 
   $summary = [PSCustomObject]@{
-    RunId                   = $script:RunId
-    RunbookVersion          = $script:RunbookVersion
-    StartTimeUtc            = $runStartUtc.ToString('o')
-    EndTimeUtc              = $runEndUtc.ToString('o')
-    DurationSeconds         = $durationSec
-    SubscriptionId          = $resolvedSubscriptionId
-    Scope                   = $scope
-    WorkspaceName           = $resolvedWorkspaceName
-    AssignmentCount         = $assignmentResults.Count
-    PolicyDefinitionCount   = $definitionResults.Count
+    RunId                    = $script:RunId
+    RunbookVersion           = $script:RunbookVersion
+    StartTimeUtc             = $runStartUtc.ToString('o')
+    EndTimeUtc               = $runEndUtc.ToString('o')
+    DurationSeconds          = $durationSec
+    SubscriptionId           = $resolvedSubscriptionId
+    Scope                    = $scope
+    WorkspaceName            = $resolvedWorkspaceName
+    AssignmentCount          = $assignmentResults.Count
+    PolicyDefinitionCount    = $definitionResults.Count
     PolicySetDefinitionCount = $policySetResults.Count
-    FailedDefinitionLookups = $failedDefinitionCount
-    IncludedPolicyRule      = $IncludePolicyRule.IsPresent
-    LogicAppHost            = $logicAppHost
-    PostStatus              = $postStatus
-    PostHttpStatus          = $postHttpStatus
+    FailedDefinitionLookups  = $failedDefinitionCount
+    IncludedPolicyRule       = $IncludePolicyRule.IsPresent
+    LogicAppHost             = $logicAppHost
+    PostStatus               = $postStatus
+    PostHttpStatus           = $postHttpStatus
   }
 
   Write-Log -Level INFO -Message "Runbook completed. Assignments=$($assignmentResults.Count), Definitions=$($definitionResults.Count), PolicySets=$($policySetResults.Count), Failed=$failedDefinitionCount, PostStatus=$postStatus, Duration=$($durationSec)s."
