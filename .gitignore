@@ -5,3 +5,5 @@ automation/tests/*Testing.ps1
 **/coverage*.xml
 __azurite_db*.json
 .github/copilot-instructions.md
+automation/_Get-AzurePolicies.ps1
+_*.ps1
