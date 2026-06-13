@@ -538,7 +538,7 @@
       "apiVersion": "2023-11-01",
       "name": "[concat(parameters('automationAccountName'), '/APP_REG_NAME')]",
       "properties": {
-        "isEncrypted": false,
+        "isEncrypted": true,
         "value": "[concat('\"', parameters('servicePrincipalCredentialAppReg'), '\"')]",
         "description": "Name of the data ingestion app registration"
       },
@@ -551,7 +551,7 @@
       "apiVersion": "2023-11-01",
       "name": "[concat(parameters('automationAccountName'), '/SECRET_API')]",
       "properties": {
-        "isEncrypted": false,
+        "isEncrypted": true,
         "value": "[concat('\"', parameters('servicePrincipalCredentialLogicAppUri'), '\"')]",
         "description": "URI for the service principal credential update to Logic App endpoint"
       },
@@ -564,7 +564,7 @@
       "apiVersion": "2023-11-01",
       "name": "[concat(parameters('automationAccountName'), '/UMI_ID')]",
       "properties": {
-        "isEncrypted": false,
+        "isEncrypted": true,
         "value": "[concat('\"', parameters('userAssignedIdentityClientId'), '\"')]",
         "description": "User managed identity client GUID"
       },
@@ -577,7 +577,7 @@
       "apiVersion": "2023-11-01",
       "name": "[concat(parameters('automationAccountName'), '/DATACONNECTOR_API')]",
       "properties": {
-        "isEncrypted": false,
+        "isEncrypted": true,
         "value": "[concat('\"', parameters('dataConnectorLogicAppUri'), '\"')]",
         "description": "Data collector Logic App URI"
       },
@@ -590,7 +590,7 @@
       "apiVersion": "2023-11-01",
       "name": "[concat(parameters('automationAccountName'), '/RESOURCE_GROUP_NAME')]",
       "properties": {
-        "isEncrypted": false,
+        "isEncrypted": true,
         "value": "[concat('\"', split(variables('sentinelWorkspaceResourceId'), '/')[4], '\"')]",
         "description": "Name of the resource group where Sentinel workspace is located"
       },
@@ -603,7 +603,7 @@
       "apiVersion": "2023-11-01",
       "name": "[concat(parameters('automationAccountName'), '/SUBSCRIPTION_ID')]",
       "properties": {
-        "isEncrypted": false,
+        "isEncrypted": true,
         "value": "[concat('\"', split(variables('sentinelWorkspaceResourceId'), '/')[2], '\"')]",
         "description": "Azure subscription ID"
       },
@@ -616,7 +616,7 @@
       "apiVersion": "2023-11-01",
       "name": "[concat(parameters('automationAccountName'), '/WORKSPACE_NAME')]",
       "properties": {
-        "isEncrypted": false,
+        "isEncrypted": true,
         "value": "[concat('\"', last(split(variables('sentinelWorkspaceResourceId'), '/')), '\"')]",
         "description": "Name of the Sentinel Log Analytics workspace"
       },
@@ -629,7 +629,7 @@
       "apiVersion": "2023-11-01",
       "name": "[concat(parameters('automationAccountName'), '/PRICINGTIER_API')]",
       "properties": {
-        "isEncrypted": false,
+        "isEncrypted": true,
         "value": "[concat('\"', parameters('PricingTierLogicAppUri'), '\"')]",
         "description": "URI for the pricing tier API used for cost estimation of new service principals"
       },
