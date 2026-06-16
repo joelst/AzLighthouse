@@ -159,10 +159,24 @@
       "metadata": {
         "description": "Enter new GUID to be used to create a unique job schedule name"
       }
+    },
+    "runtimeEnvironmentName": {
+      "type": "string",
+      "defaultValue": "PowerShell_74_Plus",
+      "metadata": {
+        "description": "Automation runtime environment name used by runbooks"
+      }
+    },
+    "runtimeVersion": {
+      "type": "string",
+      "defaultValue": "7.4",
+      "metadata": {
+        "description": "PowerShell runtime version for the Automation runtime environment"
+      }
     }
   },
   "variables": {
-    "pwshRuntimeName": "PowerShell_74_Plus",
+    "pwshRuntimeName": "[parameters('runtimeEnvironmentName')]",
     "runbookScheduleName": "SP_daily_8am",
     "servicePrincipalCredentialRunbookDescription": "Runbook to manage service principal credentials on behalf of the SOC",
     "dataConnectorRunbookDescription": "Runbook to report the data connector status for Sentinel",
@@ -424,7 +438,7 @@
       "properties": {
         "runtime": {
           "language": "PowerShell",
-          "version": "7.4"
+          "version": "[parameters('runtimeVersion')]"
         },
         "defaultPackages": {
           "az": "12.3.0",

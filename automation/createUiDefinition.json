@@ -94,6 +94,29 @@
         "label": "Runbooks",
         "elements": [
           {
+            "name": "runtimeExperienceNote",
+            "type": "Microsoft.Common.InfoBox",
+            "visible": true,
+            "options": {
+              "icon": "Info",
+              "text": "Runtime is configured by this deployment template. For existing runbooks, Azure Portal may continue to show prior runtime experience until runbooks are republished or recreated."
+            }
+          },
+          {
+            "name": "runtimeEnvironmentName",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Runtime environment name",
+            "defaultValue": "PowerShell_74_Plus",
+            "toolTip": "Name of the Automation runtime environment that runbooks will reference."
+          },
+          {
+            "name": "runtimeVersion",
+            "type": "Microsoft.Common.TextBox",
+            "label": "PowerShell runtime version",
+            "defaultValue": "7.4",
+            "toolTip": "PowerShell version for the runtime environment resource."
+          },
+          {
             "name": "runbookNamesHeader",
             "type": "Microsoft.Common.TextBlock",
             "visible": true,
@@ -145,6 +168,21 @@
             "label": "Pricing runbook content URI",
             "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/automation/Get-SentinelPricing.ps1",
             "toolTip": "URL for the pricing runbook content."
+          },
+          {
+            "name": "policyRunbookNameText",
+            "type": "Microsoft.Common.TextBlock",
+            "visible": true,
+            "options": {
+              "text": "Azure Policy runbook name: Get-AzurePolicies"
+            }
+          },
+          {
+            "name": "policyRunbookContentUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Azure Policy runbook content URI",
+            "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/automation/Get-AzurePolicies.ps1",
+            "toolTip": "URL for the Azure Policy runbook content."
           }
         ]
       },
@@ -179,6 +217,13 @@
             "label": "Pricing tier API URI",
             "defaultValue": "https://logicapp.azure.com/",
             "toolTip": "HTTP endpoint used by the runbook to retrieve Sentinel pricing tier information."
+          },
+          {
+            "name": "policyMonitoringLogicAppUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Policy monitoring Logic App URI",
+            "defaultValue": "https://logicapp.azure.com/",
+            "toolTip": "HTTP endpoint used by the runbook to post Azure Policy inventory updates via Logic App."
           }
         ]
       }
@@ -190,16 +235,21 @@
       "userAssignedIdentityLocation": "[location()]",
       "userAssignedIdentityClientId": "[basics('umiGetApi').properties.clientId]",
       "sentinelWorkspaceName": "[steps('sentinel').sentinelWorkspace.id]",
+      "runtimeEnvironmentName": "[steps('runbooks').runtimeEnvironmentName]",
+      "runtimeVersion": "[steps('runbooks').runtimeVersion]",
       "servicePrincipalCredentialRunbookName": "Update-AppRegistrationCredential",
       "connectorRunbookName": "Get-DataConnectorStatus",
       "pricingRunbookName": "Get-SentinelPricing",
+      "policyRunbookName": "Get-AzurePolicies",
       "servicePrincipalCredentialRunbookContentUri": "[steps('runbooks').servicePrincipalCredentialRunbookContentUri]",
       "connectorRunbookContentUri": "[steps('runbooks').connectorRunbookContentUri]",
       "pricingRunbookContentUri": "[steps('runbooks').pricingRunbookContentUri]",
+      "policyRunbookContentUri": "[steps('runbooks').policyRunbookContentUri]",
       "servicePrincipalCredentialLogicAppUri": "[steps('endpoints').servicePrincipalCredentialLogicAppUri]",
       "servicePrincipalCredentialAppReg": "[steps('endpoints').servicePrincipalCredentialAppReg]",
       "dataConnectorLogicAppUri": "[steps('endpoints').dataConnectorLogicAppUri]",
-      "PricingTierLogicAppUri": "[steps('endpoints').PricingTierLogicAppUri]"
+      "PricingTierLogicAppUri": "[steps('endpoints').PricingTierLogicAppUri]",
+      "policyMonitoringLogicAppUri": "[steps('endpoints').policyMonitoringLogicAppUri]"
     }
   }
 }
