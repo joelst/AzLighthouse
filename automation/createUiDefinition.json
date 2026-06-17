@@ -210,6 +210,9 @@
             "label": "Service principal credential Logic App URI",
             "defaultValue": "",
             "toolTip": "HTTP endpoint used by the runbook to update credentials via Logic App.",
+            "options": {
+              "hideConfirmation": true
+            },
             "constraints": {
               "required": true,
               "regex": "^https://[^\\s]+$",
@@ -229,6 +232,9 @@
             "label": "Data connector Logic App URI",
             "defaultValue": "",
             "toolTip": "HTTP endpoint used by the runbook to post connector status via Logic App.",
+            "options": {
+              "hideConfirmation": true
+            },
             "constraints": {
               "required": true,
               "regex": "^https://[^\\s]+$",
@@ -241,6 +247,9 @@
             "label": "Pricing tier API URI",
             "defaultValue": "",
             "toolTip": "HTTP endpoint used by the runbook to retrieve Sentinel pricing tier information.",
+            "options": {
+              "hideConfirmation": true
+            },
             "constraints": {
               "required": true,
               "regex": "^https://[^\\s]+$",
@@ -253,6 +262,9 @@
             "label": "Policy monitoring Logic App URI",
             "defaultValue": "",
             "toolTip": "HTTP endpoint used by the runbook to post Azure Policy inventory updates via Logic App.",
+            "options": {
+              "hideConfirmation": true
+            },
             "constraints": {
               "required": true,
               "regex": "^https://[^\\s]+$",
