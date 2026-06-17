@@ -6,7 +6,7 @@ This solution deploys an Azure Automation account with runbooks to manage Micros
 credentials for MSSP (Managed Security Service Provider) environments. The automation enables centralized monitoring of Sentinel
 data connector health and automated credential rotation.
 
-> **I did not create the Logic Apps nor the pricing tier runbook so they are not included in this repo.**
+> **I did not develop the Logic Apps so they are not included in this repo.**
 
 ## Architecture
 
@@ -14,10 +14,13 @@ The deployment includes:
 
 1. **Azure Automation Account** - Hosts PowerShell 7.4 runbooks with scheduled execution
 2. **User-Assigned Managed Identity (UAMI)** - Provides secure authentication to Azure resources
-3. **Two Primary Runbooks**:
+3. **Runbooks**:
   - `Get-DataConnectorStatus` - Monitors Sentinel data connector health and ingestion metrics
   - `Update-AppRegistrationCredential` - Rotates service principal credentials automatically
-4. **Logic App Integration** - Sends connector status and credential updates to MSSP tenant
+  - `Get-SentinelPricing` - Retrieves pricing tier information for Sentinel workspaces
+  - `Invoke-AzSentinelSearchJob` - Creates Sentinel search jobs in Log Analytics
+  - `Get-AzurePolicies` - Collects Azure Policy assignment and definition inventory
+4. **Logic App Integration** - Sends connector status, credential updates, pricing data, and policy inventory to the MSSP tenant
 
 ## Prerequisites
 
@@ -38,92 +41,198 @@ The managed identity needs the following role assignments:
 
 ```powershell
 # Sentinel Reader role
-New-AzRoleAssignment -ObjectId <UAMI-ObjectId> `
-  -RoleDefinitionName "Microsoft Sentinel Reader" `
+New-AzRoleAssignment -ObjectId <UAMI-ObjectId> -RoleDefinitionName "Microsoft Sentinel Reader" `
   -Scope "/subscriptions/<sub-id>/resourceGroups/<rg-name>/providers/Microsoft.OperationalInsights/workspaces/<workspace-name>"
 
 # Log Analytics Reader role
-New-AzRoleAssignment -ObjectId <UAMI-ObjectId> `
-  -RoleDefinitionName "Log Analytics Reader" `
+New-AzRoleAssignment -ObjectId <UAMI-ObjectId> -RoleDefinitionName "Log Analytics Reader" `
   -Scope "/subscriptions/<sub-id>/resourceGroups/<rg-name>/providers/Microsoft.OperationalInsights/workspaces/<workspace-name>"
 ```
 
 ## Deployment Options
 
-### Option 1: Deploy via Azure Portal (Recommended)
+### Option 1: Deploy via Azure Portal
 
 Click the button below to deploy directly to your Azure subscription:
 
-<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Fautomation%2FautomationAccount.json" target="_blank"><img src="https://aka.ms/deploytoazurebutton"/></a>
-
 Customized UI
-<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Fautomation%2FautomationAccount.json/createUIDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Fautomation%2FcreateUiDefinition.json" target="_blank"><img src="https://aka.ms/deploytoazurebutton"/>
-
+<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Fautomation%2FautomationAccount.json/createUIDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Fautomation%2FcreateUiDefinition.json" target="_blank"><img src="https://aka.ms/deploytoazurebutton"/></a>
 
 **Deployment Parameters:**
 
-| Parameter                               | Description                                   | Default Value                 | Required |
-| --------------------------------------- | --------------------------------------------- | ----------------------------- | -------- |
-| `automationAccountName`                 | Name of the automation account                | `MSSP-Automation`             | Yes      |
-| `userAssignedIdentityName`              | Name of the existing UAMI                     | `MSSP-Sentinel-Ingestion-UMI` | Yes      |
-| `userAssignedIdentityClientId`          | Client ID (GUID) of the UAMI                  | -                             | Yes      |
-| `userAssignedIdentityResourceGroupName` | Resource group containing the UAMI            | `Sentinel-Prod`               | Yes      |
-| `sentinelResourceGroupName`             | Resource group containing Sentinel workspace  | -                             | Yes      |
-| `sentinelWorkspaceName`                 | Name of the Sentinel workspace                | -                             | Yes      |
-| `dataConnectorLogicAppUri`              | Logic App URI for connector status updates    | -                             | Yes      |
-| `servicePrincipalCredentialLogicAppUri` | Logic App URI for credential updates          | -                             | Optional |
-| `servicePrincipalCredentialAppReg`      | App registration name for credential rotation | -                             | Optional |
+| Parameter                               | Description                                                                | Required |
+| --------------------------------------- | -------------------------------------------------------------------------- | -------- |
+| `automationAccountName`                 | Automation Account name                                                    | Yes      |
+| `userAssignedIdentityName`              | Existing UAMI name (same resource group as deployment)                     | Yes      |
+| `userAssignedIdentityClientId`          | UAMI client ID (GUID)                                                      | Yes      |
+| `sentinelWorkspaceResourceId`           | Full workspace resource ID or workspace name (same RG/sub as deployment)   | Yes      |
+| `servicePrincipalCredentialLogicAppUri` | Logic App callback URL for credential updates (secure string)              | Yes      |
+| `dataConnectorLogicAppUri`              | Logic App callback URL for connector status updates (secure string)        | Yes      |
+| `pricingTierLogicAppUri`                | Pricing tier API callback URL (secure string)                              | Yes      |
+| `policyMonitoringLogicAppUri`           | Logic App callback URL for policy inventory updates (secure string)        | Yes      |
+| `servicePrincipalCredentialAppReg`      | App registration display name managed by credential runbook                | Yes      |
+| `runtimeEnvironmentName`                | Automation runtime environment name (2-64 chars, alphanumeric + `_` / `-`) | Yes      |
+| `runtimeVersion`                        | Runtime version (`7.2` or `7.4`)                                           | Yes      |
+| `*RunbookName` / `*RunbookContentUri`   | Runbook names and runbook content URIs                                     | Optional |
 
-### Option 2: Deploy via PowerShell
+### Option 2: Clone repo and deploy with PowerShell
+
+This option avoids the portal deployment blade and allows repeatable deployment from source control.
 
 ```powershell
-# Set variables
-$resourceGroupName = "SOC-Automation-RG"
-$location = "eastus"
-$templateFile = ".\automationAccount.json"
+# 1) Clone and open the repo
+git clone https://github.com/joelst/AzLighthouse.git
+Set-Location .\AzLighthouse\automation
 
-# Create resource group if it doesn't exist
+# 2) Sign in and set target subscription
+Connect-AzAccount
+Set-AzContext -Subscription '<subscription-id>'
+
+# 3) Create deployment resource group if needed
+$resourceGroupName = 'SOC-Automation-RG'
+$location = 'eastus'
 New-AzResourceGroup -Name $resourceGroupName -Location $location -Force
+```
 
-# Deploy the template
+Create a secure parameter file (recommended) so signed Logic App URLs are not echoed in terminal history.
+
+`automation.parameters.json`
+
+```json
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "automationAccountName": { "value": "SOC-Automation" },
+    "userAssignedIdentityName": { "value": "SOC-Sentinel-Ingestion-UMI" },
+    "userAssignedIdentityClientId": { "value": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" },
+    "sentinelWorkspaceResourceId": { "value": "/subscriptions/<sub-id>/resourceGroups/<workspace-rg>/providers/Microsoft.OperationalInsights/workspaces/<workspace-name>" },
+    "servicePrincipalCredentialLogicAppUri": { "value": "https://prod-00.<region>.logic.azure.com/workflows/...&sig=..." },
+    "dataConnectorLogicAppUri": { "value": "https://prod-00.<region>.logic.azure.com/workflows/...&sig=..." },
+    "pricingTierLogicAppUri": { "value": "https://prod-00.<region>.logic.azure.com/workflows/...&sig=..." },
+    "policyMonitoringLogicAppUri": { "value": "https://prod-00.<region>.logic.azure.com/workflows/...&sig=..." },
+    "servicePrincipalCredentialAppReg": { "value": "SOC-Sentinel-Ingestion" },
+    "runtimeEnvironmentName": { "value": "PowerShell_74_SOC" },
+    "runtimeVersion": { "value": "7.4" }
+  }
+}
+```
+
+Deploy:
+
+```powershell
 New-AzResourceGroupDeployment `
-  -ResourceGroupName $resourceGroupName `
-  -TemplateFile $templateFile `
-  -automationAccountName "SOC-Automation" `
-  -userAssignedIdentityName "SOC-Sentinel-Ingestion-UMI" `
-  -userAssignedIdentityClientId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" `
-  -userAssignedIdentityResourceGroupName "Sentinel-Prod" `
-  -sentinelResourceGroupName "Sentinel-Prod" `
-  -sentinelWorkspaceName "MyWorkspace" `
-  -dataConnectorLogicAppUri "https://prod-00.region.logic.azure.com/workflows/.../triggers/manual/paths/invoke?...&sig=..." `
+  -Name "automation-$(Get-Date -Format 'yyyyMMdd-HHmmss')" -ResourceGroupName $resourceGroupName `
+  -TemplateFile .\automationAccount.json -TemplateParameterFile .\automation.parameters.json `
   -Verbose
 ```
 
-### Option 3: Deploy via Azure CLI
+### Option 3: Clone repo and deploy with Azure CLI
 
 ```bash
-# Set variables
+# 1) Clone and open the repo
+git clone https://github.com/joelst/AzLighthouse.git
+cd AzLighthouse/automation
+
+# 2) Sign in and set target subscription
+az login
+az account set --subscription <subscription-id>
+
+# 3) Create resource group
 RESOURCE_GROUP="SOC-Automation-RG"
 LOCATION="eastus"
-TEMPLATE_FILE="./automationAccount.json"
-
-# Create resource group
 az group create --name $RESOURCE_GROUP --location $LOCATION
 
-# Deploy the template
+# 4) Deploy with a parameter file
 az deployment group create \
+  --name automation-$(date +%Y%m%d-%H%M%S) \
   --resource-group $RESOURCE_GROUP \
-  --template-file $TEMPLATE_FILE \
-  --parameters \
-    automationAccountName="MSSP-Automation" \
-    userAssignedIdentityName="SOC-Sentinel-Ingestion-UMI" \
-    userAssignedIdentityClientId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
-    userAssignedIdentityResourceGroupName="Sentinel-Prod" \
-    sentinelResourceGroupName="Sentinel-Prod" \
-    sentinelWorkspaceName="MyWorkspace" \
-    dataConnectorLogicAppUri="https://prod-00.region.logic.azure.com/..." \
+  --template-file ./automationAccount.json \
+  --parameters @automation.parameters.json \
   --verbose
 ```
+
+### Option 4: Use the end-to-end deployment script
+
+Use `Deploy-AutomationTemplate.ps1` to run prerequisite checks, validate required inputs (including `automation.parameters.json`), deploy the template, optionally upload local runbook files, and validate deployment success.
+
+```powershell
+Set-Location .\automation
+
+./Deploy-AutomationTemplate.ps1 `
+  -subscriptionId '<subscription-id>' `
+  -resourceGroupName 'SOC-Automation-RG' `
+  -location 'eastus' `
+  -createResourceGroup
+```
+
+With local runbook upload after deployment:
+
+```powershell
+./Deploy-AutomationTemplate.ps1 `
+  -subscriptionId '<subscription-id>' `
+  -resourceGroupName 'SOC-Automation-RG' `
+  -location 'eastus' `
+  -uploadLocalRunbooks `
+  -runbookSourcePath .
+```
+
+## Required Inputs Checklist
+
+Collect these before deployment:
+
+1. Subscription ID where the Automation Account will be deployed.
+2. Resource group name and region for the Automation Account.
+3. Existing UAMI name and UAMI client ID.
+4. Sentinel workspace identifier (workspace name or full resource ID).
+5. Logic App callback URL for each workflow:
+   - credential updates
+   - data connector status
+   - pricing tier
+   - policy monitoring
+6. Automation account name.
+7. App registration display name for credential management.
+8. Runtime environment name and version (`7.2` or `7.4`).
+
+## Runbook Content: URL-based vs Local Upload
+
+The ARM template deploys runbooks using `publishContentLink.uri`, so by default it expects reachable URIs for runbook scripts.
+
+### Option A: Keep URL-based runbook deployment (default)
+
+Use raw GitHub URLs (or any HTTPS location reachable by Azure Automation) in these parameters:
+
+1. `servicePrincipalCredentialRunbookContentUri`
+2. `connectorRunbookContentUri`
+3. `pricingRunbookContentUri`
+4. `searchJobRunbookContentUri`
+5. `policyRunbookContentUri`
+
+### Option B: Upload runbooks from local files after template deployment
+
+Yes, runbooks can be uploaded from local files instead of UI-provided URLs. In this approach, deploy infrastructure first and then import/publish scripts directly.
+
+```powershell
+$rg = 'SOC-Automation-RG'
+$aa = 'SOC-Automation'
+
+Import-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Type PowerShell -Name 'Update-AppRegistrationCredential' -Path .\Update-AppRegistrationCredential.ps1 -Force
+Publish-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Name 'Update-AppRegistrationCredential'
+
+Import-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Type PowerShell -Name 'Get-DataConnectorStatus' -Path .\Get-DataConnectorStatus.ps1 -Force
+Publish-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Name 'Get-DataConnectorStatus'
+
+Import-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Type PowerShell -Name 'Get-SentinelPricing' -Path .\Get-SentinelPricing.ps1 -Force
+Publish-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Name 'Get-SentinelPricing'
+
+Import-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Type PowerShell -Name 'Invoke-AzSentinelSearchJob' -Path .\Invoke-AzSentinelSearchJob.ps1 -Force
+Publish-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Name 'Invoke-AzSentinelSearchJob'
+
+Import-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Type PowerShell -Name 'Get-AzurePolicies' -Path .\Get-AzurePolicies.ps1 -Force
+Publish-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Name 'Get-AzurePolicies'
+```
+
+Tip: if your organization disallows public script hosting, Option B is usually preferred.
 
 ## Post-Deployment Configuration
 
@@ -285,14 +394,14 @@ Invoke-AzSentinelSearchJob.ps1 `
 
 **Parameters and fallback variables:**
 
-| Parameter                              | Variable Fallback           | Required |
-| -------------------------------------- | --------------------------- | -------- |
-| `LogicAppUri` (alias: `policyMonitoringApi`) | `POLICYMONITORING_API` | Yes      |
-| `UmiClientId` (alias: `UMIId`)         | `UMI_ID` or `UMI_CLIENT_ID` | Yes      |
-| `SubscriptionId`                       | `SUBSCRIPTION_ID`           | Yes      |
-| `WorkspaceName`                        | `WORKSPACE_NAME`            | Yes      |
-| `IncludePolicyRule`                    | —                           | No       |
-| `VerboseLogging`                       | `AZLH_VERBOSE_LOGGING`      | No       |
+| Parameter                                    | Variable Fallback           | Required |
+| -------------------------------------------- | --------------------------- | -------- |
+| `LogicAppUri` (alias: `policyMonitoringApi`) | `POLICYMONITORING_API`      | Yes      |
+| `UmiClientId` (alias: `UMIId`)               | `UMI_ID` or `UMI_CLIENT_ID` | Yes      |
+| `SubscriptionId`                             | `SUBSCRIPTION_ID`           | Yes      |
+| `WorkspaceName`                              | `WORKSPACE_NAME`            | Yes      |
+| `IncludePolicyRule`                          | —                           | No       |
+| `VerboseLogging`                             | `AZLH_VERBOSE_LOGGING`      | No       |
 
 **UAMI role requirements (minimum):**
 

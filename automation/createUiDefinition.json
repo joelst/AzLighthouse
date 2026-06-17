@@ -32,7 +32,16 @@
         "type": "Microsoft.Solutions.ArmApiControl",
         "request": {
           "method": "GET",
-          "path": "[concat(resourceGroup().id, '/providers/Microsoft.ManagedIdentity/userAssignedIdentities?api-version=2018-11-30')]"
+          "path": "[concat(resourceGroup().id, '/providers/Microsoft.ManagedIdentity/userAssignedIdentities?api-version=2023-01-31')]"
+        }
+      },
+      {
+        "name": "umiMissingInfo",
+        "type": "Microsoft.Common.InfoBox",
+        "visible": "[equals(length(basics('umiListApi').value), 0)]",
+        "options": {
+          "icon": "Warning",
+          "text": "No User Assigned Managed Identities were found in the selected resource group. Create one first (for example, SOC-Sentinel-Ingestion-UMI) or switch to a resource group that already contains one."
         }
       },
       {
@@ -42,13 +51,8 @@
         "placeholder": "Select a managed identity",
         "toolTip": "Select an existing User Assigned Managed Identity in the resource group chosen on the Basics tab.",
         "multiselect": false,
-        "defaultValue": [
-          {
-            "value": "SOC-Sentinel-Ingestion-UMI"
-          }
-        ],
         "constraints": {
-          "allowedValues": "[map(basics('umiListApi').value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.name, '\"}')))]",
+          "allowedValues": "[map(basics('umiListApi').value, (item) => createObject('label', item.name, 'value', item.name))]",
           "required": true
         }
       },
@@ -57,7 +61,7 @@
         "type": "Microsoft.Solutions.ArmApiControl",
         "request": {
           "method": "GET",
-          "path": "[concat(resourceGroup().id, '/providers/Microsoft.ManagedIdentity/userAssignedIdentities/', basics('userAssignedIdentityName'), '?api-version=2018-11-30')]"
+          "path": "[concat(resourceGroup().id, '/providers/Microsoft.ManagedIdentity/userAssignedIdentities/', basics('userAssignedIdentityName'), '?api-version=2023-01-31')]"
         }
       }
     ],
@@ -72,15 +76,19 @@
             "visible": true,
             "options": {
               "icon": "Info",
-              "text": "Select the Log Analytics workspace that Microsoft Sentinel uses. This picker returns the workspace resourceId."
+              "text": "Select the Log Analytics workspace that Microsoft Sentinel uses. This picker returns the workspace resource ID, which is passed directly to the template as the sentinel workspace parameter."
             }
           },
           {
             "name": "sentinelWorkspace",
             "type": "Microsoft.Solutions.ResourceSelector",
             "label": "Sentinel Log Analytics workspace",
-            "toolTip": "Pick the workspace resource. The template stores the workspace name for runbooks.",
+            "toolTip": "Pick the workspace resource. The full resource ID is captured and passed to the template as sentinelWorkspaceResourceId.",
             "resourceType": "Microsoft.OperationalInsights/workspaces",
+            "constraints": {
+              "required": true,
+              "validationMessage": "Select the Sentinel Log Analytics workspace before continuing."
+            },
             "options": {
               "filter": {
                 "subscription": "onBasics"
@@ -99,22 +107,32 @@
             "visible": true,
             "options": {
               "icon": "Info",
-              "text": "Runtime is configured by this deployment template. For existing runbooks, Azure Portal may continue to show prior runtime experience until runbooks are republished or recreated."
+              "text": "Runtime is configured by this deployment template. You may also need to enable the new runtime experience in the Azure Portal by going to Automation Account > Runbooks > Runtime settings and selecting 'PowerShell_74_SOC' as the default runtime version. You can verify the runtime environment by checking the 'Runtime version' field in the Azure Portal under the Automation Account > Runbooks > Runtime settings section after deployment."
             }
           },
           {
             "name": "runtimeEnvironmentName",
             "type": "Microsoft.Common.TextBox",
             "label": "Runtime environment name",
-            "defaultValue": "PowerShell_74_Plus",
-            "toolTip": "Name of the Automation runtime environment that runbooks will reference."
+            "defaultValue": "PowerShell_74_SOC",
+            "toolTip": "Name of the Automation runtime environment that runbooks will reference.",
+            "constraints": {
+              "required": true,
+              "regex": "^[A-Za-z0-9][A-Za-z0-9_-]{0,62}[A-Za-z0-9]$",
+              "validationMessage": "Use 2-64 characters: letters, numbers, underscores, and hyphens. Must start and end with alphanumeric."
+            }
           },
           {
             "name": "runtimeVersion",
             "type": "Microsoft.Common.TextBox",
             "label": "PowerShell runtime version",
             "defaultValue": "7.4",
-            "toolTip": "PowerShell version for the runtime environment resource."
+            "toolTip": "PowerShell version for the runtime environment resource.",
+            "constraints": {
+              "required": true,
+              "regex": "^(7\\.2|7\\.4)$",
+              "validationMessage": "Supported values are 7.2 or 7.4."
+            }
           },
           {
             "name": "runbookNamesHeader",
@@ -194,8 +212,13 @@
             "name": "servicePrincipalCredentialLogicAppUri",
             "type": "Microsoft.Common.TextBox",
             "label": "Service principal credential Logic App URI",
-            "defaultValue": "https://logicapp.azure.com/",
-            "toolTip": "HTTP endpoint used by the runbook to update credentials via Logic App."
+            "defaultValue": "",
+            "toolTip": "HTTP endpoint used by the runbook to update credentials via Logic App.",
+            "constraints": {
+              "required": true,
+              "regex": "^https://[^\\s]+$",
+              "validationMessage": "Enter a valid HTTPS URL for the Logic App endpoint."
+            }
           },
           {
             "name": "servicePrincipalCredentialAppReg",
@@ -208,22 +231,37 @@
             "name": "dataConnectorLogicAppUri",
             "type": "Microsoft.Common.TextBox",
             "label": "Data connector Logic App URI",
-            "defaultValue": "https://logicapp.azure.com/",
-            "toolTip": "HTTP endpoint used by the runbook to post connector status via Logic App."
+            "defaultValue": "",
+            "toolTip": "HTTP endpoint used by the runbook to post connector status via Logic App.",
+            "constraints": {
+              "required": true,
+              "regex": "^https://[^\\s]+$",
+              "validationMessage": "Enter a valid HTTPS URL for the Logic App endpoint."
+            }
           },
           {
-            "name": "PricingTierLogicAppUri",
+            "name": "pricingTierLogicAppUri",
             "type": "Microsoft.Common.TextBox",
-            "label": "Pricing tier API URI",
-            "defaultValue": "https://logicapp.azure.com/",
-            "toolTip": "HTTP endpoint used by the runbook to retrieve Sentinel pricing tier information."
+            "label": "Pricing tier Logic App URI",
+            "defaultValue": "",
+            "toolTip": "HTTP endpoint used by the runbook to retrieve Sentinel pricing tier information.",
+            "constraints": {
+              "required": true,
+              "regex": "^https://[^\\s]+$",
+              "validationMessage": "Enter a valid HTTPS URL for the pricing tier Logic App endpoint."
+            }
           },
           {
             "name": "policyMonitoringLogicAppUri",
             "type": "Microsoft.Common.TextBox",
             "label": "Policy monitoring Logic App URI",
-            "defaultValue": "https://logicapp.azure.com/",
-            "toolTip": "HTTP endpoint used by the runbook to post Azure Policy inventory updates via Logic App."
+            "defaultValue": "",
+            "toolTip": "HTTP endpoint used by the runbook to post Azure Policy inventory updates via Logic App.",
+            "constraints": {
+              "required": true,
+              "regex": "^https://[^\\s]+$",
+              "validationMessage": "Enter a valid HTTPS URL for the policy monitoring Logic App endpoint."
+            }
           }
         ]
       }
@@ -232,9 +270,9 @@
       "automationAccountName": "[basics('automationAccountName')]",
       "applicationResourceName": "[basics('automationAccountName')]",
       "userAssignedIdentityName": "[basics('userAssignedIdentityName')]",
-      "userAssignedIdentityLocation": "[location()]",
+      "location": "[location()]",
       "userAssignedIdentityClientId": "[basics('umiGetApi').properties.clientId]",
-      "sentinelWorkspaceName": "[steps('sentinel').sentinelWorkspace.id]",
+      "sentinelWorkspaceResourceId": "[steps('sentinel').sentinelWorkspace.id]",
       "runtimeEnvironmentName": "[steps('runbooks').runtimeEnvironmentName]",
       "runtimeVersion": "[steps('runbooks').runtimeVersion]",
       "servicePrincipalCredentialRunbookName": "Update-AppRegistrationCredential",
@@ -248,7 +286,7 @@
       "servicePrincipalCredentialLogicAppUri": "[steps('endpoints').servicePrincipalCredentialLogicAppUri]",
       "servicePrincipalCredentialAppReg": "[steps('endpoints').servicePrincipalCredentialAppReg]",
       "dataConnectorLogicAppUri": "[steps('endpoints').dataConnectorLogicAppUri]",
-      "PricingTierLogicAppUri": "[steps('endpoints').PricingTierLogicAppUri]",
+      "pricingTierLogicAppUri": "[steps('endpoints').pricingTierLogicAppUri]",
       "policyMonitoringLogicAppUri": "[steps('endpoints').policyMonitoringLogicAppUri]"
     }
   }

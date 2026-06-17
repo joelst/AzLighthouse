@@ -86,8 +86,7 @@
       "type": "secureString",
       "metadata": {
         "description": "Logic App URI for policy monitoring inventory updates (HTTPS with SAS token)"
-      },
-      "defaultValue": "https://logicapp.azure.com/"
+      }
     },
     "userAssignedIdentityName": {
       "type": "string",
@@ -96,11 +95,11 @@
       },
       "defaultValue": "SOC-Sentinel-Ingestion-UMI"
     },
-    "userAssignedIdentityLocation": {
+    "location": {
       "type": "string",
       "defaultValue": "[resourceGroup().location]",
       "metadata": {
-        "description": "Location for user assigned managed identity"
+        "description": "Azure region for the Automation Account and its child resources."
       }
     },
     "userAssignedIdentityClientId": {
@@ -111,11 +110,10 @@
       "defaultValue": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
     },
     "servicePrincipalCredentialLogicAppUri": {
-      "type": "string",
+      "type": "secureString",
       "metadata": {
         "description": "Service Principal credential update Logic App URI"
-      },
-      "defaultValue": "https://logicapp.azure.com/"
+      }
     },
     "servicePrincipalCredentialAppReg": {
       "type": "string",
@@ -124,27 +122,24 @@
       },
       "defaultValue": "SOC-Sentinel-Ingestion"
     },
-    "sentinelWorkspaceName": {
+    "sentinelWorkspaceResourceId": {
       "type": "string",
       "metadata": {
-        "description": "Sentinel Log Analytics workspace. Enter either the workspace name (same RG/sub as this deployment) or a full workspace resourceId.",
+        "description": "Sentinel Log Analytics workspace resource ID or name. Pass the full resourceId (/subscriptions/.../workspaces/<name>) or the workspace name when deploying to the same resource group.",
         "strongType": "Microsoft.OperationalInsights/workspaces"
-      },
-      "defaultValue": "xxx-Sentinel-eastus"
+      }
     },
     "dataConnectorLogicAppUri": {
-      "type": "string",
+      "type": "secureString",
       "metadata": {
         "description": "Data connector Logic App URI"
-      },
-      "defaultValue": "https://logicapp.azure.com/"
+      }
     },
-    "PricingTierLogicAppUri": {
-      "type": "string",
+    "pricingTierLogicAppUri": {
+      "type": "secureString",
       "metadata": {
         "description": "URI for the pricing tier API used for cost estimation of sentinel workspaces"
-      },
-      "defaultValue": "https://logicapp.azure.com/"
+      }
     },
     "scheduleStartDate": {
       "type": "string",
@@ -162,13 +157,19 @@
     },
     "runtimeEnvironmentName": {
       "type": "string",
-      "defaultValue": "PowerShell_74_Plus",
+      "minLength": 2,
+      "maxLength": 64,
+      "defaultValue": "PowerShell_74_SOC",
       "metadata": {
-        "description": "Automation runtime environment name used by runbooks"
+        "description": "Automation runtime environment name used by runbooks. Use letters, numbers, underscores, and hyphens; start and end with alphanumeric."
       }
     },
     "runtimeVersion": {
       "type": "string",
+      "allowedValues": [
+        "7.2",
+        "7.4"
+      ],
       "defaultValue": "7.4",
       "metadata": {
         "description": "PowerShell runtime version for the Automation runtime environment"
@@ -183,14 +184,14 @@
     "pricingRunbookDescription": "Runbook to retrieve pricing tier information for Sentinel",
     "searchJobRunbookDescription": "Runbook to create Sentinel search jobs in Log Analytics",
     "policyRunbookDescription": "Runbook to collect Azure Policy assignments and definitions inventory",
-    "sentinelWorkspaceResourceId": "[if(startsWith(parameters('sentinelWorkspaceName'), '/subscriptions/'), parameters('sentinelWorkspaceName'), resourceId('Microsoft.OperationalInsights/workspaces', parameters('sentinelWorkspaceName')))]"
+    "sentinelWorkspaceResourceIdResolved": "[if(startsWith(parameters('sentinelWorkspaceResourceId'), '/subscriptions/'), parameters('sentinelWorkspaceResourceId'), resourceId('Microsoft.OperationalInsights/workspaces', parameters('sentinelWorkspaceResourceId')))]"
   },
   "resources": [
     {
       "type": "Microsoft.Automation/automationAccounts",
       "apiVersion": "2023-11-01",
       "name": "[parameters('automationAccountName')]",
-      "location": "[parameters('userAssignedIdentityLocation')]",
+      "location": "[parameters('location')]",
       "tags": {},
       "identity": {
         "type": "SystemAssigned, UserAssigned",
@@ -212,7 +213,7 @@
       "type": "Microsoft.Automation/automationAccounts/runbooks",
       "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('servicePrincipalCredentialRunbookName'))]",
-      "location": "[resourceGroup().location]",
+      "location": "[parameters('location')]",
       "tags": {},
       "properties": {
         "runbookType": "PowerShell",
@@ -234,7 +235,7 @@
       "type": "Microsoft.Automation/automationAccounts/runbooks",
       "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('connectorRunbookName'))]",
-      "location": "[resourceGroup().location]",
+      "location": "[parameters('location')]",
       "tags": {},
       "properties": {
         "runbookType": "PowerShell",
@@ -256,7 +257,7 @@
       "type": "Microsoft.Automation/automationAccounts/runbooks",
       "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('pricingRunbookName'))]",
-      "location": "[resourceGroup().location]",
+      "location": "[parameters('location')]",
       "tags": {},
       "properties": {
         "runbookType": "PowerShell",
@@ -278,7 +279,7 @@
       "type": "Microsoft.Automation/automationAccounts/runbooks",
       "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('searchJobRunbookName'))]",
-      "location": "[resourceGroup().location]",
+      "location": "[parameters('location')]",
       "tags": {},
       "properties": {
         "runbookType": "PowerShell",
@@ -300,7 +301,7 @@
       "type": "Microsoft.Automation/automationAccounts/runbooks",
       "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('policyRunbookName'))]",
-      "location": "[resourceGroup().location]",
+      "location": "[parameters('location')]",
       "tags": {},
       "properties": {
         "runbookType": "PowerShell",
@@ -324,7 +325,7 @@
       "name": "[format('{0}/{1}/Az.Accounts', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
         "contentLink": {
-          "uri": "https://www.powershellgallery.com/api/v2/package/Az.Accounts/5.3.4"
+          "uri": "https://www.powershellgallery.com/api/v2/package/Az.Accounts/5.5.0"
         }
       },
       "dependsOn": [
@@ -352,7 +353,7 @@
       "name": "[format('{0}/{1}/Microsoft.Graph.Users', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
         "contentLink": {
-          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Users/2.36.1"
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Users/2.38.0"
         }
       },
       "dependsOn": [
@@ -366,7 +367,7 @@
       "name": "[format('{0}/{1}/Microsoft.Graph.Authentication', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
         "contentLink": {
-          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Authentication/2.36.1"
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Authentication/2.38.0"
         }
       },
       "dependsOn": [
@@ -380,7 +381,7 @@
       "name": "[format('{0}/{1}/Microsoft.Graph.Applications', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
         "contentLink": {
-          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Applications/2.36.1"
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Applications/2.38.0"
         }
       },
       "dependsOn": [
@@ -394,7 +395,7 @@
       "name": "[format('{0}/{1}/Microsoft.Graph.Users.Actions', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
         "contentLink": {
-          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Users.Actions/2.36.1"
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Users.Actions/2.38.0"
         }
       },
       "dependsOn": [
@@ -408,7 +409,7 @@
       "name": "[format('{0}/{1}/Microsoft.Graph.DirectoryObjects', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
         "contentLink": {
-          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.DirectoryObjects/2.36.1"
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.DirectoryObjects/2.38.0"
         }
       },
       "dependsOn": [
@@ -422,7 +423,7 @@
       "name": "[format('{0}/{1}/Microsoft.Graph.Identity.DirectoryManagement', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
       "properties": {
         "contentLink": {
-          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Identity.DirectoryManagement/2.36.1"
+          "uri": "https://www.powershellgallery.com/api/v2/package/Microsoft.Graph.Identity.DirectoryManagement/2.38.0"
         }
       },
       "dependsOn": [
@@ -434,7 +435,7 @@
       "type": "Microsoft.Automation/automationAccounts/runtimeEnvironments",
       "apiVersion": "2024-10-23",
       "name": "[format('{0}/{1}', parameters('automationAccountName'), variables('pwshRuntimeName'))]",
-      "location": "[resourceGroup().location]",
+      "location": "[parameters('location')]",
       "properties": {
         "runtime": {
           "language": "PowerShell",
@@ -553,7 +554,7 @@
       "name": "[concat(parameters('automationAccountName'), '/APP_REG_NAME')]",
       "properties": {
         "isEncrypted": true,
-        "value": "[concat('\"', parameters('servicePrincipalCredentialAppReg'), '\"')]",
+        "value": "[parameters('servicePrincipalCredentialAppReg')]",
         "description": "Name of the data ingestion app registration"
       },
       "dependsOn": [
@@ -566,7 +567,7 @@
       "name": "[concat(parameters('automationAccountName'), '/SECRET_API')]",
       "properties": {
         "isEncrypted": true,
-        "value": "[concat('\"', parameters('servicePrincipalCredentialLogicAppUri'), '\"')]",
+        "value": "[parameters('servicePrincipalCredentialLogicAppUri')]",
         "description": "URI for the service principal credential update to Logic App endpoint"
       },
       "dependsOn": [
@@ -579,7 +580,7 @@
       "name": "[concat(parameters('automationAccountName'), '/UMI_ID')]",
       "properties": {
         "isEncrypted": true,
-        "value": "[concat('\"', parameters('userAssignedIdentityClientId'), '\"')]",
+        "value": "[parameters('userAssignedIdentityClientId')]",
         "description": "User managed identity client GUID"
       },
       "dependsOn": [
@@ -592,7 +593,7 @@
       "name": "[concat(parameters('automationAccountName'), '/DATACONNECTOR_API')]",
       "properties": {
         "isEncrypted": true,
-        "value": "[concat('\"', parameters('dataConnectorLogicAppUri'), '\"')]",
+        "value": "[parameters('dataConnectorLogicAppUri')]",
         "description": "Data collector Logic App URI"
       },
       "dependsOn": [
@@ -605,7 +606,7 @@
       "name": "[concat(parameters('automationAccountName'), '/RESOURCE_GROUP_NAME')]",
       "properties": {
         "isEncrypted": true,
-        "value": "[concat('\"', split(variables('sentinelWorkspaceResourceId'), '/')[4], '\"')]",
+        "value": "[split(variables('sentinelWorkspaceResourceIdResolved'), '/')[4]]",
         "description": "Name of the resource group where Sentinel workspace is located"
       },
       "dependsOn": [
@@ -618,7 +619,7 @@
       "name": "[concat(parameters('automationAccountName'), '/SUBSCRIPTION_ID')]",
       "properties": {
         "isEncrypted": true,
-        "value": "[concat('\"', split(variables('sentinelWorkspaceResourceId'), '/')[2], '\"')]",
+        "value": "[split(variables('sentinelWorkspaceResourceIdResolved'), '/')[2]]",
         "description": "Azure subscription ID"
       },
       "dependsOn": [
@@ -631,7 +632,7 @@
       "name": "[concat(parameters('automationAccountName'), '/WORKSPACE_NAME')]",
       "properties": {
         "isEncrypted": true,
-        "value": "[concat('\"', last(split(variables('sentinelWorkspaceResourceId'), '/')), '\"')]",
+        "value": "[last(split(variables('sentinelWorkspaceResourceIdResolved'), '/'))]",
         "description": "Name of the Sentinel Log Analytics workspace"
       },
       "dependsOn": [
@@ -644,7 +645,7 @@
       "name": "[concat(parameters('automationAccountName'), '/PRICINGTIER_API')]",
       "properties": {
         "isEncrypted": true,
-        "value": "[concat('\"', parameters('PricingTierLogicAppUri'), '\"')]",
+        "value": "[parameters('pricingTierLogicAppUri')]",
         "description": "URI for the pricing tier API used for cost estimation of new service principals"
       },
       "dependsOn": [
@@ -657,7 +658,7 @@
       "name": "[concat(parameters('automationAccountName'), '/POLICYMONITORING_API')]",
       "properties": {
         "isEncrypted": true,
-        "value": "[concat('\"', parameters('policyMonitoringLogicAppUri'), '\"')]",
+        "value": "[parameters('policyMonitoringLogicAppUri')]",
         "description": "Logic App URI for Azure Policy inventory monitoring (encrypted)"
       },
       "dependsOn": [

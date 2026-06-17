@@ -29,7 +29,7 @@ The sample code and templates provided in this repository are for demonstration 
 
 This project welcomes contributions and feedback from the community. If you'd like to contribute, please feel free to submit a pull request or open an issue on GitHub. We especially encourage reporting any security concerns or vulnerabilities—please open a security advisory or contact the maintainers directly for sensitive issues. Your input helps improve the security and reliability of this project for everyone.
 
-> **This project is only a partial solution for key rotation and data connctor status collection. Since I did not create the Logic Apps or the Pricing Tier runbook, they are not included.**
+> **This project is only a partial solution for key rotation and data connector status collection. Since I did not develop the Logic Apps or the Pricing Tier runbook, they are not included.**
 
 ## 1. Create SOC subscription in tenant
 
@@ -39,7 +39,7 @@ Follow the steps to create a subscription in the customer tenant.
 
 A user in the customer tenant with the correct permissions can use the following link to onboard:
 
-<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Flighthouse%2Flighthouse-offer1.json/createUIDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Flighthouse%2FcreateUiDefinition.json" target="_blank"><img src="https://aka.ms/deploytoazurebutton"/>
+<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Flighthouse%2Flighthouse-offer1.json/createUIDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Flighthouse%2FcreateUiDefinition.json" target="_blank"><img src="https://aka.ms/deploytoazurebutton"/></a>
 
 ## 3. Customer creates user assigned identity
 
@@ -58,7 +58,6 @@ These tasks can be completed in the Azure Portal using Cloud Shell. Open the Clo
   - Follow the prompts to complete the deployment.
   - You may need to grant your account access to use the Microsoft Graph API.
 
-
 ## 4. MSSP creates Service Principal / App Registration and assigns permissions
 
 The customer should complete the following tasks from their tenant.
@@ -67,7 +66,7 @@ The customer should complete the following tasks from their tenant.
 
 Click the button below to automatically create the service principal using the UMI created earlier.
 
-<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Fidentity%2Fservice-principal%2Fdeployment.json" target="_blank"><img src="https://aka.ms/deploytoazurebutton"/>
+<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Fidentity%2Fservice-principal%2Fdeployment.json" target="_blank"><img src="https://aka.ms/deploytoazurebutton"/></a>
 
 ### Manual process (If the automated process doesn't work)
 
@@ -95,11 +94,11 @@ New-AzADServicePrincipalCredential -ObjectId $sp.Id
 
 ## 5. Azure Automation
 
-This rotates the service principal secrets.
+This is a suite of tools used by the SOC. Like service principal secret rotation, cross tenant search jobs, Azure policy verification, workspace commitment settings, and connector health.
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Fautomation%2FautomationAccount.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Fautomation%2FautomationAccount.json/createUIDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Fautomation%2FcreateUiDefinition.json)
 
-> **IMPORTANT**: After a successful deployment, you must manually set the runbook to use the customized runtime environment.
+> **IMPORTANT**: The automation template supports runtime environment parameters and configures runbooks to reference that runtime at deployment time. For local deployment options (clone + PowerShell or Azure CLI), see [automation/README.md](automation/README.md).
 
 ## 6. Deploy Sentinel using template
 
