@@ -234,7 +234,7 @@
           {
             "name": "pricingTierLogicAppUri",
             "type": "Microsoft.Common.TextBox",
-            "label": "Pricing tier API URI",
+            "label": "Pricing tier Logic App URI",
             "defaultValue": "",
             "toolTip": "HTTP endpoint used by the runbook to retrieve Sentinel pricing tier information.",
             "constraints": {
