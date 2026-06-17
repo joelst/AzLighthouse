@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 
 BeforeAll {
-  $templatePath = Join-Path -Path $PSScriptRoot -ChildPath '..' | Join-Path -ChildPath 'automationAccount.json'
+  $templatePath = Join-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath '..') -ChildPath 'automationAccount.json'
   $templateRaw = Get-Content -Path $templatePath -Raw
   $template = $templateRaw | ConvertFrom-Json -Depth 100
 

@@ -96,7 +96,7 @@ New-AzADServicePrincipalCredential -ObjectId $sp.Id
 
 This is a suite of tools used by the SOC. Like service principal secret rotation, cross tenant search jobs, Azure policy verification, workspace commitment settings, and connector health.
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Fautomation%2FautomationAccount.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Fautomation%2FautomationAccount.json/createUIDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2Fjoelst%2FAzLighthouse%2Fmain%2Fautomation%2FcreateUiDefinition.json)
 
 > **IMPORTANT**: The automation template supports runtime environment parameters and configures runbooks to reference that runtime at deployment time. For local deployment options (clone + PowerShell or Azure CLI), see [automation/README.md](automation/README.md).
 

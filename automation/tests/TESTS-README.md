@@ -5,7 +5,7 @@
 ```powershell
 # All tests (run from automation/ root)
 .\tools\Run-Tests.ps1                    # App registration tests
-.\tests\Run-DataConnectorTests.ps1       # Data connector tests
+.\Tests\Run-DataConnectorTests.ps1       # Data connector tests
 
 # Specific categories
 Invoke-Pester -FullNameFilter '*Lookup Logic*'     # Connector lookup
