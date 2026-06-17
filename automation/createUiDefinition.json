@@ -32,7 +32,16 @@
         "type": "Microsoft.Solutions.ArmApiControl",
         "request": {
           "method": "GET",
-          "path": "[concat(resourceGroup().id, '/providers/Microsoft.ManagedIdentity/userAssignedIdentities?api-version=2018-11-30')]"
+          "path": "[concat(resourceGroup().id, '/providers/Microsoft.ManagedIdentity/userAssignedIdentities?api-version=2023-01-31')]"
+        }
+      },
+      {
+        "name": "umiMissingInfo",
+        "type": "Microsoft.Common.InfoBox",
+        "visible": "[equals(length(basics('umiListApi').value), 0)]",
+        "options": {
+          "icon": "Warning",
+          "text": "No User Assigned Managed Identities were found in the selected resource group. Create one first (for example, SOC-Sentinel-Ingestion-UMI) or switch to a resource group that already contains one."
         }
       },
       {
@@ -42,7 +51,6 @@
         "placeholder": "Select a managed identity",
         "toolTip": "Select an existing User Assigned Managed Identity in the resource group chosen on the Basics tab.",
         "multiselect": false,
-        "defaultValue": "SOC-Sentinel-Ingestion-UMI",
         "constraints": {
           "allowedValues": "[map(basics('umiListApi').value, (item) => createObject('label', item.name, 'value', item.name))]",
           "required": true
@@ -53,7 +61,7 @@
         "type": "Microsoft.Solutions.ArmApiControl",
         "request": {
           "method": "GET",
-          "path": "[concat(resourceGroup().id, '/providers/Microsoft.ManagedIdentity/userAssignedIdentities/', basics('userAssignedIdentityName'), '?api-version=2018-11-30')]"
+          "path": "[concat(resourceGroup().id, '/providers/Microsoft.ManagedIdentity/userAssignedIdentities/', basics('userAssignedIdentityName'), '?api-version=2023-01-31')]"
         }
       }
     ],
