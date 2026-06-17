@@ -16,7 +16,7 @@ Target Azure subscription ID.
 Target resource group name for deployment.
 
 .PARAMETER location
-Azure region for resource group creation when -createResourceGroup is specified.
+Azure region for resource group creation when -createResourceGroup is specified. Optional otherwise.
 
 .PARAMETER templateFile
 Path to automation template file. Defaults to automationAccount.json in this folder.
@@ -56,8 +56,7 @@ param(
   [ValidateNotNullOrEmpty()]
   [string]$resourceGroupName,
 
-  [Parameter(Mandatory = $true)]
-  [ValidateNotNullOrEmpty()]
+  [Parameter()]
   [ValidateSet('eastus', 'eastus2', 'westus2', 'australiacentral', 'brazilsouth', 'southeastasia')]
   [string]$location,
 
@@ -227,6 +226,34 @@ function Assert-RequiredDeploymentInputs {
   if ($runtimeVersion -notin @('7.2', '7.4')) {
     throw "Unsupported runtimeVersion '$runtimeVersion'. Allowed values: 7.2, 7.4"
   }
+
+  $userAssignedIdentityClientId = [string](Resolve-TemplateParameterValue -parameterName 'userAssignedIdentityClientId' -templateJson $templateJson -parameterJson $parameterJson)
+  if ($userAssignedIdentityClientId -ne '<keyvault-reference>') {
+    $guidRegex = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+    if ($userAssignedIdentityClientId -notmatch $guidRegex) {
+      throw "Parameter 'userAssignedIdentityClientId' must be a valid GUID in $parameterFilePath."
+    }
+  }
+
+  $logicAppUriParameters = @(
+    'servicePrincipalCredentialLogicAppUri',
+    'dataConnectorLogicAppUri',
+    'pricingTierLogicAppUri',
+    'policyMonitoringLogicAppUri'
+  )
+
+  foreach ($logicAppUriParameter in $logicAppUriParameters) {
+    $logicAppUriValue = [string](Resolve-TemplateParameterValue -parameterName $logicAppUriParameter -templateJson $templateJson -parameterJson $parameterJson)
+    if ($logicAppUriValue -eq '<keyvault-reference>') {
+      continue
+    }
+
+    $parsedLogicAppUri = $null
+    $isValidUri = [System.Uri]::TryCreate($logicAppUriValue, [System.UriKind]::Absolute, [ref]$parsedLogicAppUri)
+    if (-not $isValidUri -or $parsedLogicAppUri.Scheme -ne 'https') {
+      throw "Parameter '$logicAppUriParameter' must be a valid HTTPS URI in $parameterFilePath."
+    }
+  }
 }
 
 function Set-AzContextForSubscription {
@@ -348,6 +375,10 @@ try {
 
   Assert-RequiredDeploymentInputs -templateJson $templateJson -parameterJson $parameterJson -parameterFilePath $parameterFile
 
+  if ($createResourceGroup -and [string]::IsNullOrWhiteSpace($location)) {
+    throw "Parameter 'location' is required when -createResourceGroup is specified."
+  }
+
   Install-AzModulePrerequisites -moduleNames @('Az.Accounts', 'Az.Resources', 'Az.Automation') -allowInstall:$installMissingModules
   Set-AzContextForSubscription -targetSubscriptionId $subscriptionId
 
@@ -370,7 +401,10 @@ try {
     ResourceGroupName     = $resourceGroupName
     TemplateFile          = $templateFile
     TemplateParameterFile = $parameterFile
-    Verbose               = $true
+  }
+
+  if ($PSBoundParameters.ContainsKey('Verbose')) {
+    $deploymentParameters.Verbose = $true
   }
 
   Write-Verbose "Starting deployment '$deploymentName'."
