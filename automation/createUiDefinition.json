@@ -42,13 +42,9 @@
         "placeholder": "Select a managed identity",
         "toolTip": "Select an existing User Assigned Managed Identity in the resource group chosen on the Basics tab.",
         "multiselect": false,
-        "defaultValue": [
-          {
-            "value": "SOC-Sentinel-Ingestion-UMI"
-          }
-        ],
+        "defaultValue": "SOC-Sentinel-Ingestion-UMI",
         "constraints": {
-          "allowedValues": "[map(basics('umiListApi').value, (item) => parse(concat('{\"label\":\"', item.name, '\",\"value\":\"', item.name, '\"}')))]",
+          "allowedValues": "[map(basics('umiListApi').value, (item) => createObject('label', item.name, 'value', item.name))]",
           "required": true
         }
       },
