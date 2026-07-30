@@ -304,7 +304,8 @@ function Publish-LocalRunbooks {
     @{ NameParameter = 'connectorRunbookName'; FileName = 'Get-DataConnectorStatus.ps1' },
     @{ NameParameter = 'pricingRunbookName'; FileName = 'Get-SentinelPricing.ps1' },
     @{ NameParameter = 'searchJobRunbookName'; FileName = 'Invoke-AzSentinelSearchJob.ps1' },
-    @{ NameParameter = 'policyRunbookName'; FileName = 'Get-AzurePolicies.ps1' }
+    @{ NameParameter = 'policyRunbookName'; FileName = 'Get-AzurePolicies.ps1' },
+    @{ NameParameter = 'cleanupRunbookName'; FileName = 'Start-AppRegistrationCleanup.ps1' }
   )
 
   foreach ($entry in $runbookMap) {
@@ -356,7 +357,8 @@ function Test-DeploymentState {
     'connectorRunbookName',
     'pricingRunbookName',
     'searchJobRunbookName',
-    'policyRunbookName'
+    'policyRunbookName',
+    'cleanupRunbookName'
   )
 
   foreach ($runbookParam in $runbookNameParameters) {

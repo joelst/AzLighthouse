@@ -1,6 +1,3 @@
-Set-StrictMode -Version Latest
-$ErrorActionPreference = 'Stop'
-
 <#
 .SYNOPSIS
     Orchestrates the full MSSP customer onboarding pipeline in ordered sequence.
@@ -15,13 +12,35 @@ param(
     [Parameter(Mandatory)][string]$CustomerConfigPath,
     [Parameter(Mandatory)][string]$ManagedByTenantId,
     [Parameter(Mandatory)][string]$DataConnectorLogicAppUri,
+    [string]$DetectionRulesPath,
     [switch]$WhatIfMode,
     [string[]]$SkipSteps = @(),
     [string]$EvidenceOutputPath = '.\evidence'
 )
 
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
 $config    = Get-Content $CustomerConfigPath -Raw | ConvertFrom-Json
 $shortName = $config.customer.shortName
+$resolvedDetectionRulesPath = $DetectionRulesPath
+if (-not $resolvedDetectionRulesPath -and $config.deployment) {
+    $resolvedDetectionRulesPath = $config.deployment.detectionRulesPath
+}
+if (-not $resolvedDetectionRulesPath -and $config.deployment) {
+    $resolvedDetectionRulesPath = $config.deployment.defenderDetectionRulesPath
+}
+if (-not $resolvedDetectionRulesPath -and $config.deployment) {
+    $resolvedDetectionRulesPath = $config.deployment.customDetectionRulesPath
+}
+if (-not $resolvedDetectionRulesPath) {
+    $resolvedDetectionRulesPath = ''
+}
+
+if ($resolvedDetectionRulesPath -and -not (Test-Path $resolvedDetectionRulesPath)) {
+    Write-Warning "Detection rules path not found: $resolvedDetectionRulesPath. Deploy-DefenderCustomDetections will be skipped."
+    $resolvedDetectionRulesPath = ''
+}
 
 if (-not (Test-Path $EvidenceOutputPath)) { New-Item -ItemType Directory -Path $EvidenceOutputPath -Force | Out-Null }
 
@@ -114,6 +133,24 @@ $pipeline = @(
         LifecycleTransition = 'WaitingForLighthouseAcceptance'
     },
     @{
+        Name       = 'Test-LighthouseDelegation'
+        Script     = Join-Path $scriptDir 'Test-LighthouseDelegation.ps1'
+        Args       = @('-CustomerConfigPath', $CustomerConfigPath, '-ManagedByTenantId', $ManagedByTenantId, '-EvidenceOutputPath', $EvidenceOutputPath)
+        LifecycleTransition = $null
+    },
+    @{
+        Name       = 'Test-TenantGovernanceAccess'
+        Script     = Join-Path $scriptDir 'Test-TenantGovernanceAccess.ps1'
+        Args       = @('-CustomerConfigPath', $CustomerConfigPath, '-EvidenceOutputPath', $EvidenceOutputPath)
+        LifecycleTransition = $null
+    },
+    @{
+        Name       = 'Set-RsocSubscriptionGovernance'
+        Script     = Join-Path $scriptDir 'Set-RsocSubscriptionGovernance.ps1'
+        Args       = @('-CustomerConfigPath', $CustomerConfigPath, '-EvidenceOutputPath', $EvidenceOutputPath)
+        LifecycleTransition = 'WaitingForGovernanceBaseline'
+    },
+    @{
         Name       = 'Apply-RsocGovernanceBaseline'
         Script     = Join-Path $scriptDir 'Apply-RsocGovernanceBaseline.ps1'
         Args       = @('-CustomerConfigPath', $CustomerConfigPath, '-EvidenceOutputPath', $EvidenceOutputPath)
@@ -132,6 +169,12 @@ $pipeline = @(
         LifecycleTransition = $null
     },
     @{
+        Name       = 'Connect-DefenderPortalSentinel'
+        Script     = Join-Path $scriptDir 'Connect-DefenderPortalSentinel.ps1'
+        Args       = @('-CustomerConfigPath', $CustomerConfigPath, '-EvidenceOutputPath', $EvidenceOutputPath)
+        LifecycleTransition = $null
+    },
+    @{
         Name       = 'Enable-DataConnectors'
         Script     = Join-Path $scriptDir 'Enable-DataConnectors.ps1'
         Args       = @('-CustomerConfigPath', $CustomerConfigPath, '-LogicAppUri', $DataConnectorLogicAppUri, '-EvidenceOutputPath', $EvidenceOutputPath)
@@ -144,6 +187,12 @@ $pipeline = @(
         LifecycleTransition = 'ValidatingDeployment'
     },
     @{
+        Name       = 'Deploy-DefenderCustomDetections'
+        Script     = Join-Path $scriptDir 'Deploy-DefenderCustomDetections.ps1'
+        Args       = @('-CustomerConfigPath', $CustomerConfigPath, '-DetectionRulesPath', $resolvedDetectionRulesPath, '-EvidenceOutputPath', $EvidenceOutputPath)
+        LifecycleTransition = $null
+    },
+    @{
         Name       = 'Send-CustomerInstructionPacket'
         Script     = Join-Path $scriptDir 'Send-CustomerInstructionPacket.ps1'
         Args       = @('-CustomerConfigPath', $CustomerConfigPath, '-EvidenceOutputPath', $EvidenceOutputPath)
@@ -154,6 +203,12 @@ $pipeline = @(
         Script     = Join-Path $scriptDir 'Test-EndToEndDeployment.ps1'
         Args       = @('-CustomerConfigPath', $CustomerConfigPath, '-ManagedByTenantId', $ManagedByTenantId, '-EvidenceOutputPath', $EvidenceOutputPath)
         LifecycleTransition = 'CustomerValidation'
+    },
+    @{
+        Name       = 'Export-MsspEvidencePackage'
+        Script     = Join-Path $scriptDir 'Export-MsspEvidencePackage.ps1'
+        Args       = @('-CustomerConfigPath', $CustomerConfigPath, '-EvidenceDir', $EvidenceOutputPath, '-EvidenceOutputPath', $EvidenceOutputPath)
+        LifecycleTransition = $null
     }
 )
 
@@ -222,6 +277,17 @@ foreach ($step in $pipeline) {
         $result.notes  = $msg
         $pipelineResults.Add($result)
         $anyFailed = $true
+        continue
+    }
+
+    if ($stepName -eq 'Deploy-DefenderCustomDetections' -and [string]::IsNullOrWhiteSpace($resolvedDetectionRulesPath)) {
+        $msg = 'No detection rules path configured; skipping custom detections until a rules folder is provided.'
+        Write-Host ("  [SKIP-CONDITIONAL] {0,-36} {1}" -f $stepName, $msg) -ForegroundColor Yellow
+        Set-StepState -State $state -StepName $stepName -Status 'manual-required' -Notes $msg
+        $result.status = 'skipped'
+        $result.skipped = $true
+        $result.notes  = $msg
+        $pipelineResults.Add($result)
         continue
     }
 

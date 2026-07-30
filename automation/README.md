@@ -208,6 +208,7 @@ Use raw GitHub URLs (or any HTTPS location reachable by Azure Automation) in the
 3. `pricingRunbookContentUri`
 4. `searchJobRunbookContentUri`
 5. `policyRunbookContentUri`
+6. `cleanupRunbookContentUri`
 
 ### Option B: Upload runbooks from local files after template deployment
 
