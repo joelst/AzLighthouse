@@ -7,6 +7,8 @@ $ErrorActionPreference = 'Stop'
 param(
     [Parameter(Mandatory)][string]$CustomerConfigPath,
     [Parameter(Mandatory)][string]$ManagedByTenantId,
+    # Expected local path to the mssp-management repo clone. Defaults to a sibling of AzLighthouse.
+    [string]$MsspManagementRepoPath,
     [switch]$WhatIfMode,
     [string]$EvidenceOutputPath = ".\evidence"
 )
@@ -130,6 +132,27 @@ if ($subAccessible) {
         Add-Check -Name "Resource provider: $provider" -Passed $false `
             -Detail "Skipped - subscription not accessible"
     }
+}
+
+ Local repo checks (mssp-management is private; must be cloned locally) # 
+if (-not $MsspManagementRepoPath) {
+    $MsspManagementRepoPath = Join-Path $PSScriptRoot '..\..\mssp-management'
+}
+try { $MsspManagementRepoPath = (Resolve-Path $MsspManagementRepoPath -ErrorAction Stop).Path } catch {}
+
+$repoExists = Test-Path $MsspManagementRepoPath
+Add-Check -Name "mssp-management repo cloned: $MsspManagementRepoPath" -Passed $repoExists `
+    -Detail $(if (-not $repoExists) { "Clone with: git clone git@github.com:joelst/mssp-management.git" } else { "" })
+
+$requiredRepoFiles = @(
+    'tmna-mssp\lighthouse-offer.json',
+    'tmna-mssp\createUiDefinition.json'
+)
+foreach ($rel in $requiredRepoFiles) {
+    $full = Join-Path $MsspManagementRepoPath $rel
+    $exists = Test-Path $full
+    Add-Check -Name "Required repo file exists: $rel" -Passed $exists `
+        -Detail $(if (-not $exists) { "Expected at: $full" } else { "" })
 }
 
  Evidence # 

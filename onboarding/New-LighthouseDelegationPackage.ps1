@@ -15,6 +15,9 @@ param(
     [Parameter(Mandatory)][string]$ManagedByTenantId,
     [string]$CustomerSubscriptionId,
     [string]$Location = 'eastus',
+    # Local path to the Lighthouse ARM template. Defaults to ../../../mssp-management/tmna-mssp/lighthouse-offer.json
+    # relative to this script (assumes AzLighthouse and mssp-management repos are cloned as siblings).
+    [string]$LighthouseTemplatePath,
     [switch]$WhatIfMode,
     [string]$EvidenceOutputPath = '.\evidence'
 )
@@ -109,7 +112,14 @@ Write-Status "  No existing delegation  proceeding." -Color Greenfound
 
  Deploy Lighthouse ARM Template # 
 
-$templateUri = 'https://raw.githubusercontent.com/joelst/mssp-management/main/tmna-mssp/lighthouse-offer.json'
+# mssp-management is a private repo — deploy from local clone, not a raw GitHub URL.
+if (-not $LighthouseTemplatePath) {
+    $LighthouseTemplatePath = Join-Path $PSScriptRoot '..\..\mssp-management\tmna-mssp\lighthouse-offer.json'
+}
+$LighthouseTemplatePath = (Resolve-Path $LighthouseTemplatePath -ErrorAction Stop).Path
+if (-not (Test-Path $LighthouseTemplatePath)) {
+    throw "Lighthouse ARM template not found at '$LighthouseTemplatePath'. Clone joelst/mssp-management as a sibling of AzLighthouse and re-run."
+}
 $deploymentName = "lighthouse-$customerShortName-$(Get-Date -Format 'yyyyMMddHHmm')"
 
 $armParams = @{
@@ -127,7 +137,7 @@ if ($WhatIfMode) {
 }
 
 Write-Status "Deploying Lighthouse ARM template..."
-Write-Status "  Template URI : $templateUri"
+Write-Status "  Template file: $LighthouseTemplatePath"
 Write-Status "  Deployment   : $deploymentName"
 Write-Status "  Subscription : $subscriptionId"
 
@@ -135,7 +145,7 @@ try {
     $deployment = New-AzSubscriptionDeployment `
         -Name            $deploymentName `
         -Location        $Location `
-        -TemplateUri     $templateUri `
+        -TemplateFile    $LighthouseTemplatePath `
         -TemplateParameterObject $armParams `
         -SubscriptionId  $subscriptionId `
         -ErrorAction     Stop

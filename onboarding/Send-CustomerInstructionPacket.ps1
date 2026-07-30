@@ -43,8 +43,10 @@ $customerName       = $config.customer.displayName
 $subscriptionId     = $config.deployment.subscriptionId
 $dataSources        = $config.dataSources ?? @()
 
-$lighthouseArmUrl   = 'https://raw.githubusercontent.com/joelst/mssp-management/main/tmna-mssp/lighthouse-offer.json'
-$lighthouseUiUrl    = 'https://raw.githubusercontent.com/joelst/mssp-management/main/tmna-mssp/createUiDefinition.json'
+# Customer-facing Lighthouse deploy artifacts are hosted in the public jp-lighthouse repo.
+# mssp-management is private; raw URLs from it would return 403 for unauthenticated callers.
+$lighthouseArmUrl   = 'https://raw.githubusercontent.com/joelst/jp-lighthouse/main/tmna-mssp/lighthouse-offer.json'
+$lighthouseUiUrl    = 'https://raw.githubusercontent.com/joelst/jp-lighthouse/main/tmna-mssp/createUiDefinition.json'
 $umiScriptUrl       = 'https://raw.githubusercontent.com/joelst/AzLighthouse/main/identity/umi/deploy-umi.ps1'
 
 # Deploy-to-Azure portal button URL

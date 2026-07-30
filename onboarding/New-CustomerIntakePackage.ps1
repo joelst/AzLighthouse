@@ -144,8 +144,9 @@ $intakeConfig = [ordered]@{
     dataSources = @()
 
     lighthouseUrls = [ordered]@{
-        armTemplate    = 'https://raw.githubusercontent.com/joelst/mssp-management/main/tmna-mssp/lighthouse-offer.json'
-        uiDefinition   = 'https://raw.githubusercontent.com/joelst/mssp-management/main/tmna-mssp/createUiDefinition.json'
+        # Customer-facing artifacts live in the public jp-lighthouse repo (mssp-management is private).
+        armTemplate    = 'https://raw.githubusercontent.com/joelst/jp-lighthouse/main/tmna-mssp/lighthouse-offer.json'
+        uiDefinition   = 'https://raw.githubusercontent.com/joelst/jp-lighthouse/main/tmna-mssp/createUiDefinition.json'
         umiDeployScript = 'https://raw.githubusercontent.com/joelst/AzLighthouse/main/identity/umi/deploy-umi.ps1'
     }
 
