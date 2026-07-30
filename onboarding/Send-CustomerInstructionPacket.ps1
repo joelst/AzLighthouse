@@ -43,8 +43,8 @@ $customerName       = $config.customer.displayName
 $subscriptionId     = $config.deployment.subscriptionId
 $dataSources        = $config.dataSources ?? @()
 
-$lighthouseArmUrl   = 'https://raw.githubusercontent.com/joelst/AzLighthouse/main/lighthouse/lighthouse-offer1.json'
-$lighthouseUiUrl    = 'https://raw.githubusercontent.com/joelst/AzLighthouse/main/lighthouse/createUiDefinition.json'
+$lighthouseArmUrl   = 'https://raw.githubusercontent.com/joelst/AzLighthouse/main/lighthouse/tmna-mssp/lighthouse-offer.json'
+$lighthouseUiUrl    = 'https://raw.githubusercontent.com/joelst/AzLighthouse/main/lighthouse/tmna-mssp/createUiDefinition.json'
 $umiScriptUrl       = 'https://raw.githubusercontent.com/joelst/AzLighthouse/main/identity/umi/deploy-umi.ps1'
 
 # Deploy-to-Azure portal button URL
