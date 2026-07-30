@@ -144,8 +144,8 @@ $intakeConfig = [ordered]@{
     dataSources = @()
 
     lighthouseUrls = [ordered]@{
-        armTemplate    = 'https://raw.githubusercontent.com/joelst/AzLighthouse/main/lighthouse/tmna-mssp/lighthouse-offer.json'
-        uiDefinition   = 'https://raw.githubusercontent.com/joelst/AzLighthouse/main/lighthouse/tmna-mssp/createUiDefinition.json'
+        armTemplate    = 'https://raw.githubusercontent.com/joelst/lighthouse/main/tmna-mssp/lighthouse-offer.json'
+        uiDefinition   = 'https://raw.githubusercontent.com/joelst/lighthouse/main/tmna-mssp/createUiDefinition.json'
         umiDeployScript = 'https://raw.githubusercontent.com/joelst/AzLighthouse/main/identity/umi/deploy-umi.ps1'
     }
 

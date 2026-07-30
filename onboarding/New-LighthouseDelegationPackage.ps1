@@ -109,7 +109,7 @@ Write-Status "  No existing delegation  proceeding." -Color Greenfound
 
  Deploy Lighthouse ARM Template # 
 
-$templateUri = 'https://raw.githubusercontent.com/joelst/AzLighthouse/main/lighthouse/tmna-mssp/lighthouse-offer.json'
+$templateUri = 'https://raw.githubusercontent.com/joelst/lighthouse/main/tmna-mssp/lighthouse-offer.json'
 $deploymentName = "lighthouse-$customerShortName-$(Get-Date -Format 'yyyyMMddHHmm')"
 
 $armParams = @{
