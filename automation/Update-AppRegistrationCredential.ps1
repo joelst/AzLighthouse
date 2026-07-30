@@ -107,8 +107,8 @@ param (
       throw "$ParameterName must be a valid absolute URI (http/https)."
     }
 
-    if (-not $uri.IsAbsoluteUri -or ($uri.Scheme -ne 'http' -and $uri.Scheme -ne 'https')) {
-      throw "$ParameterName must be an absolute http or https URI."
+    if (-not $uri.IsAbsoluteUri -or $uri.Scheme -ne 'https') {
+      throw "$ParameterName must be an https URI."
     }
   }
 
@@ -329,13 +329,16 @@ function New-SecretNotification {
       $null = Invoke-RestMethod -Uri $URI -Method Post -Body $jsonBody -ContentType 'application/json'
       Write-Output "Secret for $ApplicationId was successfully submitted to MSSP."
     }
+    # Return $true whether the POST succeeded or was skipped (-WhatIf).
+    # $false is only returned from the catch block on a real delivery failure.
+    return $true
   }
   catch {
-    Write-Error "Failed to post to $URI"
+    $safeHost = try { ([Uri]$URI).Host } catch { 'unknown' }
+    Write-Error "Failed to post to $safeHost (URI redacted to protect SAS credential)"
     Write-Error "Secret for $ApplicationId was not successfully submitted to MSSP. $($_.Exception.Message)"
+    return $false
   }
-
-  return $true
 }
 
 function New-AppRegCredential {
@@ -397,6 +400,7 @@ function New-AppRegCredential {
   catch {
     Write-Error "Failed to create a new secret for application $($AppDisplayName)."
     Write-Error $_.Exception.Message
+    $script:SummaryStats.SecretsFailedToCreate++
     return $false  # Return a failure status
   }
 
@@ -418,16 +422,22 @@ function New-AppRegCredential {
       TenantId        = $env:TENANT_ID
       TenantName      = $env:TENANT_NAME
     }
-    $null = New-SecretNotification @secretNotificationParams
-    $Script:ValidAppRegExists = $true
-    $script:SummaryStats.SecretsCreated++
-    # Track new credential app for summary
-    [void]$script:NewCredentialApps.Add([pscustomobject]@{
-        DisplayName      = $AppDisplayName
-        ApplicationId    = $ApplicationId
-        AppId            = $AppId
-        NewSecretEndDate = $secret.EndDateTime
-      })
+    [bool]$notified = @(New-SecretNotification @secretNotificationParams)[-1]
+    if ($notified) {
+      $Script:ValidAppRegExists = $true
+      $script:SummaryStats.SecretsCreated++
+      # Track new credential app for summary
+      [void]$script:NewCredentialApps.Add([pscustomobject]@{
+          DisplayName      = $AppDisplayName
+          ApplicationId    = $ApplicationId
+          AppId            = $AppId
+          NewSecretEndDate = $secret.EndDateTime
+        })
+    }
+    else {
+      Write-Warning "Credential created (KeyId: $($secret.KeyId)) for '$AppDisplayName' ($ApplicationId) but MSSP notification failed. The credential exists in Azure but the MSSP has no record of it. Manual follow-up required."
+      $script:SummaryStats.SecretsFailedToCreate++
+    }
   }
   else {
     # If a new credential was needed, but it was not created.
@@ -674,6 +684,13 @@ if ($apps.Count -ne 0 -and $CreateNewAppReg -eq $false) {
         # We have a working cred so no matter what don't create one.
         $validCredentialExists = $true
         $validAppRegExists = $true
+
+        # Warn if this valid credential was not created by this process.
+        # Skip null/empty DisplayName — bootstrap credentials from New-AzADServicePrincipal have none.
+        if (-not [string]::IsNullOrWhiteSpace($cred.DisplayName) -and
+            $cred.DisplayName -notlike 'Created by MSSP RSOC Automation*') {
+          Write-Warning "   Credential '$($cred.DisplayName)' (KeyId: $($cred.KeyId)) on '$($app.DisplayName)' was not created by this process. Review and remove manually if it is no longer needed."
+        }
       }
     }
 
@@ -740,7 +757,7 @@ if ($createNewAppReg -eq $true) {
   # Create a new service principal with the name $AppRegName
   $subscriptionId = (Get-AzContext).Subscription.Id
   $scope = "/subscriptions/$($subscriptionId)"
-  Write-Output "Creating a new service principal $AppRegName with Owner role on subscription $subscriptionId"
+  Write-Output "Creating a new service principal $AppRegName with Monitoring Metrics Publisher role on subscription $subscriptionId"
     # Resolve the OBJECT (directory) Id for the managed identity (we were passed the client/application Id)
     try {
       $umiSp = Get-AzADServicePrincipal -ApplicationId $UMIId -ErrorAction Stop
@@ -874,25 +891,31 @@ if ($createNewAppReg -eq $true) {
     TenantDomain    = $env:TENANT_DOMAIN
   }
 
-  $null = New-SecretNotification @secretNotificationParams
-  $validCredentialExists = $true
-  $validAppRegExists = $true
+  [bool]$notified = @(New-SecretNotification @secretNotificationParams)[-1]
   $script:SummaryStats.ApplicationsCreated++
-  $script:SummaryStats.SecretsCreated++
-  # Track new app + credential
-  [void]$script:NewCredentialApps.Add([pscustomobject]@{
-      DisplayName      = $app.DisplayName
-      ApplicationId    = $app.Id
-      AppId            = $app.AppId
-      NewSecretEndDate = $appCred.EndDateTime
-    })
-  # Also treat as valid app
-  [void]$script:ValidApps.Add([pscustomobject]@{
-      DisplayName        = $app.DisplayName
-      ApplicationId      = $app.Id
-      AppId              = $app.AppId
-      MaxValidEndDateUtc = $appCred.EndDateTime
-    })
+  if ($notified) {
+    $validCredentialExists = $true
+    $validAppRegExists = $true
+    $script:SummaryStats.SecretsCreated++
+    # Track new app + credential
+    [void]$script:NewCredentialApps.Add([pscustomobject]@{
+        DisplayName      = $app.DisplayName
+        ApplicationId    = $app.Id
+        AppId            = $app.AppId
+        NewSecretEndDate = $appCred.EndDateTime
+      })
+    # Also treat as valid app
+    [void]$script:ValidApps.Add([pscustomobject]@{
+        DisplayName        = $app.DisplayName
+        ApplicationId      = $app.Id
+        AppId              = $app.AppId
+        MaxValidEndDateUtc = $appCred.EndDateTime
+      })
+  }
+  else {
+    Write-Warning "New app registration '$($app.DisplayName)' ($($app.Id)) and credential (KeyId: $($appCred.KeyId)) were created in Azure but MSSP notification failed. The credential exists but the MSSP has no record of it. Manual follow-up required."
+    $script:SummaryStats.SecretsFailedToCreate++
+  }
 }
 
 # If there are no valid credentials after all this then we need to raise an issue
@@ -926,7 +949,7 @@ if ($validAppRegExists -eq $false) {
   }
 
   $null = New-SecretNotification @newSecretNotificationParams
-  $validAppRegExists = $true
+  # Do NOT set $validAppRegExists = $true here; the job must exit nonzero.
 }
 
 # ============================
@@ -993,3 +1016,21 @@ Write-AppGroupSummary -Title 'Applications where new credentials created this ru
 Write-AppGroupSummary -Title 'Applications With At Least One Valid Credential (post-run)' -Items ($script:ValidApps | Sort-Object AppId) -SelectProps DisplayName,AppId,ApplicationId,MaxValidEndDateUtc
 
 Write-Output '=================================================================='
+
+# Fail the job if no valid credential exists, or if any credential was created but not delivered,
+# or if any app was left with unresolved expired credentials. Use throw (not exit 1) for
+# compatibility with both PowerShell 5.1 and 7.x Azure Automation runtimes.
+$failureReasons = @()
+if (-not $validAppRegExists) {
+  $failureReasons += 'No valid app registration credential exists in this tenant.'
+}
+if ($script:SummaryStats.SecretsFailedToCreate -gt 0) {
+  $failureReasons += "$($script:SummaryStats.SecretsFailedToCreate) credential(s) created in Azure but not delivered to MSSP."
+}
+if ($script:ExpiredUnresolvedApps.Count -gt 0) {
+  $failureReasons += "$($script:ExpiredUnresolvedApps.Count) app(s) left with no valid credential after rotation attempt."
+}
+
+if ($failureReasons.Count -gt 0) {
+  throw "Runbook completed with errors: $($failureReasons -join ' | ')"
+}

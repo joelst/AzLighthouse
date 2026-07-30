@@ -98,8 +98,8 @@ Describe 'New-SecretNotification Function Tests' {
       Mock Invoke-RestMethod { throw 'API Error' }
       Mock Write-Error { }
 
-      $result = New-SecretNotification -URI 'https://test.com' -ApplicationId 'test-app' -WhatIf
-      $result | Should -Be $true
+      $result = New-SecretNotification -URI 'https://test.com' -ApplicationId 'test-app'
+      $result | Should -Be $false
       Should -Invoke Write-Error -Times 2
     }
   }
@@ -118,6 +118,7 @@ Describe 'New-AppRegCredential Function Tests' {
       SecretsFailedToCreate = 0
     }
     $script:ValidAppRegExists = $false
+    $script:NewCredentialApps = New-Object System.Collections.ArrayList
   }
 
   Context 'Successful Credential Creation' {
@@ -133,7 +134,7 @@ Describe 'New-AppRegCredential Function Tests' {
       }
       Mock New-SecretNotification { return $true }
 
-      New-AppRegCredential -ApplicationId 'test-app-id' -SecretLAUri 'https://test.com' -AppId 'test-app' -AppDisplayName 'Test App' -WhatIf
+      New-AppRegCredential -ApplicationId 'test-app-id' -SecretLAUri 'https://test.com' -AppId 'test-app' -AppDisplayName 'Test App'
 
       $script:SummaryStats.SecretsCreated | Should -Be 1
       $script:ValidAppRegExists | Should -Be $true
@@ -145,7 +146,7 @@ Describe 'New-AppRegCredential Function Tests' {
       Mock Add-MgApplicationPassword { throw 'Permission denied' }
       Mock Write-Error { }
 
-      $result = New-AppRegCredential -ApplicationId 'test-app-id' -SecretLAUri 'https://test.com' -AppDisplayName 'Test App' -WhatIf
+      $result = New-AppRegCredential -ApplicationId 'test-app-id' -SecretLAUri 'https://test.com' -AppDisplayName 'Test App'
 
       $result | Should -Be $false
       $script:SummaryStats.SecretsFailedToCreate | Should -Be 1
@@ -291,11 +292,15 @@ Describe 'Parameter Guard Functions' {
     }
 
     It 'Rejects relative URI' {
-      { Assert-ValidUri -Value '/relative/path' -ParameterName 'TestUri' } | Should -Throw 'TestUri must be a valid absolute URI*'
+      { Assert-ValidUri -Value 'relative/path' -ParameterName 'TestUri' } | Should -Throw 'TestUri must be a valid absolute URI*'
     }
 
     It 'Rejects non-http scheme' {
-      { Assert-ValidUri -Value 'ftp://contoso.com' -ParameterName 'TestUri' } | Should -Throw 'TestUri must be an absolute http or https URI.'
+      { Assert-ValidUri -Value 'ftp://contoso.com' -ParameterName 'TestUri' } | Should -Throw 'TestUri must be an https URI.'
+    }
+
+    It 'Rejects http URI' {
+      { Assert-ValidUri -Value 'http://contoso.com' -ParameterName 'TestUri' } | Should -Throw 'TestUri must be an https URI.'
     }
   }
 
