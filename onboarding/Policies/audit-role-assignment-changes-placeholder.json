@@ -1,0 +1,6 @@
+{
+  "displayName": "Audit role assignment changes in RSOC Sentinel subscription",
+  "mode": "All",
+  "effect": "AuditIfNotExists",
+  "note": "Placeholder for monitoring RBAC drift and elevated customer group membership changes."
+}

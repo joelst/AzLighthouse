@@ -1,0 +1,12 @@
+{
+  "displayName": "TMNA RSOC Sentinel Subscription Governance Baseline",
+  "description": "Placeholder initiative for allowed regions, diagnostics, tags, approved resource types, role assignment monitoring, and RSOC-managed resource protection.",
+  "policies": [
+    "Allowed locations",
+    "Require diagnostic settings",
+    "Require tags",
+    "Allowed resource types",
+    "Audit role assignments",
+    "Audit policy changes"
+  ]
+}

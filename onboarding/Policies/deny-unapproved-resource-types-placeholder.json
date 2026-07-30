@@ -1,0 +1,6 @@
+{
+  "displayName": "Deny unapproved resource types in RSOC Sentinel subscription",
+  "mode": "All",
+  "effect": "Deny",
+  "note": "Placeholder. Replace with approved Microsoft.Authorization/policyDefinitions structure."
+}

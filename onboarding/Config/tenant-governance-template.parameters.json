@@ -1,0 +1,14 @@
+{
+  "governingTenant": "TMNA RSOC",
+  "relationshipType": "delegatedAdministration",
+  "oneTimeSetup": [
+    "Create governance policy template",
+    "Enable governance invitations"
+  ],
+  "perCustomerHandshake": [
+    "Governed tenant sends invitation",
+    "Governing tenant sends request",
+    "Governed tenant accepts request"
+  ],
+  "roleAssignableGroups": []
+}

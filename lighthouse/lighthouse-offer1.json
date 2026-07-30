@@ -4,11 +4,19 @@
     "parameters": {
         "managedByTenantId": {
             "type": "string"
+        },
+        "mspOfferName": {
+            "type": "string",
+            "defaultValue": "MSSP SOC Services"
+        },
+        "managedByTenantName": {
+            "type": "string",
+            "defaultValue": "MSSP SOC Services"
         }
     },
     "variables": {
-        "mspOfferName": "MSSP SOC Services",
-        "mspOfferDescription": "MSSP SOC management services",
+        "mspOfferName": "[parameters('mspOfferName')]",
+        "mspOfferDescription": "[concat(parameters('managedByTenantName'), ' - MSSP SOC management services')]",
         "mspRegistrationName": "[guid(variables('mspOfferName'))]",
         "mspAssignmentName": "[guid(variables('mspOfferName'))]",
         "level2GroupPrincipalIdDisplayName": "MSSP-SOC-Engineers",

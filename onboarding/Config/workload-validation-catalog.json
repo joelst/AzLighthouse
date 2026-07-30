@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schemaVersion": "1.0",
+  "description": "Operational validation catalog for customer-intake.schema.json workloads. The intake schema validates allowed names; this catalog defines how each workload is validated before deployment/service entry.",
+  "workloads": {
+    "Sentinel": {
+      "requiredLicensingOrService": [
+        "Microsoft Sentinel enabled on the RSOC-created Log Analytics workspace"
+      ],
+      "requiredAccess": [
+        "Azure Lighthouse delegated roles or RSOC onboarding account bootstrap owner",
+        "Microsoft Sentinel Contributor for deployment automation",
+        "Log Analytics Contributor where table/workspace configuration is required"
+      ],
+      "customerApprover": "serviceEntry",
+      "deploymentModules": [
+        "Deploy-SentinelWorkspace.ps1",
+        "Deploy-SentinelContent.ps1",
+        "Test-EndToEndDeployment.ps1"
+      ],
+      "validationSignals": [
+        "Workspace exists",
+        "Microsoft.SecurityInsights/onboardingStates/default exists",
+        "Sentinel portal/Defender portal can see workspace",
+        "SecurityIncident query succeeds"
+      ],
+      "commonBlockers": [
+        "Lighthouse not accepted",
+        "Resource providers not registered",
+        "Policy denies required resources",
+        "Workspace region/naming not approved"
+      ]
+    },
+    "DefenderXDR": {
+      "requiredLicensingOrService": [
+        "Microsoft Defender XDR prerequisites met for the customer tenant"
+      ],
+      "requiredAccess": [
+        "Tenant Governance relationship active or other approved access path",
+        "Security Administrator or scoped Defender role as required"
+      ],
+      "customerApprover": "tenantGovernance",
+      "deploymentModules": [
+        "Connect-DefenderPortalSentinel.ps1",
+        "Deploy-DefenderCustomDetections.ps1",
+        "Test-TenantGovernanceAccess.ps1"
+      ],
+      "validationSignals": [
+        "Customer tenant visible in Defender portal/MTO for approved personas",
+        "Advanced hunting access validated",
+        "Incidents/alerts visible according to role"
+      ],
+      "commonBlockers": [
+        "Tenant Governance preview role mismatch",
+        "Missing Defender license",
+        "Customer Conditional Access blocks external/governing access",
+        "MTO tenant not added or not visible"
+      ]
+    },
+    "MDE": {
+      "requiredLicensingOrService": [
+        "Microsoft Defender for Endpoint Plan 2 or approved equivalent"
+      ],
+      "requiredAccess": [
+        "Defender portal role or MDE RBAC role for endpoint visibility/configuration",
+        "Endpoint deployment owner for onboarding package if customer controls device management"
+      ],
+      "customerApprover": "endpointDeployment",
+      "deploymentModules": [
+        "Deploy-DefenderCustomDetections.ps1",
+        "Enable-DataConnectors.ps1",
+        "Test-EndToEndDeployment.ps1"
+      ],
+      "validationSignals": [
+        "Device inventory visible",
+        "Device tables or Defender XDR signals available",
+        "Endpoint onboarding status validated"
+      ],
+      "commonBlockers": [
+        "Customer controls Intune/GPO/SCCM and has not deployed onboarding package",
+        "MDE RBAC/device group scope excludes RSOC",
+        "License not assigned"
+      ]
+    },
+    "MDO": {
+      "requiredLicensingOrService": [
+        "Defender for Office 365 Plan 2 / Microsoft 365 E5 or approved equivalent"
+      ],
+      "requiredAccess": [
+        "Defender Email & collaboration permissions or Defender unified RBAC",
+        "Exchange-related permissions where policy/quarantine actions are needed"
+      ],
+      "customerApprover": "connectorConsent",
+      "deploymentModules": [
+        "Enable-DataConnectors.ps1",
+        "Deploy-DefenderCustomDetections.ps1",
+        "Test-EndToEndDeployment.ps1"
+      ],
+      "validationSignals": [
+        "Email/collaboration alerts visible",
+        "Threat Explorer/advanced hunting access validated where in scope",
+        "Quarantine/release policy boundaries documented"
+      ],
+      "commonBlockers": [
+        "B2B/Exchange RBAC limitations",
+        "Unified RBAC not configured",
+        "Missing Exchange or Defender role"
+      ]
+    },
+    "MDI": {
+      "requiredLicensingOrService": [
+        "Microsoft Defender for Identity licensed and enabled"
+      ],
+      "requiredAccess": [
+        "Defender for Identity role access",
+        "Customer domain controller deployment owner"
+      ],
+      "customerApprover": "domainControllerDeployment",
+      "deploymentModules": [
+        "Enable-DataConnectors.ps1",
+        "Test-EndToEndDeployment.ps1"
+      ],
+      "validationSignals": [
+        "MDI sensor health visible",
+        "Identity alerts/signals visible in Defender/Sentinel path"
+      ],
+      "commonBlockers": [
+        "Domain controller sensor deployment requires customer maintenance window",
+        "AD DS permissions or gMSA not ready",
+        "Network connectivity to MDI service blocked"
+      ]
+    },
+    "EntraIDProtection": {
+      "requiredLicensingOrService": [
+        "Microsoft Entra ID P2"
+      ],
+      "requiredAccess": [
+        "Security Reader/Operator/Admin or equivalent scoped access",
+        "Customer-approved risky user/sign-in response policy"
+      ],
+      "customerApprover": "tenantGovernance",
+      "deploymentModules": [
+        "Enable-DataConnectors.ps1",
+        "Deploy-SentinelContent.ps1",
+        "Test-EndToEndDeployment.ps1"
+      ],
+      "validationSignals": [
+        "Risky users/sign-ins visible to approved personas",
+        "Identity Protection-related detections and workbooks validate"
+      ],
+      "commonBlockers": [
+        "Missing Entra ID P2",
+        "Conditional Access policy changes require customer approval",
+        "Role does not permit required response action"
+      ]
+    },
+    "DefenderForCloud": {
+      "requiredLicensingOrService": [
+        "Defender for Cloud plans enabled for in-scope subscriptions"
+      ],
+      "requiredAccess": [
+        "Azure RBAC through Lighthouse or customer-approved scope",
+        "Defender for Cloud permissions for posture/security recommendations"
+      ],
+      "customerApprover": "connectorConsent",
+      "deploymentModules": [
+        "Enable-DataConnectors.ps1",
+        "Deploy-SentinelContent.ps1"
+      ],
+      "validationSignals": [
+        "Defender for Cloud connector status validated",
+        "Security recommendations/incidents visible where expected"
+      ],
+      "commonBlockers": [
+        "Defender for Cloud plan not enabled",
+        "Tenant-based vs subscription-based connector duplication risk",
+        "Azure RBAC scope incomplete"
+      ]
+    },
+    "ThreatIntelligence": {
+      "requiredLicensingOrService": [
+        "Approved threat intelligence source or TAXII endpoint"
+      ],
+      "requiredAccess": [
+        "Sentinel Contributor for TI connector/content deployment",
+        "Customer approval for customer-specific intelligence sources"
+      ],
+      "customerApprover": "connectorConsent",
+      "deploymentModules": [
+        "Enable-DataConnectors.ps1",
+        "Deploy-SentinelContent.ps1"
+      ],
+      "validationSignals": [
+        "ThreatIntelligenceIndicator table or Defender threat intelligence source populated",
+        "TI matching analytics enabled and tested",
+        "TI workbook renders"
+      ],
+      "commonBlockers": [
+        "TAXII credentials/source not available",
+        "Indicator ownership/lifecycle not defined",
+        "Customer-specific vs RSOC-global TI split not approved"
+      ]
+    },
+    "ThirdPartyDataSources": {
+      "requiredLicensingOrService": [
+        "Approved third-party source and ingestion path"
+      ],
+      "requiredAccess": [
+        "Connector-specific credentials or customer network/appliance owner",
+        "Azure permissions for AMA/DCR/Syslog/CEF/API resources where applicable"
+      ],
+      "customerApprover": "connectorConsent",
+      "deploymentModules": [
+        "Enable-DataConnectors.ps1",
+        "Deploy-SentinelContent.ps1",
+        "Test-EndToEndDeployment.ps1"
+      ],
+      "validationSignals": [
+        "Expected table receives data",
+        "Parser/normalization validation succeeds",
+        "Detection dependencies satisfied"
+      ],
+      "commonBlockers": [
+        "Network path not ready",
+        "Credentials not approved",
+        "Parser/schema mismatch",
+        "Cost/volume not approved"
+      ]
+    }
+  }
+}

@@ -1,0 +1,467 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tmna.example/schema/rsoc/customer-intake.schema.json",
+  "title": "TMNA RSOC Customer Intake",
+  "description": "Validation contract for a new-customer TMNA RSOC Sentinel and Defender onboarding package.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "customer",
+    "deployment",
+    "billing",
+    "rsocOnboardingAccount",
+    "approvers",
+    "workloads",
+    "tenantGovernance",
+    "notifications"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "customer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shortName",
+        "displayName",
+        "tenantId",
+        "primaryDomain"
+      ],
+      "properties": {
+        "shortName": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9-]{1,30}$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 2
+        },
+        "tenantId": {
+          "$ref": "#/$defs/guid"
+        },
+        "primaryDomain": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "prod",
+            "pilot",
+            "test"
+          ],
+          "default": "prod"
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "region",
+        "subscriptionDisplayName",
+        "resourceGroupName",
+        "workspaceName",
+        "retentionInDays"
+      ],
+      "properties": {
+        "region": {
+          "type": "string",
+          "minLength": 2
+        },
+        "allowedRegions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "subscriptionDisplayName": {
+          "type": "string",
+          "minLength": 3
+        },
+        "resourceGroupName": {
+          "type": "string",
+          "minLength": 3
+        },
+        "workspaceName": {
+          "type": "string",
+          "minLength": 3
+        },
+        "retentionInDays": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 730,
+          "default": 90
+        },
+        "tags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [
+            "ManagedBy",
+            "Customer",
+            "Environment",
+            "DataClassification"
+          ],
+          "properties": {
+            "ManagedBy": {
+              "type": "string",
+              "const": "TMNA RSOC"
+            },
+            "Customer": {
+              "type": "string"
+            },
+            "Environment": {
+              "type": "string"
+            },
+            "DataClassification": {
+              "type": "string"
+            },
+            "CostCenter": {
+              "type": "string"
+            },
+            "Owner": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "billing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "billingScope",
+        "enrollmentAccountId",
+        "noCustomerProvidedSubscription"
+      ],
+      "properties": {
+        "model": {
+          "type": "string",
+          "const": "TMNABillingAgreement"
+        },
+        "billingScope": {
+          "type": "string",
+          "pattern": "^/providers/Microsoft\\.Billing/billingAccounts/.+/enrollmentAccounts/.+"
+        },
+        "billingAccountId": {
+          "type": "string"
+        },
+        "enrollmentAccountId": {
+          "type": "string"
+        },
+        "subscriptionAliasName": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9-]{2,62}[A-Za-z0-9]$"
+        },
+        "subscriptionId": {
+          "$ref": "#/$defs/guid"
+        },
+        "noCustomerProvidedSubscription": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "rsocOnboardingAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "upn",
+        "objectId",
+        "mfaRequired",
+        "mailboxOrPortalInvitationAccess",
+        "ownsUnrelatedSubscriptions",
+        "willBeSubscriptionOwner",
+        "willAcceptLighthouse"
+      ],
+      "properties": {
+        "upn": {
+          "$ref": "#/$defs/upn"
+        },
+        "objectId": {
+          "$ref": "#/$defs/guid"
+        },
+        "accountType": {
+          "type": "string",
+          "enum": [
+            "customerTenantUser",
+            "customerTenantServicePrincipal"
+          ],
+          "default": "customerTenantUser"
+        },
+        "mfaRequired": {
+          "type": "boolean",
+          "const": true
+        },
+        "entraIdP1OrHigher": {
+          "type": "boolean"
+        },
+        "mailboxOrPortalInvitationAccess": {
+          "type": "boolean",
+          "const": true
+        },
+        "ownsUnrelatedSubscriptions": {
+          "type": "boolean",
+          "const": false
+        },
+        "willBeSubscriptionOwner": {
+          "type": "boolean",
+          "const": true
+        },
+        "willAcceptLighthouse": {
+          "type": "boolean",
+          "const": true
+        },
+        "postBootstrapDisposition": {
+          "type": "string",
+          "enum": [
+            "disable",
+            "remove",
+            "reduce",
+            "exception-required"
+          ],
+          "default": "disable"
+        },
+        "secureCredentialHandoffReference": {
+          "type": "string"
+        }
+      }
+    },
+    "approvers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenantGovernance",
+        "connectorConsent",
+        "serviceEntry"
+      ],
+      "properties": {
+        "tenantGovernance": {
+          "$ref": "#/$defs/contactList"
+        },
+        "connectorConsent": {
+          "$ref": "#/$defs/contactList"
+        },
+        "defenderWorkloadOwners": {
+          "$ref": "#/$defs/contactList"
+        },
+        "endpointDeployment": {
+          "$ref": "#/$defs/contactList"
+        },
+        "domainControllerDeployment": {
+          "$ref": "#/$defs/contactList"
+        },
+        "serviceEntry": {
+          "$ref": "#/$defs/contactList"
+        },
+        "emergencyEscalation": {
+          "$ref": "#/$defs/contactList"
+        }
+      }
+    },
+    "workloads": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "Sentinel",
+          "DefenderXDR",
+          "MDE",
+          "MDO",
+          "MDI",
+          "EntraIDProtection",
+          "DefenderForCloud",
+          "ThreatIntelligence",
+          "ThirdPartyDataSources"
+        ]
+      }
+    },
+    "dataSources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "type",
+          "requiredForService"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "MicrosoftNative",
+              "DefenderXDR",
+              "AzurePlatform",
+              "Syslog",
+              "CEF",
+              "AMA",
+              "DCR",
+              "API",
+              "Custom",
+              "ThreatIntelligence"
+            ]
+          },
+          "requiredForService": {
+            "type": "boolean"
+          },
+          "customerConsentRequired": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "tenantGovernance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "governingTenantId",
+        "governedTenantId",
+        "handshakeModel"
+      ],
+      "properties": {
+        "governingTenantId": {
+          "$ref": "#/$defs/guid"
+        },
+        "governedTenantId": {
+          "$ref": "#/$defs/guid"
+        },
+        "handshakeModel": {
+          "type": "string",
+          "enum": [
+            "threeStepGovernedInvitation",
+            "twoStepBillingSignal"
+          ],
+          "default": "threeStepGovernedInvitation"
+        },
+        "policyTemplateId": {
+          "$ref": "#/$defs/guid"
+        },
+        "invitationsEnabledInGoverningTenant": {
+          "type": "boolean"
+        },
+        "governedTenantSendsInvitation": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "onboardingOwner",
+        "notificationRecipients"
+      ],
+      "properties": {
+        "onboardingOwner": {
+          "$ref": "#/$defs/contact"
+        },
+        "notificationRecipients": {
+          "$ref": "#/$defs/contactList"
+        },
+        "teamsChannel": {
+          "type": "string"
+        },
+        "emailDistributionList": {
+          "$ref": "#/$defs/email"
+        }
+      }
+    },
+    "exceptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "description",
+          "owner",
+          "approvalStatus"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/$defs/contact"
+          },
+          "approvalStatus": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "approved",
+              "rejected",
+              "expired"
+            ]
+          },
+          "expiresOn": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "guid": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "email": {
+      "type": "string",
+      "format": "email"
+    },
+    "upn": {
+      "type": "string",
+      "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+    },
+    "contact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "email"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "$ref": "#/$defs/email"
+        },
+        "role": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        }
+      }
+    },
+    "contactList": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/contact"
+      }
+    }
+  }
+}
