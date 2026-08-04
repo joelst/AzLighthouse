@@ -24,6 +24,20 @@ This repository provides an automated onboarding solution for managing Microsoft
 | `identity/service-principal/` | Service Principal ARM deployment template |
 | `sentinel/` | Sentinel All-in-One deployment templates (custom, all-reg, dev variants) |
 
+## Generic deployment entry points
+
+| Capability | Generic entry point |
+|---|---|
+| Azure Lighthouse delegation | [`lighthouse/README.md`](lighthouse/README.md) and [`lighthouse/lighthouse-offer1.json`](lighthouse/lighthouse-offer1.json) |
+| Sentinel workspace | [`sentinel/custom/README.md`](sentinel/custom/README.md) and [`sentinel/custom/azuredeploy.json`](sentinel/custom/azuredeploy.json) |
+| Azure Automation runbooks | [`automation/README.md`](automation/README.md) and [`automation/automationAccount.json`](automation/automationAccount.json) |
+| End-to-end onboarding | [`onboarding/README.md`](onboarding/README.md) and [`onboarding/Start-OnboardingPipeline.ps1`](onboarding/Start-OnboardingPipeline.ps1) |
+
+The generic Lighthouse template prompts for tenant and principal values. The
+generic Sentinel and Automation templates use their own deployment prompts.
+Customer-specific overlays belong in the private execution repository and must
+be passed explicitly; they are not restored into this public repository.
+
 ### Use Cases
 
 - Multi-tenant SOC operations managing security across multiple customer organizations

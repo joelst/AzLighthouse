@@ -235,6 +235,45 @@
         }
       }
     },
+    "lighthouse": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Generic Lighthouse template values. Keep customer-specific values in the private execution repository.",
+      "properties": {
+        "templatePath": {
+          "type": "string"
+        },
+        "mspOfferName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mspOfferDescription": {
+          "type": "string",
+          "minLength": 1
+        },
+        "administratorGroupPrincipalId": {
+          "$ref": "#/$defs/guid"
+        },
+        "administratorGroupPrincipalIdDisplayName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "analystGroupPrincipalId": {
+          "$ref": "#/$defs/guid"
+        },
+        "analystGroupPrincipalIdDisplayName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "automationPrincipalId": {
+          "$ref": "#/$defs/guid"
+        },
+        "automationPrincipalIdDisplayName": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
     "approvers": {
       "type": "object",
       "additionalProperties": false,

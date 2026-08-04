@@ -1,0 +1,138 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+  "handler": "Microsoft.Azure.CreateUIDef",
+  "version": "0.1.2-preview",
+  "parameters": {
+    "basics": [
+      {
+        "name": "managedByTenantId",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Managing tenant ID",
+        "defaultValue": "",
+        "toolTip": "Microsoft Entra tenant ID of the service provider managing tenant.",
+        "constraints": {
+          "required": true,
+          "regex": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+          "validationMessage": "Enter a valid tenant GUID."
+        },
+        "visible": true
+      },
+      {
+        "name": "mspOfferName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Managed service offer name",
+        "defaultValue": "MSSP SOC Services",
+        "toolTip": "Display name shown for the Lighthouse offer.",
+        "constraints": {
+          "required": true,
+          "regex": "^.{1,100}$",
+          "validationMessage": "Enter an offer name."
+        },
+        "visible": true
+      },
+      {
+        "name": "mspOfferDescription",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Managed service offer description",
+        "defaultValue": "Managed security monitoring and response services.",
+        "toolTip": "Description shown for the Lighthouse offer.",
+        "constraints": {
+          "required": true,
+          "regex": "^.{1,500}$",
+          "validationMessage": "Enter an offer description."
+        },
+        "visible": true
+      },
+      {
+        "name": "administratorGroupPrincipalId",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Administrator group object ID",
+        "defaultValue": "",
+        "toolTip": "Object ID of the managing-tenant group that receives administrator roles.",
+        "constraints": {
+          "required": true,
+          "regex": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+          "validationMessage": "Enter a valid group object ID."
+        },
+        "visible": true
+      },
+      {
+        "name": "administratorGroupPrincipalIdDisplayName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Administrator group display name",
+        "defaultValue": "MSSP SOC Administrators",
+        "toolTip": "Display name used in the Lighthouse authorization list.",
+        "constraints": {
+          "required": true,
+          "regex": "^.{1,200}$",
+          "validationMessage": "Enter a group display name."
+        },
+        "visible": true
+      },
+      {
+        "name": "analystGroupPrincipalId",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Analyst group object ID",
+        "defaultValue": "",
+        "toolTip": "Object ID of the managing-tenant group that receives analyst roles.",
+        "constraints": {
+          "required": true,
+          "regex": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+          "validationMessage": "Enter a valid group object ID."
+        },
+        "visible": true
+      },
+      {
+        "name": "analystGroupPrincipalIdDisplayName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Analyst group display name",
+        "defaultValue": "MSSP SOC Analysts",
+        "toolTip": "Display name used in the Lighthouse authorization list.",
+        "constraints": {
+          "required": true,
+          "regex": "^.{1,200}$",
+          "validationMessage": "Enter a group display name."
+        },
+        "visible": true
+      },
+      {
+        "name": "automationPrincipalId",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Automation principal object ID",
+        "defaultValue": "",
+        "toolTip": "Object ID of the managing-tenant service principal or managed identity used for automation.",
+        "constraints": {
+          "required": true,
+          "regex": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+          "validationMessage": "Enter a valid principal object ID."
+        },
+        "visible": true
+      },
+      {
+        "name": "automationPrincipalIdDisplayName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Automation principal display name",
+        "defaultValue": "MSSP SOC Automation",
+        "toolTip": "Display name used in the Lighthouse authorization list.",
+        "constraints": {
+          "required": true,
+          "regex": "^.{1,200}$",
+          "validationMessage": "Enter a principal display name."
+        },
+        "visible": true
+      }
+    ],
+    "steps": [],
+    "outputs": {
+      "managedByTenantId": "[basics('managedByTenantId')]",
+      "mspOfferName": "[basics('mspOfferName')]",
+      "mspOfferDescription": "[basics('mspOfferDescription')]",
+      "administratorGroupPrincipalId": "[basics('administratorGroupPrincipalId')]",
+      "administratorGroupPrincipalIdDisplayName": "[basics('administratorGroupPrincipalIdDisplayName')]",
+      "analystGroupPrincipalId": "[basics('analystGroupPrincipalId')]",
+      "analystGroupPrincipalIdDisplayName": "[basics('analystGroupPrincipalIdDisplayName')]",
+      "automationPrincipalId": "[basics('automationPrincipalId')]",
+      "automationPrincipalIdDisplayName": "[basics('automationPrincipalIdDisplayName')]"
+    }
+  }
+}

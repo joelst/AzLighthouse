@@ -16,6 +16,9 @@ param(
     [string]$ContentRepoBranch = 'main',
     [string]$MsspManagementRepoPath,
     [string]$DetectionRulesPath,
+    [string]$LighthouseTemplatePath,
+    [string]$LighthouseParametersPath,
+    [switch]$PromptForLighthouseValues,
     [switch]$WhatIfMode,
     [string[]]$SkipSteps = @(),
     [string]$EvidenceOutputPath = '.\evidence'
@@ -160,6 +163,21 @@ $sentinelContentArgs = @(
     '-EvidenceOutputPath', $EvidenceOutputPath
 )
 
+$lighthouseArgs = @(
+    '-CustomerConfigPath', $CustomerConfigPath,
+    '-ManagedByTenantId', $ManagedByTenantId,
+    '-EvidenceOutputPath', $EvidenceOutputPath
+)
+if ($LighthouseTemplatePath) {
+    $lighthouseArgs += @('-LighthouseTemplatePath', $LighthouseTemplatePath)
+}
+if ($LighthouseParametersPath) {
+    $lighthouseArgs += @('-LighthouseParametersPath', $LighthouseParametersPath)
+}
+if ($PromptForLighthouseValues) {
+    $lighthouseArgs += '-PromptForLighthouseValues'
+}
+
 # Define the ordered pipeline steps
 $pipeline = @(
     @{
@@ -171,7 +189,7 @@ $pipeline = @(
     @{
         Name       = 'New-LighthouseDelegationPackage'
         Script     = Join-Path $scriptDir 'New-LighthouseDelegationPackage.ps1'
-        Args       = @('-CustomerConfigPath', $CustomerConfigPath, '-ManagedByTenantId', $ManagedByTenantId, '-EvidenceOutputPath', $EvidenceOutputPath)
+        Args       = $lighthouseArgs
         LifecycleTransition = 'WaitingForLighthouseAcceptance'
     },
     @{

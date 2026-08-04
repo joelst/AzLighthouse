@@ -14,6 +14,14 @@ This folder contains the RSOC engineer-run deployment scripts for onboarding aff
 
 All `raw.githubusercontent.com` URLs in these scripts point to `joelst/AzLighthouse/main/`.
 
+`New-LighthouseDelegationPackage.ps1` defaults to the generic local template at
+`../lighthouse/lighthouse-offer1.json`. For a private service-provider overlay,
+pass `-LighthouseTemplatePath` explicitly; do not add customer-specific IDs or
+offer values to the public template. Supply the generic template values through
+the `lighthouse` object in the private customer config, a JSON file passed with
+`-LighthouseParametersPath`, explicit script parameters, or
+`-PromptForLighthouseValues` for an interactive run.
+
 ## Pipeline sequence
 
 Run `Start-OnboardingPipeline.ps1` to execute the full ordered sequence. It is idempotent — re-runs skip already-completed steps.
@@ -102,19 +110,10 @@ These run alongside the pipeline to monitor approval flows:
 - Local clone of private `mssp-management` repository (clean working tree, required content paths present)
 - Customer config includes `contentRepo.url` and `contentRepo.branch` (and `contentRepo.pinnedCommitSha` for production ring pinning)
 
-## Current execution blockers (verification snapshot: 2026-07-30)
+## Validation requirement
 
-Static parse validation of the full onboarding chain found script syntax errors in:
-
-- `New-LighthouseDelegationPackage.ps1`
-- `Test-LighthouseDelegation.ps1`
-- `Test-TenantGovernanceAccess.ps1`
-- `Set-RsocSubscriptionGovernance.ps1`
-- `Deploy-SentinelWorkspace.ps1`
-- `Register-OnboardingMonitor.ps1`
-- `Connect-DefenderPortalSentinel.ps1`
-- `Enable-DataConnectors.ps1`
-- `Deploy-SentinelContent.ps1`
-- `Export-MsspEvidencePackage.ps1`
-
-These are pre-existing blockers and must be remediated before the pipeline can run end-to-end in production.
+Run PowerShell parser validation and a staging smoke test for the full
+onboarding chain before production use. The public repository provides the
+generic Lighthouse, Sentinel, and Automation entry points; private overlays,
+customer values, credentials, and production role mappings must be supplied by
+the execution repository.

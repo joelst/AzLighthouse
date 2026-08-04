@@ -13,9 +13,19 @@ param(
     [Parameter(Mandatory)][string]$ManagedByTenantId,
     [string]$CustomerSubscriptionId,
     [string]$Location = 'eastus',
-    # Local path to the Lighthouse ARM template. Defaults to ../../../mssp-management/<customer>-mssp/lighthouse-offer.json
-    # relative to this script (assumes AzLighthouse and mssp-management repos are cloned as siblings).
+    # Local path to the Lighthouse ARM template. Defaults to the generic template
+    # restored in this repository. Pass a private overlay for customer-specific values.
     [string]$LighthouseTemplatePath,
+    [string]$LighthouseParametersPath,
+    [string]$MspOfferName,
+    [string]$MspOfferDescription,
+    [string]$AdministratorGroupPrincipalId,
+    [string]$AdministratorGroupPrincipalIdDisplayName,
+    [string]$AnalystGroupPrincipalId,
+    [string]$AnalystGroupPrincipalIdDisplayName,
+    [string]$AutomationPrincipalId,
+    [string]$AutomationPrincipalIdDisplayName,
+    [switch]$PromptForLighthouseValues,
     [switch]$WhatIfMode,
     [string]$EvidenceOutputPath = '.\evidence'
 )
@@ -43,6 +53,7 @@ function Write-Status {
 
 Write-Status "Loading customer config: $CustomerConfigPath"
 $config = Get-Content $CustomerConfigPath -Raw | ConvertFrom-Json
+$configLighthouse = if ($config.PSObject.Properties.Name -contains 'lighthouse') { $config.lighthouse } else { $null }
 
 $customerShortName  = $config.customer.shortName
 $subscriptionId     = if ($CustomerSubscriptionId) { $CustomerSubscriptionId } else { $config.deployment.subscriptionId }
@@ -113,18 +124,94 @@ Write-Status "  No existing delegation found - proceeding." -Color Green
 
 # Deploy Lighthouse ARM Template
 
-# mssp-management is a private repo — deploy from local clone, not a raw GitHub URL.
+# Use the generic public template by default. The private execution repository may
+# provide a customer-specific overlay through -LighthouseTemplatePath.
 if (-not $LighthouseTemplatePath) {
-    $LighthouseTemplatePath = Join-Path $PSScriptRoot '..\..\mssp-management\<customer>-mssp\lighthouse-offer.json'
+    $configuredTemplatePath = if ($configLighthouse -and ($configLighthouse.PSObject.Properties.Name -contains 'templatePath')) {
+        [string]$configLighthouse.templatePath
+    } else {
+        ''
+    }
+    if (-not [string]::IsNullOrWhiteSpace($configuredTemplatePath)) {
+        $LighthouseTemplatePath = $configuredTemplatePath
+    } else {
+        $LighthouseTemplatePath = Join-Path $PSScriptRoot '..\lighthouse\lighthouse-offer1.json'
+    }
+}
+if (-not (Test-Path $LighthouseTemplatePath)) {
+    throw "Lighthouse ARM template not found at '$LighthouseTemplatePath'. Restore the generic AzLighthouse/lighthouse template or pass -LighthouseTemplatePath to a private overlay."
 }
 $LighthouseTemplatePath = (Resolve-Path $LighthouseTemplatePath -ErrorAction Stop).Path
-if (-not (Test-Path $LighthouseTemplatePath)) {
-    throw "Lighthouse ARM template not found at '$LighthouseTemplatePath'. Clone joelst/mssp-management as a sibling of AzLighthouse and re-run."
-}
 $deploymentName = "lighthouse-$customerShortName-$(Get-Date -Format 'yyyyMMddHHmm')"
+
+# Resolve values from explicit parameters, a private parameter file, or the
+# customer config. The ARM template remains generic and contains no tenant data.
+$lighthouseValues = @{}
+if ($LighthouseParametersPath) {
+    if (-not (Test-Path $LighthouseParametersPath)) {
+        throw "Lighthouse parameter file not found at '$LighthouseParametersPath'."
+    }
+    $parameterFile = Get-Content $LighthouseParametersPath -Raw | ConvertFrom-Json
+    foreach ($property in $parameterFile.PSObject.Properties) {
+        $lighthouseValues[$property.Name] = $property.Value
+    }
+} elseif ($configLighthouse) {
+    foreach ($property in $configLighthouse.PSObject.Properties) {
+        $lighthouseValues[$property.Name] = $property.Value
+    }
+}
+
+$explicitValues = @{
+    mspOfferName = $MspOfferName
+    mspOfferDescription = $MspOfferDescription
+    administratorGroupPrincipalId = $AdministratorGroupPrincipalId
+    administratorGroupPrincipalIdDisplayName = $AdministratorGroupPrincipalIdDisplayName
+    analystGroupPrincipalId = $AnalystGroupPrincipalId
+    analystGroupPrincipalIdDisplayName = $AnalystGroupPrincipalIdDisplayName
+    automationPrincipalId = $AutomationPrincipalId
+    automationPrincipalIdDisplayName = $AutomationPrincipalIdDisplayName
+}
+foreach ($key in $explicitValues.Keys) {
+    if (-not [string]::IsNullOrWhiteSpace($explicitValues[$key])) {
+        $lighthouseValues[$key] = $explicitValues[$key]
+    }
+}
+
+$template = Get-Content $LighthouseTemplatePath -Raw | ConvertFrom-Json
+$templateParameters = @{}
+foreach ($property in $template.parameters.PSObject.Properties) {
+    $templateParameters[$property.Name] = $property.Value
+}
+
+$parameterMap = @{
+    managedByTenantId = $ManagedByTenantId
+}
+foreach ($parameterName in ($templateParameters.Keys | Where-Object { $_ -ne 'managedByTenantId' })) {
+    $value = $lighthouseValues[$parameterName]
+    if ([string]::IsNullOrWhiteSpace([string]$value) -and $PromptForLighthouseValues) {
+        $label = $parameterName -replace '(?<=[a-z])([A-Z])', ' $1'
+        $value = Read-Host "Enter $label"
+    }
+
+    $parameterDefinition = $templateParameters[$parameterName]
+    $hasDefault = $parameterDefinition.PSObject.Properties.Name -contains 'defaultValue'
+    if ([string]::IsNullOrWhiteSpace([string]$value) -and -not $hasDefault) {
+        throw "Missing Lighthouse parameter '$parameterName'. Set config.lighthouse.$parameterName, pass the matching parameter, or use -PromptForLighthouseValues."
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace([string]$value)) {
+        if ($parameterName -match '(TenantId|PrincipalId)$' -and $value -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+            throw "Lighthouse parameter '$parameterName' must be a GUID."
+        }
+        $parameterMap[$parameterName] = $value
+    }
+}
 
 $armParams = @{
     managedByTenantId = $ManagedByTenantId
+}
+foreach ($key in $parameterMap.Keys) {
+    $armParams[$key] = $parameterMap[$key]
 }
 
 if ($WhatIfMode) {

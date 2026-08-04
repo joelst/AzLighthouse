@@ -137,6 +137,15 @@ $intakeConfig = [ordered]@{
         offerName   = 'MSSP SOC Services'
     }
 
+    lighthouse = [ordered]@{
+        templatePath = ''
+        mspOfferName = 'MSSP SOC Services'
+        mspOfferDescription = 'Managed security monitoring and response services.'
+        administratorGroupPrincipalIdDisplayName = 'MSSP SOC Administrators'
+        analystGroupPrincipalIdDisplayName = 'MSSP SOC Analysts'
+        automationPrincipalIdDisplayName = 'MSSP SOC Automation'
+    }
+
     tenantGovernance = [ordered]@{
         gdapRelationshipId = $null
         status             = 'pending'
@@ -145,9 +154,9 @@ $intakeConfig = [ordered]@{
     dataSources = @()
 
     lighthouseUrls = [ordered]@{
-        # Customer-facing artifacts live in the public jp-lighthouse repo (mssp-management is private).
-        armTemplate    = 'https://raw.githubusercontent.com/joelst/jp-lighthouse/main/<customer>-mssp/lighthouse-offer.json'
-        uiDefinition   = 'https://raw.githubusercontent.com/joelst/jp-lighthouse/main/<customer>-mssp/createUiDefinition.json'
+        # Generic customer-neutral artifacts are public; private overlays are supplied separately.
+        armTemplate    = 'https://raw.githubusercontent.com/joelst/AzLighthouse/main/lighthouse/lighthouse-offer1.json'
+        uiDefinition   = 'https://raw.githubusercontent.com/joelst/AzLighthouse/main/lighthouse/createUiDefinition.json'
         umiDeployScript = 'https://raw.githubusercontent.com/joelst/AzLighthouse/main/identity/umi/deploy-umi.ps1'
     }
 
