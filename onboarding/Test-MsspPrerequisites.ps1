@@ -5,6 +5,7 @@ param(
     [string]$ContentRepoUrl,
     # Expected local path to the mssp-management repo clone. Defaults to a sibling of AzLighthouse.
     [string]$MsspManagementRepoPath,
+    [string]$SchemaPath,
     [switch]$WhatIfMode,
     [string]$EvidenceOutputPath = ".\evidence"
 )
@@ -17,6 +18,16 @@ $ErrorActionPreference = 'Stop'
 $scriptName = "Test-MsspPrerequisites"
 $config = Get-Content $CustomerConfigPath -Raw | ConvertFrom-Json
 $customerShortName = $config.customer.shortName
+
+if (-not $SchemaPath -and $MsspManagementRepoPath) {
+    $privateSchemaPath = Join-Path $MsspManagementRepoPath 'Config\customer-intake.schema.json'
+    if (Test-Path $privateSchemaPath) {
+        $SchemaPath = $privateSchemaPath
+    }
+}
+if (-not $SchemaPath) {
+    $SchemaPath = Join-Path $PSScriptRoot 'Config\customer-intake.schema.json'
+}
 
 function Write-Check {
     param([string]$Name, [bool]$Passed, [string]$Detail = "")
@@ -61,6 +72,21 @@ foreach ($mod in $requiredModules) {
     $installed = $null -ne (Get-Module -ListAvailable -Name $mod | Select-Object -First 1)
     $detail    = if (-not $installed) { "Install with: Install-Module $mod -Force -AllowClobber" } else { "" }
     Add-Check -Name "Module installed: $mod" -Passed $installed -Detail $detail
+}
+
+$schemaExists = Test-Path $SchemaPath
+Add-Check -Name "Customer intake schema exists: $SchemaPath" -Passed $schemaExists `
+    -Detail $(if (-not $schemaExists) { "Provide -SchemaPath or place the schema in the selected execution repository." } else { "" })
+if ($schemaExists) {
+    try {
+        $configJson = Get-Content $CustomerConfigPath -Raw
+        $schemaValid = Test-Json -Json $configJson -SchemaFile $SchemaPath -ErrorAction Stop
+        Add-Check -Name "Customer config validates against selected schema" -Passed $schemaValid `
+            -Detail "Schema: $SchemaPath"
+    } catch {
+        Add-Check -Name "Customer config validates against selected schema" -Passed $false `
+            -Detail $_.Exception.Message
+    }
 }
 
 # Az context tenant check

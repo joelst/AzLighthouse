@@ -15,6 +15,7 @@ param(
     [string]$ContentRepoUrl,
     [string]$ContentRepoBranch = 'main',
     [string]$MsspManagementRepoPath,
+    [string]$SchemaPath,
     [string]$DetectionRulesPath,
     [string]$LighthouseTemplatePath,
     [string]$LighthouseParametersPath,
@@ -146,10 +147,22 @@ $scriptDir = $PSScriptRoot
 if (-not $scriptDir) { $scriptDir = Split-Path $MyInvocation.MyCommand.Path -Parent }
 if (-not $scriptDir) { $scriptDir = '.' }
 
+$resolvedSchemaPath = $SchemaPath
+if (-not $resolvedSchemaPath -and $MsspManagementRepoPath) {
+    $privateSchemaPath = Join-Path $MsspManagementRepoPath 'Config\customer-intake.schema.json'
+    if (Test-Path $privateSchemaPath) {
+        $resolvedSchemaPath = $privateSchemaPath
+    }
+}
+if (-not $resolvedSchemaPath) {
+    $resolvedSchemaPath = Join-Path $scriptDir 'Config\customer-intake.schema.json'
+}
+
 $prereqArgs = @(
     '-CustomerConfigPath', $CustomerConfigPath,
     '-ManagedByTenantId', $ManagedByTenantId,
     '-ContentRepoUrl', $resolvedContentRepoUrl,
+    '-SchemaPath', $resolvedSchemaPath,
     '-EvidenceOutputPath', $EvidenceOutputPath
 )
 if ($MsspManagementRepoPath) {
@@ -261,7 +274,7 @@ $pipeline = @(
     @{
         Name       = 'Test-EndToEndDeployment'
         Script     = Join-Path $scriptDir 'Test-EndToEndDeployment.ps1'
-        Args       = @('-CustomerConfigPath', $CustomerConfigPath, '-ManagedByTenantId', $ManagedByTenantId, '-EvidenceOutputPath', $EvidenceOutputPath)
+        Args       = @('-CustomerConfigPath', $CustomerConfigPath, '-ManagedByTenantId', $ManagedByTenantId, '-MsspManagementRepoPath', $MsspManagementRepoPath, '-EvidenceOutputPath', $EvidenceOutputPath, '-SchemaPath', $resolvedSchemaPath)
         LifecycleTransition = 'CustomerValidation'
     },
     @{
@@ -271,6 +284,29 @@ $pipeline = @(
         LifecycleTransition = $null
     }
 )
+
+$privateOnboardingPath = $null
+if ($MsspManagementRepoPath) {
+    $privateOnboardingPath = Join-Path $MsspManagementRepoPath 'onboarding'
+}
+
+$privateOnlyScripts = @(
+    'New-TmnaBillingSubscriptionRequest.ps1',
+    'Send-CustomerInstructionPacket.ps1',
+    'Watch-TmnaSubscriptionAcceptance.ps1'
+)
+foreach ($scriptName in $privateOnlyScripts) {
+    $genericPath = Join-Path $scriptDir $scriptName
+    if (-not (Test-Path $genericPath)) {
+        if (-not $privateOnboardingPath -or -not (Test-Path (Join-Path $privateOnboardingPath $scriptName))) {
+            throw "TMNA-specific pipeline script '$scriptName' is not available. Clone mssp-management and pass -MsspManagementRepoPath <path> before running the full private pipeline."
+        }
+        $step = $pipeline | Where-Object { $_.Name -eq [System.IO.Path]::GetFileNameWithoutExtension($scriptName) }
+        if ($step) {
+            $step.Script = Join-Path $privateOnboardingPath $scriptName
+        }
+    }
+}
 
 $state = Load-State
 Write-Host "`n[Start-OnboardingPipeline] Customer: $shortName | Steps: $($pipeline.Count)" -ForegroundColor Green

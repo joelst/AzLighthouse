@@ -13,6 +13,7 @@ param(
     [Parameter(Mandatory)][string]$ManagedByTenantId,
     [string]$ContentRepoUrl,
     [string]$MsspManagementRepoPath,
+    [string]$SchemaPath,
     [string]$PartnerTenantId,
     [string]$OutputPath = '.\evidence\e2e-report.json',
     [switch]$WhatIfMode,
@@ -56,6 +57,9 @@ if (-not [string]::IsNullOrWhiteSpace($resolvedContentRepoUrl)) {
 }
 if ($MsspManagementRepoPath) {
     $prereqArgs += @('-MsspManagementRepoPath', $MsspManagementRepoPath)
+}
+if ($SchemaPath) {
+    $prereqArgs += @('-SchemaPath', $SchemaPath)
 }
 
 # Define test scripts in execution order

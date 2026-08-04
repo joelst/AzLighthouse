@@ -50,6 +50,14 @@ For private-repo content deployment, pass or configure:
 - `-ContentRepoUrl` (for example `https://github.com/joelst/mssp-management`)
 - `-ContentRepoBranch` (default `main`)
 - `-MsspManagementRepoPath` (local clone path used for Lighthouse templates and repo-readiness checks)
+- `-SchemaPath` (optional override; otherwise the private repo's `Config/customer-intake.schema.json`
+  is preferred when `-MsspManagementRepoPath` is supplied)
+
+The full private pipeline also requires these TMNA-specific scripts from
+`mssp-management/onboarding/`: `New-TmnaBillingSubscriptionRequest.ps1`,
+`Send-CustomerInstructionPacket.ps1`, and `Watch-TmnaSubscriptionAcceptance.ps1`.
+An AzLighthouse-only clone fails before execution with a diagnostic instead of
+reaching the missing step halfway through onboarding.
 
 ## Async watch scripts
 
