@@ -20,6 +20,8 @@ Describe 'automationAccount.json runtime parameter contract' {
   It 'Defines runtimeEnvironmentName and runtimeVersion parameters' {
     $template.parameters.PSObject.Properties.Name | Should -Contain 'runtimeEnvironmentName'
     $template.parameters.PSObject.Properties.Name | Should -Contain 'runtimeVersion'
+    $template.parameters.PSObject.Properties.Name | Should -Contain 'cleanupRunbookContentUri'
+    $template.parameters.PSObject.Properties.Name | Should -Contain 'cleanupRunbookName'
   }
 
   It 'Defines runtime parameters with expected types and defaults' {
@@ -57,7 +59,7 @@ Describe 'automationAccount.json runtime environment resource wiring' {
 
 Describe 'automationAccount.json runbook runtime binding' {
   It 'Deploys runbook resources' {
-    $runbookResources.Count | Should -BeGreaterThan 0
+    $runbookResources.Count | Should -Be 6
   }
 
   It 'Uses the automation account location parameter for every runbook location' {
@@ -70,6 +72,10 @@ Describe 'automationAccount.json runbook runtime binding' {
     foreach ($runbook in $runbookResources) {
       $runbook.properties.runtimeEnvironment | Should -Be "[variables('pwshRuntimeName')]"
     }
+  }
+
+  It 'Includes the cleanup runbook resource' {
+    $runbookResources.name | Should -Contain "[format('{0}/{1}', parameters('automationAccountName'), parameters('cleanupRunbookName'))]"
   }
 
   It 'Ensures every runbook depends on the runtime environment resource' {

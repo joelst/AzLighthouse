@@ -1,0 +1,64 @@
+{
+  "name": "deny-unapproved-resource-types-rsoc",
+  "properties": {
+    "displayName": "Audit or deny unapproved resource types in CUSTOMER RSOC managed subscriptions",
+    "description": "Restricts deployments to approved resource types used by CUSTOMER MSSP onboarding and operations.",
+    "policyType": "Custom",
+    "mode": "All",
+    "metadata": {
+      "category": "CUSTOMER RSOC Governance",
+      "version": "1.0.0"
+    },
+    "parameters": {
+      "allowedResourceTypes": {
+        "type": "Array",
+        "metadata": {
+          "displayName": "Allowed resource types",
+          "description": "List of resource types that are allowed in this subscription."
+        }
+      },
+      "excludedResourceTypes": {
+        "type": "Array",
+        "metadata": {
+          "displayName": "Excluded resource types",
+          "description": "Resource types excluded from this control."
+        },
+        "defaultValue": [
+          "Microsoft.Resources/deployments",
+          "Microsoft.Authorization/policyAssignments",
+          "Microsoft.Authorization/roleAssignments"
+        ]
+      },
+      "effect": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Effect",
+          "description": "Policy effect."
+        },
+        "allowedValues": [
+          "Audit",
+          "Deny",
+          "Disabled"
+        ],
+        "defaultValue": "Audit"
+      }
+    },
+    "policyRule": {
+      "if": {
+        "allOf": [
+          {
+            "field": "type",
+            "notIn": "[parameters('allowedResourceTypes')]"
+          },
+          {
+            "field": "type",
+            "notIn": "[parameters('excludedResourceTypes')]"
+          }
+        ]
+      },
+      "then": {
+        "effect": "[parameters('effect')]"
+      }
+    }
+  }
+}

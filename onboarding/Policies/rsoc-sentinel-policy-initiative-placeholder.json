@@ -1,0 +1,169 @@
+{
+  "name": "rsoc-sentinel-governance-baseline",
+  "properties": {
+    "displayName": "CUSTOMER RSOC Sentinel Governance Baseline",
+    "description": "Subscription-level governance baseline for CUSTOMER MSSP onboarding. Applies resource-type guardrails, mandatory tagging, and elevated RBAC drift auditing.",
+    "metadata": {
+      "category": "CUSTOMER RSOC Governance",
+      "version": "1.0.0",
+      "owner": "CUSTOMER RSOC"
+    },
+    "parameters": {
+      "allowedResourceTypes": {
+        "type": "Array",
+        "metadata": {
+          "displayName": "Allowed resource types",
+          "description": "Resource types permitted in the managed subscription."
+        }
+      },
+      "approvedPrincipalIds": {
+        "type": "Array",
+        "metadata": {
+          "displayName": "Approved principal IDs for elevated roles",
+          "description": "Object IDs allowed to receive elevated roles like Owner/Contributor/UAA."
+        }
+      },
+      "elevatedRoleDefinitionIds": {
+        "type": "Array",
+        "metadata": {
+          "displayName": "Elevated role definition IDs",
+          "description": "Role definition GUIDs considered elevated and audited for drift."
+        }
+      },
+      "managedByValue": {
+        "type": "String",
+        "metadata": {
+          "displayName": "ManagedBy tag value",
+          "description": "Required value for the ManagedBy tag."
+        },
+        "defaultValue": "CUSTOMER RSOC"
+      },
+      "denyUnapprovedResourceTypesEffect": {
+        "type": "String",
+        "allowedValues": [
+          "Audit",
+          "Deny",
+          "Disabled"
+        ],
+        "defaultValue": "Audit",
+        "metadata": {
+          "displayName": "Resource type guardrail effect"
+        }
+      },
+      "auditElevatedRoleAssignmentsEffect": {
+        "type": "String",
+        "allowedValues": [
+          "Audit",
+          "Disabled"
+        ],
+        "defaultValue": "Audit",
+        "metadata": {
+          "displayName": "Elevated RBAC drift audit effect"
+        }
+      },
+      "requireMandatoryTagsEffect": {
+        "type": "String",
+        "allowedValues": [
+          "Audit",
+          "Deny",
+          "Disabled"
+        ],
+        "defaultValue": "Audit",
+        "metadata": {
+          "displayName": "Mandatory tagging effect"
+        }
+      }
+    },
+    "policyDefinitions": [
+      {
+        "policyDefinitionName": "deny-unapproved-resource-types-rsoc",
+        "policyDefinitionReferenceId": "denyUnapprovedResourceTypes",
+        "parameters": {
+          "allowedResourceTypes": {
+            "value": "[parameters('allowedResourceTypes')]"
+          },
+          "effect": {
+            "value": "[parameters('denyUnapprovedResourceTypesEffect')]"
+          }
+        }
+      },
+      {
+        "policyDefinitionName": "audit-elevated-role-assignments-rsoc",
+        "policyDefinitionReferenceId": "auditElevatedRoleAssignments",
+        "parameters": {
+          "approvedPrincipalIds": {
+            "value": "[parameters('approvedPrincipalIds')]"
+          },
+          "elevatedRoleDefinitionIds": {
+            "value": "[parameters('elevatedRoleDefinitionIds')]"
+          },
+          "effect": {
+            "value": "[parameters('auditElevatedRoleAssignmentsEffect')]"
+          }
+        }
+      },
+      {
+        "policyDefinitionName": "require-rsoc-mandatory-tags",
+        "policyDefinitionReferenceId": "requireMandatoryTags",
+        "parameters": {
+          "managedByValue": {
+            "value": "[parameters('managedByValue')]"
+          },
+          "effect": {
+            "value": "[parameters('requireMandatoryTagsEffect')]"
+          }
+        }
+      }
+    ]
+  },
+  "assignment": {
+    "name": "rsoc-sentinel-governance-baseline",
+    "displayName": "CUSTOMER RSOC Sentinel Governance Baseline",
+    "description": "Applies CUSTOMER RSOC baseline controls for Sentinel-managed subscriptions.",
+    "enforcementMode": "Default",
+    "parameters": {
+      "allowedResourceTypes": {
+        "value": [
+          "Microsoft.Resources/subscriptions/resourceGroups",
+          "Microsoft.OperationalInsights/workspaces",
+          "Microsoft.OperationsManagement/solutions",
+          "Microsoft.SecurityInsights/*",
+          "Microsoft.Automation/automationAccounts",
+          "Microsoft.Logic/workflows",
+          "Microsoft.ManagedIdentity/userAssignedIdentities",
+          "Microsoft.KeyVault/vaults",
+          "Microsoft.Storage/storageAccounts",
+          "Microsoft.Insights/actionGroups",
+          "Microsoft.Insights/scheduledQueryRules",
+          "Microsoft.Insights/diagnosticSettings",
+          "Microsoft.Authorization/locks",
+          "Microsoft.Authorization/policyAssignments",
+          "Microsoft.Authorization/roleAssignments",
+          "Microsoft.Resources/deployments"
+        ]
+      },
+      "approvedPrincipalIds": {
+        "value": []
+      },
+      "elevatedRoleDefinitionIds": {
+        "value": [
+          "8e3af657-a8ff-443c-a75c-2fe8c4bcb635",
+          "b24988ac-6180-42a0-ab88-20f7382dd24c",
+          "18d7d88d-d35e-4fb5-a5c3-7773c20a72d9"
+        ]
+      },
+      "managedByValue": {
+        "value": "CUSTOMER RSOC"
+      },
+      "denyUnapprovedResourceTypesEffect": {
+        "value": "Audit"
+      },
+      "auditElevatedRoleAssignmentsEffect": {
+        "value": "Audit"
+      },
+      "requireMandatoryTagsEffect": {
+        "value": "Audit"
+      }
+    }
+  }
+}

@@ -4,13 +4,15 @@
 
 Disclaimer: This script is provided "as-is" without any warranties.
 
-Updated: 2025.12.22.01
+Updated: 2026.07.30.01
 
 .SYNOPSIS
     Clean up extra app registrations.
 
 .DESCRIPTION
-    This script checks for duplicate App Registrations. It will remove any extra App Registrations.
+    This script checks for duplicate App Registrations. By default it only reports
+    removal candidates. Actual deletion requires -ExecuteDeletion and a positive
+    MaxRemovalCount.
 
 .PARAMETER UMIId
     The User Managed Identity Client ID. This is the ID of the user-assigned managed identity that will
@@ -21,10 +23,15 @@ Updated: 2025.12.22.01
 .PARAMETER ProductionAppId
     One or more Application (client) IDs that should never be deleted.
     Any matching AppIds in this list are excluded from the delete-command output.
+    Values must be valid GUIDs.
 
 .PARAMETER MaxRemovalCount
   When greater than 0, the runbook will attempt to DELETE this many non-production app registrations.
-  It always prints the destructive commands first; deletion is limited to the first N candidate AppIds.
+  Deletion still requires -ExecuteDeletion and a verified ProductionAppId match.
+
+.PARAMETER ExecuteDeletion
+    Explicitly authorizes destructive deletion. Without this switch, the runbook
+    stays in preview mode even if MaxRemovalCount is greater than 0.
 
 .NOTES
     There is no warranty or support for this script. Use at your own risk.
@@ -49,12 +56,14 @@ param (
   [string]$AppRegName,
 
   [Parameter(Mandatory = $false)]
-  [ValidateRange(0, 100)]
-  [int]$MaxRemovalCount = 10,
+  [switch]$ExecuteDeletion,
 
   [Parameter(Mandatory = $false)]
-  [ValidateNotNullOrEmpty()]
-  [string[]]$ProductionAppId = @('')
+  [ValidateRange(0, 100)]
+  [int]$MaxRemovalCount = 0,
+
+  [Parameter(Mandatory = $false)]
+  [string[]]$ProductionAppId = @()
 )
 
 function ConvertTo-ODataQuotedString {
@@ -89,6 +98,19 @@ if ($null -eq $UMIId) {
 
 if ($null -eq $AppRegName) {
   throw 'No New App Reg Name specified'
+}
+
+$ProductionAppId = @(
+  $ProductionAppId |
+    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+      Sort-Object -Unique
+)
+
+foreach ($productionId in $ProductionAppId) {
+  $parsedProductionId = [guid]::Empty
+  if (-not [guid]::TryParse($productionId, [ref]$parsedProductionId)) {
+    throw "ProductionAppId '$productionId' is not a valid GUID."
+  }
 }
 
 
@@ -190,14 +212,14 @@ function Test-AppRegistrationExistsByAppId {
     $sp = @(Get-MgServicePrincipal -Filter $filter -All -ConsistencyLevel eventual -CountVariable ignoredCount -ErrorAction Stop)
     $spExists = ($sp.Count -gt 0)
   } catch {
-    Write-Verbose "Failed to query service principal existence for appId '$AppId': $($_.Exception.Message)"
+    throw "Failed to query service principal existence for appId '$AppId': $($_.Exception.Message)"
   }
 
   try {
     $app = @(Get-MgApplication -Filter $filter -All -ConsistencyLevel eventual -CountVariable ignoredCount -ErrorAction Stop)
     $appExists = ($app.Count -gt 0)
   } catch {
-    Write-Verbose "Failed to query application existence for appId '$AppId': $($_.Exception.Message)"
+    throw "Failed to query application existence for appId '$AppId': $($_.Exception.Message)"
   }
 
   return ($spExists -or $appExists)
@@ -222,7 +244,13 @@ function Wait-AppRegistrationDeletionByAppId {
 
   $delaySeconds = $InitialDelaySeconds
   for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
-    $exists = Test-AppRegistrationExistsByAppId -AppId $AppId
+    try {
+      $exists = Test-AppRegistrationExistsByAppId -AppId $AppId
+    } catch {
+      Write-Error "Failed to verify deletion for appId '$AppId': $($_.Exception.Message)"
+      throw
+    }
+
     if (-not $exists) {
       return $true
     }
@@ -259,13 +287,14 @@ try {
 # ------------------------------------------------------------
 # Return a list of all Application (client) IDs that match AppRegName.
 # Output a list of all AppIds that do not match ProductionAppId.
-# For each of those AppIds output ONLY the destructive commands that would be executed (NOT executed by this runbook):
-#   Remove-MgServicePrincipal -ServicePrincipalId <id>
-#   Remove-MgApplication -ApplicationId <id>
+# In preview mode, show the destructive commands that would be executed.
+# In deletion mode, delete only the first MaxRemovalCount candidate AppIds
+# after a verified ProductionAppId match.
 
 $apps = $apps | Sort-Object -Property CreatedDateTime
 
-$matchingAppIds = @($apps | Where-Object { -not [string]::IsNullOrWhiteSpace($_.AppId) } | Select-Object -ExpandProperty AppId)
+$matchingApps = @($apps | Where-Object { -not [string]::IsNullOrWhiteSpace($_.AppId) })
+$matchingAppIds = @($matchingApps | Select-Object -ExpandProperty AppId)
 $matchingAppIds = @($matchingAppIds | Sort-Object -Unique)
 
 Write-Output "Matching applications found: $($apps.Count)"
@@ -281,6 +310,9 @@ if ($matchedProductionAppIds.Count -gt 0) {
   Write-Output "Production AppId matched (safety check passed): $($matchedProductionAppIds -join ', ')"
 } else {
   Write-Warning "No ProductionAppId matched among AppIds for AppRegName '$AppRegName'. Safety check FAILED; deletions will be disabled."
+  if ($ExecuteDeletion -and $MaxRemovalCount -gt 0) {
+    throw "ExecuteDeletion was requested, but no ProductionAppId matched among the discovered app registrations for '$AppRegName'. Refusing to delete."
+  }
 }
 
 if (-not $matchingAppIds -or $matchingAppIds.Count -eq 0) {
@@ -288,25 +320,28 @@ if (-not $matchingAppIds -or $matchingAppIds.Count -eq 0) {
   return @()
 }
 
-$nonProductionAppIds = @(
-  $matchingAppIds |
-    Where-Object { $_ -notin $ProductionAppId -and $_ -notin $matchedProductionAppIds } |
-      Sort-Object -Unique
+$nonProductionApps = @(
+  $matchingApps |
+    Where-Object { $_.AppId -notin $ProductionAppId -and $_.AppId -notin $matchedProductionAppIds }
 )
 
 # Safety: re-assert the candidate set used for output/deletion.
 # This defends against unexpected data issues and guarantees production AppIds never appear in removal commands.
+$candidateRemovalApps = @(
+  $nonProductionApps |
+    Where-Object { $_.AppId -notin $ProductionAppId -and $_.AppId -notin $matchedProductionAppIds }
+)
 $candidateRemovalAppIds = @(
-  $nonProductionAppIds |
-    Where-Object { $_ -notin $ProductionAppId -and $_ -notin $matchedProductionAppIds } |
-      Sort-Object -Unique
+  $candidateRemovalApps |
+    Select-Object -ExpandProperty AppId
 )
 
-
+$plannedDeletionApps = @()
 $plannedDeletionAppIds = @()
 if ($MaxRemovalCount -gt 0) {
-  $plannedDeletionCount = [Math]::Min($MaxRemovalCount, $candidateRemovalAppIds.Count)
-  $plannedDeletionAppIds = @($candidateRemovalAppIds | Select-Object -First $plannedDeletionCount)
+  $plannedDeletionCount = [Math]::Min($MaxRemovalCount, $candidateRemovalApps.Count)
+  $plannedDeletionApps = @($candidateRemovalApps | Select-Object -First $plannedDeletionCount)
+  $plannedDeletionAppIds = @($plannedDeletionApps | Select-Object -ExpandProperty AppId)
 }
 
 
@@ -316,55 +351,56 @@ if ($candidateRemovalAppIds.Count -eq 0) {
 } else {
   Write-Output "Unneeded AppIds: $($candidateRemovalAppIds.Count)"
   Write-Output 'Unneeded AppIds:'
-  foreach ($AppId in $candidateRemovalAppIds) {
-    Write-Output " $AppId"
+  foreach ($app in $candidateRemovalApps) {
+   $createdDateTime = if ($app.CreatedDateTime) { $app.CreatedDateTime } else { 'unknown' }
+    Write-Output " $($app.AppId) [$createdDateTime]"
   }
 }
 
-if ($candidateRemovalAppIds.Count -gt 0 -and $plannedDeletionAppIds.Count -gt 0) {
+if ($candidateRemovalAppIds.Count -gt 0 -and $plannedDeletionApps.Count -gt 0) {
   Write-Output ''
   Write-Output "Planned deletions (up to MaxRemovalCount=$MaxRemovalCount): $($plannedDeletionAppIds.Count)"
   Write-Output 'Planned deletion AppIds:'
-  foreach ($AppId in $plannedDeletionAppIds) {
-    Write-Output " $AppId"
+  foreach ($app in $plannedDeletionApps) {
+   Write-Output " $($app.AppId)"
   }
 }
 
-foreach ($AppId in $candidateRemovalAppIds) {
-  if ($AppId -in $ProductionAppId -or $AppId -in $matchedProductionAppIds) {
-    continue
+foreach ($app in $candidateRemovalApps) {
+  if ($app.AppId -in $ProductionAppId -or $app.AppId -in $matchedProductionAppIds) {
+   continue
   }
-  if ($MaxRemovalCount -gt 0 -and $AppId -in $plannedDeletionAppIds) {
-    continue
+  if ($ExecuteDeletion -and $MaxRemovalCount -gt 0 -and $app.AppId -in $plannedDeletionAppIds) {
+   continue
   }
-  Get-DestructiveRemovalCommandsForAppId -AppId $AppId
+  Get-DestructiveRemovalCommandsForAppId -AppId $app.AppId
 }
 
-if ($MaxRemovalCount -gt 0 -and $matchedProductionAppIds.Count -gt 0) {
+if ($ExecuteDeletion -and $MaxRemovalCount -gt 0 -and $matchedProductionAppIds.Count -gt 0) {
   $deletedAppIds = New-Object System.Collections.ArrayList
   $notVerifiedDeletedAppIds = New-Object System.Collections.ArrayList
   $failedDeleteAppIds = New-Object System.Collections.ArrayList
 
-  $deleteCount = $plannedDeletionAppIds.Count
+  $deleteCount = $plannedDeletionApps.Count
   Write-Warning "MaxRemovalCount is $MaxRemovalCount; attempting deletion of $deleteCount app registration(s)."
 
-  $targetAppIds = @($plannedDeletionAppIds)
-  foreach ($AppId in $targetAppIds) {
+  foreach ($app in $plannedDeletionApps) {
+    $AppId = $app.AppId
     try {
-      Write-Warning "Deleting app registration for AppId: $AppId"
-      Invoke-DeleteAppRegistrationByAppId -AppId $AppId
+     Write-Warning "Deleting app registration for AppId: $AppId"
+     Invoke-DeleteAppRegistrationByAppId -AppId $AppId
 
-      $verified = Wait-AppRegistrationDeletionByAppId -AppId $AppId
-      if ($verified) {
-        [void]$deletedAppIds.Add($AppId)
-        Write-Output "Deleted (verified) app registration for AppId: $AppId"
-      } else {
-        [void]$notVerifiedDeletedAppIds.Add($AppId)
-        Write-Warning "Deletion issued but NOT yet verified for AppId: $AppId"
-      }
+     $verified = Wait-AppRegistrationDeletionByAppId -AppId $AppId
+     if ($verified) {
+       [void]$deletedAppIds.Add($AppId)
+       Write-Output "Deleted (verified) app registration for AppId: $AppId"
+     } else {
+       [void]$notVerifiedDeletedAppIds.Add($AppId)
+       Write-Warning "Deletion issued but NOT yet verified for AppId: $AppId"
+     }
     } catch {
-      [void]$failedDeleteAppIds.Add($AppId)
-      Write-Error "Failed to delete app registration for AppId '$AppId': $($_.Exception.Message)"
+     [void]$failedDeleteAppIds.Add($AppId)
+     Write-Error "Failed to delete app registration for AppId '$AppId': $($_.Exception.Message)"
     }
   }
 
@@ -403,7 +439,7 @@ if ($MaxRemovalCount -gt 0 -and $matchedProductionAppIds.Count -gt 0) {
   }
 
   $remainingAppIdsByVerification = @(
-    $nonProductionAppIds |
+    $candidateRemovalAppIds |
       Where-Object { $_ -notin @($deletedAppIds) } |
         Sort-Object -Unique
   )
@@ -450,8 +486,8 @@ if ($MaxRemovalCount -gt 0 -and $matchedProductionAppIds.Count -gt 0) {
   }
 }
 
-if ($MaxRemovalCount -gt 0 -and $matchedProductionAppIds.Count -eq 0) {
-  Write-Warning 'MaxRemovalCount was greater than 0, but no ProductionAppId was matched; therefore no deletions were attempted.'
+if (-not $ExecuteDeletion -and $MaxRemovalCount -gt 0) {
+  Write-Warning 'Preview mode only: -ExecuteDeletion was not specified, so no deletions were attempted.'
 }
 
 return [pscustomobject]@{

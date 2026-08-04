@@ -1,0 +1,35 @@
+{
+  "customerGroups": [
+    {
+      "name": "Customer-Sentinel-Responders",
+      "initialMembersAllowed": true,
+      "roles": [
+        "Microsoft Sentinel Responder",
+        "Microsoft Sentinel Playbook Operator"
+      ],
+      "purpose": "Basic incident response"
+    },
+    {
+      "name": "Customer-Sentinel-Readers",
+      "initialMembersAllowed": true,
+      "roles": [
+        "Reader",
+        "Microsoft Sentinel Reader"
+      ],
+      "purpose": "Read-only visibility"
+    },
+    {
+      "name": "Customer-Sentinel-Elevated-Admins",
+      "initialMembersAllowed": false,
+      "roles": [
+        "Contributor/Sentinel Contributor only by approved exception"
+      ],
+      "purpose": "Audited exception/break-glass"
+    }
+  ],
+  "rules": [
+    "No customer elevated members at onboarding",
+    "All elevated adds require RSOC approval",
+    "All role assignment changes alert RSOC"
+  ]
+}

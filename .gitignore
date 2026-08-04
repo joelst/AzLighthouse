@@ -1,4 +1,6 @@
 .vscode
+_*.ps1
+.DS_Store
 automation/tests/*Testing.ps1
 .fake
 **/TestResults*.xml
@@ -6,4 +8,3 @@ automation/tests/*Testing.ps1
 __azurite_db*.json
 .github/copilot-instructions.md
 automation/_Get-AzurePolicies.ps1
-_*.ps1

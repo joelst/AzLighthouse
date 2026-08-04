@@ -1,0 +1,109 @@
+[
+  {
+    "name": "CUSTOMER-RSOC-HighSeverityIncident",
+    "type": "analyticsRule",
+    "armId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-customer-rsoc-sentinel/providers/Microsoft.OperationalInsights/workspaces/law-customer-rsoc/providers/Microsoft.SecurityInsights/alertRules/CUSTOMER-RSOC-HighSeverityIncident",
+    "description": "Fires on high-severity incidents not assigned within 1 hour.",
+    "owner": "rsoc-detections",
+    "deployedByScript": "Deploy-SentinelContent.ps1",
+    "tags": ["critical", "sla"],
+    "content": {
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "CUSTOMER RSOC - High Severity Incident Unassigned",
+        "enabled": true,
+        "severity": "High",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "query": "SecurityIncident\n| where Severity == 'High'\n| where Status != 'Closed'\n| where Owner == '{}'\n| where TimeGenerated < ago(1h)\n| project IncidentNumber, Title, Severity, Status, TimeGenerated\n"
+      }
+    }
+  },
+  {
+    "name": "CUSTOMER-RSOC-AutoAssignHighSeverity",
+    "type": "automationRule",
+    "description": "Auto-assigns high severity incidents to the on-call triage queue.",
+    "owner": "rsoc-platform",
+    "deployedByScript": "Deploy-SentinelContent.ps1",
+    "tags": ["triage", "automation"],
+    "content": {
+      "properties": {
+        "displayName": "CUSTOMER RSOC - Auto-Assign High Severity",
+        "order": 1,
+        "triggeringLogic": {
+          "isEnabled": true,
+          "triggersOn": "Incidents",
+          "triggersWhen": "Created",
+          "conditions": [
+            {
+              "conditionType": "Property",
+              "conditionProperties": {
+                "propertyName": "IncidentSeverity",
+                "operator": "Equals",
+                "propertyValues": ["High"]
+              }
+            }
+          ]
+        },
+        "actions": [
+          {
+            "order": 1,
+            "actionType": "AssignOwner",
+            "actionConfiguration": {
+              "ownerId": "00000000-0000-0000-0000-000000000000"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "CUSTOMER-RSOC-SecurityOverview",
+    "type": "workbook",
+    "description": "Main RSOC security overview workbook for this customer.",
+    "owner": "rsoc-platform",
+    "deployedByScript": "Deploy-SentinelContent.ps1",
+    "tags": ["workbook", "overview"],
+    "content": {
+      "properties": {
+        "displayName": "CUSTOMER RSOC - Security Overview",
+        "category": "sentinel",
+        "serializedData": "{\"version\":\"Notebook/1.0\",\"items\":[]}"
+      }
+    }
+  },
+  {
+    "name": "CUSTOMER-RSOC-PrivilegedAccounts",
+    "type": "watchlist",
+    "description": "Watchlist of privileged accounts monitored by RSOC analytics rules.",
+    "owner": "rsoc-detections",
+    "deployedByScript": "Deploy-SentinelContent.ps1",
+    "tags": ["watchlist", "identity"],
+    "content": {
+      "properties": {
+        "displayName": "CUSTOMER RSOC - Privileged Accounts",
+        "provider": "RSOC",
+        "source": "rsoc-managed",
+        "itemsSearchKey": "UPN"
+      }
+    }
+  },
+  {
+    "name": "CUSTOMER-RSOC-NetworkParser",
+    "type": "parser",
+    "description": "KQL parser function normalizing network device logs to ASIM NetworkSession schema.",
+    "owner": "rsoc-engineering",
+    "deployedByScript": "Deploy-SentinelContent.ps1",
+    "tags": ["parser", "asim", "network"],
+    "content": {
+      "properties": {
+        "displayName": "CUSTOMER RSOC - Network Session Parser",
+        "category": "Saved Functions",
+        "functionAlias": "CustomerRSOCNetworkSession",
+        "query": "union CustomerNetworkLog_CL\n| extend ...\n"
+      }
+    }
+  }
+]

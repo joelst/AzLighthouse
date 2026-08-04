@@ -6,6 +6,9 @@
 # All tests (run from automation/ root)
 .\tools\Run-Tests.ps1                    # App registration tests
 .\Tests\Run-DataConnectorTests.ps1       # Data connector tests
+.\tools\Run-Tests.ps1 -TestPath ..\Tests\Start-AppRegistrationCleanup.ps1.Tests.ps1 -CodeCoverage:$false
+Invoke-Pester .\Tests\Deploy-AutomationTemplate.ps1.Tests.ps1
+Invoke-Pester .\Tests\createUiDefinition.Tests.ps1
 
 # Specific categories
 Invoke-Pester -FullNameFilter '*Lookup Logic*'     # Connector lookup
@@ -25,6 +28,36 @@ Invoke-Pester -FullNameFilter '*Credential*'       # Credential tests
 - Write-AppGroupSummary parameter handling (FIXED)
 - Secret notification to Logic App
 - Error handling and authentication
+
+### App Registration Cleanup Tests
+
+**File**: `Start-AppRegistrationCleanup.ps1.Tests.ps1`
+
+**Key Areas**:
+
+- Fail-closed deletion gating
+- Graph query error handling
+- Ordered deletion candidate selection
+- Destructive command preview safety
+
+### Deployment Automation Tests
+
+**File**: `Deploy-AutomationTemplate.ps1.Tests.ps1`
+
+**Key Areas**:
+
+- Cleanup runbook template wiring
+- Local upload map coverage
+- Post-deployment verification coverage
+
+### Portal UI Definition Tests
+
+**File**: `createUiDefinition.Tests.ps1`
+
+**Key Areas**:
+
+- Search job and cleanup runbook portal fields
+- Output mapping for deployment parameters
 
 ### Data Connector Tests (45+ tests)
 
@@ -52,6 +85,7 @@ Invoke-Pester -FullNameFilter '*Credential*'       # Credential tests
 
 - **Parameter Type Fix**: Write-AppGroupSummary now handles single objects
 - **Enhanced Error Handling**: Better error scenario coverage
+- **Cleanup Guardrails**: Cleanup runbook tests cover deletion safety and query failures
 
 ### Data Connector Tests
 
@@ -63,6 +97,9 @@ Invoke-Pester -FullNameFilter '*Credential*'       # Credential tests
 
 ```text
 App Registration Tests: 15+ passing
+Cleanup Tests:           5+ passing
+Deployment Tests:        2+ passing
+Portal UI Tests:         2+ passing
 Data Connector Tests:   45+ passing
   Total Execution Time:   < 1 minute
   Code Coverage:          > 75%

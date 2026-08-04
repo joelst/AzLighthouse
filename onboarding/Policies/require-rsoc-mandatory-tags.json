@@ -1,0 +1,94 @@
+{
+  "name": "require-rsoc-mandatory-tags",
+  "properties": {
+    "displayName": "Require CUSTOMER RSOC mandatory tags on managed resources",
+    "description": "Audits or denies resources that are missing required governance tags used by CUSTOMER RSOC onboarding.",
+    "policyType": "Custom",
+    "mode": "Indexed",
+    "metadata": {
+      "category": "CUSTOMER RSOC Governance",
+      "version": "1.0.0"
+    },
+    "parameters": {
+      "managedByValue": {
+        "type": "String",
+        "metadata": {
+          "displayName": "ManagedBy required value",
+          "description": "Required value for the ManagedBy tag."
+        },
+        "defaultValue": "CUSTOMER RSOC"
+      },
+      "customerTagName": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Customer tag name"
+        },
+        "defaultValue": "Customer"
+      },
+      "environmentTagName": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Environment tag name"
+        },
+        "defaultValue": "Environment"
+      },
+      "dataClassificationTagName": {
+        "type": "String",
+        "metadata": {
+          "displayName": "DataClassification tag name"
+        },
+        "defaultValue": "DataClassification"
+      },
+      "effect": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Effect",
+          "description": "Policy effect."
+        },
+        "allowedValues": [
+          "Audit",
+          "Deny",
+          "Disabled"
+        ],
+        "defaultValue": "Audit"
+      }
+    },
+    "policyRule": {
+      "if": {
+        "allOf": [
+          {
+            "field": "type",
+            "notLike": "Microsoft.Authorization/*"
+          },
+          {
+            "field": "type",
+            "notEquals": "Microsoft.Resources/deployments"
+          },
+          {
+            "anyOf": [
+              {
+                "field": "tags['ManagedBy']",
+                "notEquals": "[parameters('managedByValue')]"
+              },
+              {
+                "field": "[concat('tags[', parameters('customerTagName'), ']')]",
+                "exists": "false"
+              },
+              {
+                "field": "[concat('tags[', parameters('environmentTagName'), ']')]",
+                "exists": "false"
+              },
+              {
+                "field": "[concat('tags[', parameters('dataClassificationTagName'), ']')]",
+                "exists": "false"
+              }
+            ]
+          }
+        ]
+      },
+      "then": {
+        "effect": "[parameters('effect')]"
+      }
+    }
+  }
+}

@@ -188,6 +188,21 @@
             "toolTip": "URL for the pricing runbook content."
           },
           {
+            "name": "searchJobRunbookNameText",
+            "type": "Microsoft.Common.TextBlock",
+            "visible": true,
+            "options": {
+              "text": "Sentinel search job runbook name: Invoke-AzSentinelSearchJob"
+            }
+          },
+          {
+            "name": "searchJobRunbookContentUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Sentinel search job runbook content URI",
+            "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/automation/Invoke-AzSentinelSearchJob.ps1",
+            "toolTip": "URL for the Sentinel search job runbook content."
+          },
+          {
             "name": "policyRunbookNameText",
             "type": "Microsoft.Common.TextBlock",
             "visible": true,
@@ -201,6 +216,21 @@
             "label": "Azure Policy runbook content URI",
             "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/automation/Get-AzurePolicies.ps1",
             "toolTip": "URL for the Azure Policy runbook content."
+          },
+          {
+            "name": "cleanupRunbookNameText",
+            "type": "Microsoft.Common.TextBlock",
+            "visible": true,
+            "options": {
+              "text": "App registration cleanup runbook name: Start-AppRegistrationCleanup"
+            }
+          },
+          {
+            "name": "cleanupRunbookContentUri",
+            "type": "Microsoft.Common.TextBox",
+            "label": "App registration cleanup runbook content URI",
+            "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/automation/Start-AppRegistrationCleanup.ps1",
+            "toolTip": "URL for the app registration cleanup runbook content."
           }
         ]
       },
@@ -278,11 +308,15 @@
       "servicePrincipalCredentialRunbookName": "Update-AppRegistrationCredential",
       "connectorRunbookName": "Get-DataConnectorStatus",
       "pricingRunbookName": "Get-SentinelPricing",
+      "searchJobRunbookName": "Invoke-AzSentinelSearchJob",
       "policyRunbookName": "Get-AzurePolicies",
+      "cleanupRunbookName": "Start-AppRegistrationCleanup",
       "servicePrincipalCredentialRunbookContentUri": "[steps('runbooks').servicePrincipalCredentialRunbookContentUri]",
       "connectorRunbookContentUri": "[steps('runbooks').connectorRunbookContentUri]",
       "pricingRunbookContentUri": "[steps('runbooks').pricingRunbookContentUri]",
+      "searchJobRunbookContentUri": "[steps('runbooks').searchJobRunbookContentUri]",
       "policyRunbookContentUri": "[steps('runbooks').policyRunbookContentUri]",
+      "cleanupRunbookContentUri": "[steps('runbooks').cleanupRunbookContentUri]",
       "servicePrincipalCredentialLogicAppUri": "[steps('endpoints').servicePrincipalCredentialLogicAppUri]",
       "servicePrincipalCredentialAppReg": "[steps('endpoints').servicePrincipalCredentialAppReg]",
       "dataConnectorLogicAppUri": "[steps('endpoints').dataConnectorLogicAppUri]",

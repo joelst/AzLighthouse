@@ -2,7 +2,7 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.202510.10.0",
   "metadata": {
-    "description": "Deploys an Azure Automation account with a runbook to manage service principals for the MSSP SOC."
+    "description": "Deploys an Azure Automation account with runbooks for service principal management, connector monitoring, policy auditing, and cleanup for the MSSP SOC."
   },
   "parameters": {
     "automationAccountName": {
@@ -81,6 +81,20 @@
         "description": "Name of the Azure Policy inventory runbook"
       },
       "defaultValue": "Get-AzurePolicies"
+    },
+    "cleanupRunbookContentUri": {
+      "type": "string",
+      "metadata": {
+        "description": "URL for the app registration cleanup runbook content"
+      },
+      "defaultValue": "https://raw.githubusercontent.com/joelst/AzLighthouse/refs/heads/main/automation/Start-AppRegistrationCleanup.ps1"
+    },
+    "cleanupRunbookName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the app registration cleanup runbook"
+      },
+      "defaultValue": "Start-AppRegistrationCleanup"
     },
     "policyMonitoringLogicAppUri": {
       "type": "secureString",
@@ -184,6 +198,7 @@
     "pricingRunbookDescription": "Runbook to retrieve pricing tier information for Sentinel",
     "searchJobRunbookDescription": "Runbook to create Sentinel search jobs in Log Analytics",
     "policyRunbookDescription": "Runbook to collect Azure Policy assignments and definitions inventory",
+    "cleanupRunbookDescription": "Runbook to preview and optionally remove duplicate app registrations",
     "sentinelWorkspaceResourceIdResolved": "[if(startsWith(parameters('sentinelWorkspaceResourceId'), '/subscriptions/'), parameters('sentinelWorkspaceResourceId'), resourceId('Microsoft.OperationalInsights/workspaces', parameters('sentinelWorkspaceResourceId')))]"
   },
   "resources": [
@@ -311,6 +326,28 @@
         "description": "[variables('policyRunbookDescription')]",
         "publishContentLink": {
           "uri": "[parameters('policyRunbookContentUri')]",
+          "version": "1.0.0.0"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runtimeEnvironments', parameters('automationAccountName'), variables('pwshRuntimeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runbooks",
+      "apiVersion": "2024-10-23",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('cleanupRunbookName'))]",
+      "location": "[parameters('location')]",
+      "tags": {},
+      "properties": {
+        "runbookType": "PowerShell",
+        "runtimeEnvironment": "[variables('pwshRuntimeName')]",
+        "logProgress": false,
+        "logVerbose": false,
+        "description": "[variables('cleanupRunbookDescription')]",
+        "publishContentLink": {
+          "uri": "[parameters('cleanupRunbookContentUri')]",
           "version": "1.0.0.0"
         }
       },

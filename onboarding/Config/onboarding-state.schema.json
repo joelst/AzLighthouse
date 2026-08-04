@@ -1,0 +1,391 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://customer.example/schema/rsoc/onboarding-state.schema.json",
+  "title": "MSSP RSOC Onboarding State",
+  "description": "State and evidence tracking contract for asynchronous MSSP RSOC customer onboarding.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "customerShortName",
+    "customerTenantId",
+    "state",
+    "stateUpdatedUtc",
+    "onboardingOwner",
+    "evidence",
+    "history"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "customerShortName": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9-]{1,30}$"
+    },
+    "customerTenantId": {
+      "$ref": "#/$defs/guid"
+    },
+    "subscriptionId": {
+      "$ref": "#/$defs/guid"
+    },
+    "state": {
+      "$ref": "#/$defs/onboardingState"
+    },
+    "stateUpdatedUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "onboardingOwner": {
+      "$ref": "#/$defs/contact"
+    },
+    "notificationRecipients": {
+      "$ref": "#/$defs/contactList"
+    },
+    "retry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lastAttemptUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "nextAttemptUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "maxAttempts": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "timeout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "deadlineUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "timedOut": {
+          "type": "boolean"
+        },
+        "escalateOnBreach": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "intakePackage": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "tenantGovernanceInvitation": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "tenantGovernanceRequest": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "tenantGovernanceRelationship": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "tenantGovernanceAccessAssignments": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "rsocOnboardingAccount": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "subscriptionRequest": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "subscriptionAcceptance": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "lighthouseRegistrationDefinition": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "lighthouseRegistrationAssignment": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "policyAssignments": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "rbacBaseline": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "connectorValidation": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "contentDeployment": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "driftBaseline": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "repoReadiness": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "tenantGroupVisibility": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "contentSync": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "baselineContentManifest": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "e2eValidation": {
+          "$ref": "#/$defs/evidenceItem"
+        },
+        "serviceEntryAcceptance": {
+          "$ref": "#/$defs/evidenceItem"
+        }
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/blocker"
+      }
+    },
+    "exceptions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/exception"
+      }
+    },
+    "history": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/historyItem"
+      }
+    }
+  },
+  "$defs": {
+    "guid": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "email": {
+      "type": "string",
+      "format": "email"
+    },
+    "contact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "email"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "$ref": "#/$defs/email"
+        },
+        "role": {
+          "type": "string"
+        }
+      }
+    },
+    "contactList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/contact"
+      }
+    },
+    "onboardingState": {
+      "type": "string",
+      "enum": [
+        "WaitingForIntake",
+        "WaitingForGovernanceInvitation",
+        "WaitingForGovernanceRequestSent",
+        "WaitingForGovernanceApproval",
+        "WaitingForGDAPAccessAssignments",
+        "WaitingForBootstrapAccount",
+        "WaitingForSubscriptionRequest",
+        "WaitingForSubscriptionAcceptance",
+        "WaitingForLighthouseAcceptance",
+        "WaitingForGovernanceBaseline",
+        "WaitingForRepoReadiness",
+        "WaitingForTenantGroupPropagation",
+        "ReadyForDeployment",
+        "Deploying",
+        "WaitingForContentSync",
+        "BaselineCaptured",
+        "WaitingForConnectorConsent",
+        "ValidatingDeployment",
+        "CustomerValidation",
+        "InService",
+        "Blocked",
+        "RollingBack",
+        "RolledBack",
+        "TimedOut",
+        "Failed",
+        "Offboarding",
+        "Offboarded"
+      ]
+    },
+    "evidenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "lastCheckedUtc"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "notStarted",
+            "pending",
+            "succeeded",
+            "failed",
+            "blocked",
+            "notApplicable",
+            "customerAttested"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "resourceId": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "filePath": {
+          "type": "string"
+        },
+        "lastCheckedUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "checkedBy": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    },
+    "blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "severity",
+        "description",
+        "owner",
+        "status",
+        "createdUtc"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "owner": {
+          "$ref": "#/$defs/contact"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "open",
+            "mitigated",
+            "closed",
+            "acceptedRisk"
+          ]
+        },
+        "createdUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "targetResolutionUtc": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "exception": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "description",
+        "approvedBy",
+        "expiresOn"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "approvedBy": {
+          "$ref": "#/$defs/contact"
+        },
+        "expiresOn": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    },
+    "historyItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timestampUtc",
+        "fromState",
+        "toState",
+        "actor",
+        "reason"
+      ],
+      "properties": {
+        "timestampUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "fromState": {
+          "$ref": "#/$defs/onboardingState"
+        },
+        "toState": {
+          "$ref": "#/$defs/onboardingState"
+        },
+        "actor": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "evidenceReference": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

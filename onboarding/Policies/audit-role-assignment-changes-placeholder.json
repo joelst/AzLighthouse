@@ -1,0 +1,75 @@
+{
+  "name": "audit-elevated-role-assignments-rsoc",
+  "properties": {
+    "displayName": "Audit elevated role assignments outside approved principals",
+    "description": "Audits Owner/Contributor/User Access Administrator assignments where principalId is not on the approved list.",
+    "policyType": "Custom",
+    "mode": "All",
+    "metadata": {
+      "category": "CUSTOMER RSOC Governance",
+      "version": "1.0.0"
+    },
+    "parameters": {
+      "approvedPrincipalIds": {
+        "type": "Array",
+        "metadata": {
+          "displayName": "Approved principal IDs",
+          "description": "Object IDs permitted to hold elevated roles."
+        },
+        "defaultValue": []
+      },
+      "elevatedRoleDefinitionIds": {
+        "type": "Array",
+        "metadata": {
+          "displayName": "Elevated role definition IDs",
+          "description": "Role definition GUIDs considered elevated."
+        },
+        "defaultValue": [
+          "8e3af657-a8ff-443c-a75c-2fe8c4bcb635",
+          "b24988ac-6180-42a0-ab88-20f7382dd24c",
+          "18d7d88d-d35e-4fb5-a5c3-7773c20a72d9"
+        ]
+      },
+      "effect": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Effect",
+          "description": "Policy effect."
+        },
+        "allowedValues": [
+          "Audit",
+          "Disabled"
+        ],
+        "defaultValue": "Audit"
+      }
+    },
+    "policyRule": {
+      "if": {
+        "allOf": [
+          {
+            "field": "type",
+            "equals": "Microsoft.Authorization/roleAssignments"
+          },
+          {
+            "count": {
+              "value": "[parameters('elevatedRoleDefinitionIds')]",
+              "name": "roleDefId",
+              "where": {
+                "field": "Microsoft.Authorization/roleAssignments/roleDefinitionId",
+                "contains": "[current('roleDefId')]"
+              }
+            },
+            "greater": 0
+          },
+          {
+            "field": "Microsoft.Authorization/roleAssignments/principalId",
+            "notIn": "[parameters('approvedPrincipalIds')]"
+          }
+        ]
+      },
+      "then": {
+        "effect": "[parameters('effect')]"
+      }
+    }
+  }
+}

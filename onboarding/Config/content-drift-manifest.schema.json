@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://customer-rsoc/schemas/content-drift-manifest.schema.json",
+  "title": "RSOC Content Drift Manifest",
+  "description": "Array of Sentinel/workbook content items tracked for drift by Invoke-ContentDriftRemediation.ps1. Each entry describes one deployed resource by its logical name, type, ARM resource ID, and canonical content body.",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/manifestItem"
+  },
+  "minItems": 0,
+  "$defs": {
+    "manifestItem": {
+      "type": "object",
+      "required": ["name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Logical display name of the content item. Used as the ARM resource name in GET/PUT calls."
+        },
+        "type": {
+          "type": "string",
+          "description": "Content resource type. Determines the ARM API path used for drift detection and remediation.",
+          "enum": ["analyticsRule", "automationRule", "workbook", "watchlist", "parser"]
+        },
+        "armId": {
+          "type": "string",
+          "description": "Full ARM resource ID, if known. Used for audit/evidence logging. Not required for drift checks (the script constructs the URI from type + name).",
+          "pattern": "^/subscriptions/[0-9a-f-]+/resourceGroups/.+/providers/.+$"
+        },
+        "content": {
+          "type": "object",
+          "description": "The canonical ARM resource body used for drift comparison and remediation PUT. If absent, drift detection only reports presence/absence — it cannot compare properties or remediate.",
+          "required": ["properties"],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "description": "Alert rule kind (e.g. Scheduled, NRT, Fusion). Required for analyticsRule."
+            },
+            "properties": {
+              "type": "object",
+              "description": "Resource-type-specific properties block. Compared against the deployed resource during drift detection."
+            }
+          },
+          "additionalProperties": true
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of what this item does. Used in reports only."
+        },
+        "owner": {
+          "type": "string",
+          "description": "Team or person responsible for authoritative content for this item.",
+          "enum": ["rsoc-platform", "rsoc-detections", "rsoc-engineering", "customer-approved"]
+        },
+        "deployedByScript": {
+          "type": "string",
+          "description": "Name of the onboarding script that originally deployed this item.",
+          "examples": ["Deploy-SentinelContent.ps1", "Deploy-DefenderCustomDetections.ps1"]
+        },
+        "lastVerifiedUtc": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of the last successful drift check for this item."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional classification tags (e.g. 'mde', 'entra', 'data-connector', 'critical')."
+        }
+      }
+    }
+  }
+}

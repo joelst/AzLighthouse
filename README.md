@@ -11,6 +11,18 @@ This repository provides an automated onboarding solution for managing Microsoft
 - **Sentinel Deployment**: Customized Sentinel-All-In-One templates with pre-configured connectors and analytics rules
 - **Secret Rotation**: Azure Automation runbooks for automatic credential management
 - **Data Connector Status**: Collect data connector status from multiple tenants.
+- **End-to-End Onboarding Pipeline**: Ordered, idempotent scripts for the full subscription → Lighthouse → governance → Sentinel → content deployment chain
+
+### Repository Structure
+
+| Folder | Purpose |
+|---|---|
+| `onboarding/` | **RSOC engineer-run scripts** — full onboarding pipeline from subscription creation through Sentinel content deployment |
+| `automation/` | Azure Automation runbooks deployed to the customer Automation Account (scheduled, ongoing operations) |
+| `lighthouse/` | Azure Lighthouse ARM template and portal UI definition |
+| `identity/umi/` | User Managed Identity deployment script (customer-run from Cloud Shell) |
+| `identity/service-principal/` | Service Principal ARM deployment template |
+| `sentinel/` | Sentinel All-in-One deployment templates (custom, all-reg, dev variants) |
 
 ### Use Cases
 

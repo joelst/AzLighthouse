@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schemaVersion": "1.0",
+  "description": "E2E acceptance criteria for Test-EndToEndDeployment.ps1. Defines the pass/fail gate for each child test script, the overall deployment gate order, and the conditions under which a completed run is considered a successful service entry.",
+  "overallGate": {
+    "description": "A deployment is considered E2E-passing when ALL required gates pass, AND the evidence package is complete, AND there are no outstanding MANUAL_ACTION items in the deployment evidence.",
+    "requireAllRequired": true,
+    "requireEvidencePackage": true,
+    "blockingOpenItemCategories": ["MANUAL_ACTION", "TEST_REQUIRED"],
+    "serviceEntryBlockers": [
+      "Any required gate is in FAIL or SKIP state",
+      "Open Items Register contains an unresolved item in status Blocked or Open that is tagged as service-entry-blocking",
+      "Bootstrap account Owner assignment has not been removed and confirmed",
+      "Lighthouse delegation is not active",
+      "At least one workload in customer-intake.json has not reached 'validated' state"
+    ]
+  },
+  "gates": [
+    {
+      "id": "G01",
+      "scriptName": "Test-MsspPrerequisites",
+      "required": true,
+      "runOrder": 1,
+      "description": "Validates local environment prerequisites: Az modules, repo paths, schema files, and existing Az session.",
+      "passCriteria": [
+        "Az.Accounts, Az.Resources, Az.SecurityInsights modules present at minimum required versions",
+        "mssp-management repo path accessible if local deployment mode",
+        "customer-intake.schema.json and onboarding-state.schema.json present",
+        "Active Az session in the correct managing tenant"
+      ],
+      "failActions": [
+        "Stop pipeline — no further scripts should run until prerequisites are satisfied",
+        "Log missing modules/files to evidence"
+      ],
+      "expectedExitCode": 0
+    },
+    {
+      "id": "G02",
+      "scriptName": "Test-LighthouseDelegation",
+      "required": true,
+      "runOrder": 2,
+      "description": "Verifies Azure Lighthouse delegation is active and that ARM cross-tenant access is functional for the customer subscription.",
+      "passCriteria": [
+        "managedByTenantId matches the expected RSOC managing tenant ID",
+        "At least one expected Lighthouse authorization (principalId + roleDefinitionId) resolves in the delegated subscription",
+        "ARM GET on the customer subscription succeeds from the managing tenant context",
+        "ManagedByCount >= 1 for the customer subscription"
+      ],
+      "failActions": [
+        "Record which expected authorization principals are missing",
+        "Log delegation status and ARM error to evidence",
+        "Halt pipeline — Sentinel workspace and content deployment depend on Lighthouse"
+      ],
+      "expectedExitCode": 0
+    },
+    {
+      "id": "G03",
+      "scriptName": "Test-RsocCustomerAccessBaseline",
+      "required": true,
+      "runOrder": 3,
+      "description": "Confirms RSOC role assignments are correct and Sentinel workspace is reachable.",
+      "passCriteria": [
+        "Sentinel workspace exists in the expected resource group and subscription",
+        "Microsoft.SecurityInsights/onboardingStates/default exists",
+        "RSOC automation identity has Microsoft Sentinel Contributor or Sentinel Reader as configured",
+        "SecurityIncident query succeeds with 0 or more results (no API error)",
+        "No unexpected Owner or Contributor assignments on the subscription (advisory — logged but does not auto-fail)",
+        "Logstash service principal has Monitoring Metrics Publisher ONLY — not Owner/Contributor"
+      ],
+      "failActions": [
+        "Record missing role assignments",
+        "Record workspace state to evidence",
+        "Sentinel workspace missing or unreachable is a hard fail"
+      ],
+      "expectedExitCode": 0
+    },
+    {
+      "id": "G04",
+      "scriptName": "Test-TenantGovernanceAccess",
+      "required": true,
+      "runOrder": 4,
+      "description": "Validates Tenant Governance (GDAP) relationship is active and Defender MTO tenant is visible.",
+      "passCriteria": [
+        "At least one active Tenant Governance relationship exists for the customer tenant",
+        "Relationship includes at least the minimum approved security roles (see rbac-baseline.json)",
+        "Customer tenant visible in Defender MTO portal for approved RSOC personas",
+        "Tenant Governance relationship is not in Pending or Inactive state"
+      ],
+      "advisoryCriteria": [
+        "If GDAP Defender unified RBAC roles are not yet GA, record advisory — do not hard-fail (OI-G01 tracking)"
+      ],
+      "failActions": [
+        "Record relationship state and role set to evidence",
+        "Relationship in Pending/Inactive state is a hard fail",
+        "Missing minimum security role set is a hard fail"
+      ],
+      "expectedExitCode": 0
+    },
+    {
+      "id": "G05",
+      "scriptName": "Test-CustomerOnboardingAccount",
+      "required": true,
+      "runOrder": 5,
+      "description": "Confirms bootstrap onboarding account state at service entry — should be in closure state.",
+      "passCriteria": [
+        "Bootstrap account is disabled OR deleted in the customer tenant",
+        "Bootstrap account Owner assignment on the subscription has been removed",
+        "No other direct Owner assignments exist for non-approved principals",
+        "MFA was confirmed active during bootstrap window (evidence from onboarding record)"
+      ],
+      "advisoryCriteria": [
+        "If bootstrap account is still active (pre-closure check mode), record its UPN, license, and MFA state without failing"
+      ],
+      "failActions": [
+        "Bootstrap account still Owner on subscription at service entry is a hard fail",
+        "Record account state and last sign-in to evidence"
+      ],
+      "expectedExitCode": 0
+    }
+  ],
+  "evidencePackageRequirements": {
+    "description": "Files that must exist in the evidence/ directory before a service entry pass is declared.",
+    "required": [
+      "evidence-Test-LighthouseDelegation-*.json",
+      "evidence-Test-RsocCustomerAccessBaseline-*.json",
+      "evidence-Test-TenantGovernanceAccess-*.json",
+      "evidence-Test-CustomerOnboardingAccount-*.json",
+      "evidence-Test-EndToEndDeployment-*.json",
+      "evidence-Apply-RsocGovernanceBaseline-*.json"
+    ],
+    "advisory": [
+      "evidence-Invoke-ContentDriftRemediation-*.json",
+      "evidence-Register-OnboardingMonitor-*.json"
+    ]
+  },
+  "ownerRetentionModel": {
+    "description": "Expected Owner assignment state at E2E gate — must be validated by G05.",
+    "expectedOwners": [
+      {
+        "role": "Subscription Owner",
+        "principal": "RSOC subscription-custodian service principal (multitenant app)",
+        "assignmentType": "ServicePrincipal",
+        "required": true
+      },
+      {
+        "role": "Subscription Owner",
+        "principal": "CUSTOMER emergency Owner group (affiliate-local security group with RSOC B2B users)",
+        "assignmentType": "Group",
+        "required": true
+      }
+    ],
+    "maxOwnerCount": 3,
+    "bootstrap_must_be_removed": true
+  },
+  "contentDriftGate": {
+    "description": "Invoke-ContentDriftRemediation.ps1 with -Remediate must produce 0 failed items before service entry.",
+    "required": false,
+    "advisory": true,
+    "note": "Content drift gate is advisory at initial service entry. It becomes required at first 30-day review."
+  }
+}

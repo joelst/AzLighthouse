@@ -17,6 +17,7 @@ The deployment includes:
 3. **Runbooks**:
   - `Get-DataConnectorStatus` - Monitors Sentinel data connector health and ingestion metrics
   - `Update-AppRegistrationCredential` - Rotates service principal credentials automatically
+  - `Start-AppRegistrationCleanup` - Preview and optionally delete duplicate app registrations with explicit authorization
   - `Get-SentinelPricing` - Retrieves pricing tier information for Sentinel workspaces
   - `Invoke-AzSentinelSearchJob` - Creates Sentinel search jobs in Log Analytics
   - `Get-AzurePolicies` - Collects Azure Policy assignment and definition inventory
@@ -207,6 +208,7 @@ Use raw GitHub URLs (or any HTTPS location reachable by Azure Automation) in the
 3. `pricingRunbookContentUri`
 4. `searchJobRunbookContentUri`
 5. `policyRunbookContentUri`
+6. `cleanupRunbookContentUri`
 
 ### Option B: Upload runbooks from local files after template deployment
 
@@ -218,6 +220,9 @@ $aa = 'SOC-Automation'
 
 Import-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Type PowerShell -Name 'Update-AppRegistrationCredential' -Path .\Update-AppRegistrationCredential.ps1 -Force
 Publish-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Name 'Update-AppRegistrationCredential'
+
+Import-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Type PowerShell -Name 'Start-AppRegistrationCleanup' -Path .\Start-AppRegistrationCleanup.ps1 -Force
+Publish-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Name 'Start-AppRegistrationCleanup'
 
 Import-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Type PowerShell -Name 'Get-DataConnectorStatus' -Path .\Get-DataConnectorStatus.ps1 -Force
 Publish-AzAutomationRunbook -ResourceGroupName $rg -AutomationAccountName $aa -Name 'Get-DataConnectorStatus'
@@ -326,6 +331,26 @@ Test the runbooks manually before relying on automated schedules:
 - `-SecretLAUri` - Logic App endpoint for credential notifications
 - `-AppRegName` - Application registration name pattern to manage
 - `-CreateNewAppReg` - Force creation of new app registration
+
+### Start-AppRegistrationCleanup
+
+**Purpose:** Previews duplicate app registrations and optionally deletes non-production registrations.
+
+**Key Features:**
+
+- Defaults to preview mode with `MaxRemovalCount = 0`
+- Requires `-ExecuteDeletion` before any destructive action
+- Validates `ProductionAppId` values as GUIDs
+- Fails closed if Graph verification cannot confirm deletion state
+- Preserves candidate order by `CreatedDateTime`
+
+**Parameters:**
+
+- `-UMIId` - User Managed Identity Client ID for authentication
+- `-AppRegName` - Application registration name pattern to manage
+- `-ProductionAppId` - One or more AppIds that must never be deleted
+- `-ExecuteDeletion` - Explicitly authorizes destructive deletion
+- `-MaxRemovalCount` - Maximum number of candidates to delete (default: 0)
 
 ### Invoke-AzSentinelSearchJob
 
@@ -530,4 +555,3 @@ Get-AzAutomationJobOutput -ResourceGroupName "SOC-Automation-RG" `
 - [Microsoft Sentinel Data Connectors](https://learn.microsoft.com/azure/sentinel/connect-data-sources)
 - [Managed Identities for Azure Resources](https://learn.microsoft.com/azure/active-directory/managed-identities-azure-resources/)
 - [KQL Query Language Reference](https://learn.microsoft.com/azure/data-explorer/kusto/query/)
-
