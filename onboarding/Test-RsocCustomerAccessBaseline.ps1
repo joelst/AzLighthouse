@@ -17,17 +17,18 @@ $subscriptionId    = $config.deployment.subscriptionId
 $resourceGroupName = $config.deployment.resourceGroupName
 $workspaceName     = $config.deployment.sentinelWorkspaceName
 
-# Known RSOC group principal IDs
-$rsocGroups = [ordered]@{
-    'RSOC_Sentinel_Admin'                              = '00000000-0000-0000-0000-000000000001'
-    'RSOC_Sentinel_Onboarding'                         = '00000000-0000-0000-0000-000000000002'
-    'RSOC_Sentinel_Threat_Detection_Engineering_Tier1' = '00000000-0000-0000-0000-000000000003'
-    'RSOC_Sentinel_Threat_Detection_Engineering_Tier2' = '00000000-0000-0000-0000-000000000004'
-    'RSOC_Sentinel_Security_Engineers'                 = '00000000-0000-0000-0000-000000000005'
-    'RSOC_Sentinel_Red_Team'                           = '00000000-0000-0000-0000-000000000006'
-    'RSOC_Sentinel_Incident_Response'                  = '00000000-0000-0000-0000-000000000007'
-    'RSOC_Sentinel_Incident_Detection_Tier1'           = '00000000-0000-0000-0000-000000000008'
-    'RSOC_Sentinel_Incident_Detection_Tier2'           = '00000000-0000-0000-0000-000000000009'
+$lighthouseConfig = if ($config.PSObject.Properties.Name -contains 'lighthouse') { $config.lighthouse } else { $null }
+$expectedAssignments = @(
+    if (
+        $lighthouseConfig -and
+        ($lighthouseConfig.PSObject.Properties.Name -contains 'expectedForeignGroupAssignments')
+    ) {
+        $lighthouseConfig.expectedForeignGroupAssignments
+    }
+)
+
+if ($expectedAssignments.Count -eq 0) {
+    throw "Customer config must define lighthouse.expectedForeignGroupAssignments from the private approved group/role matrix."
 }
 
 $umiName = 'RSOC-Sentinel-Ingestion-UMI'
@@ -59,41 +60,71 @@ function Add-Check {
     $checks.Add(@{ name = $Name; passed = $Passed; detail = $Detail })
 }
 
+function Get-NormalizedRoleDefinitionId {
+    param([string]$Value)
+    if ([string]::IsNullOrWhiteSpace($Value)) { return '' }
+    return ($Value.TrimEnd('/') -split '/')[-1].ToLowerInvariant()
+}
+
 Write-Host "`n=== RSOC Customer Access Baseline ===" -ForegroundColor Cyan
 Write-Host "Customer: $customerShortName  |  Subscription: $subscriptionId`n"
 
 $null = Set-AzContext -SubscriptionId $subscriptionId -ErrorAction Stop
 
 $scope = "/subscriptions/$subscriptionId"
+$rgScope = "$scope/resourceGroups/$resourceGroupName"
 
-# Get all role assignments scoped to subscription, ForeignGroup type
-Write-Host "Fetching role assignments (ForeignGroup) ..." -ForegroundColor Yellow
-$allAssignments = @()
+# Get subscription and Sentinel resource-group role assignments
+Write-Host "Fetching role assignments at subscription and Sentinel resource-group scopes ..." -ForegroundColor Yellow
+$subscriptionAssignments = @()
+$resourceGroupAssignments = @()
+$foreignGroupAssignments = @()
 try {
-    $allAssignments = Get-AzRoleAssignment -Scope $scope -ErrorAction Stop |
-        Where-Object { $_.ObjectType -eq 'ForeignGroup' }
-    Write-Host "  Found $($allAssignments.Count) ForeignGroup assignment(s)" -ForegroundColor Gray
+    $subscriptionAssignments = @(Get-AzRoleAssignment -Scope $scope -ErrorAction Stop)
+    $resourceGroupAssignments = @(Get-AzRoleAssignment -Scope $rgScope -ErrorAction Stop)
+    $foreignGroupAssignments = @(($subscriptionAssignments + $resourceGroupAssignments) |
+        Where-Object { $_.ObjectType -eq 'ForeignGroup' -or $_.ObjectType -eq 'Group' })
+    Write-Host "  Found $($foreignGroupAssignments.Count) ForeignGroup/Group assignment(s)" -ForegroundColor Gray
 } catch {
     Write-Host "[WARN] Could not retrieve role assignments: $($_.Exception.Message)" -ForegroundColor Yellow
 }
 
-# Check each RSOC group
+# Check each expected RSOC group/role pair
 Write-Host "`n-- RSOC Group Role Assignments --" -ForegroundColor Cyan
 $groupResults = [System.Collections.Generic.List[hashtable]]::new()
 
-foreach ($groupName in $rsocGroups.Keys) {
-    $principalId = $rsocGroups[$groupName]
-    $groupAssignments = $allAssignments | Where-Object { $_.ObjectId -eq $principalId }
-    $hasAssignment    = $null -ne $groupAssignments -and @($groupAssignments).Count -gt 0
-    $roles            = @($groupAssignments | ForEach-Object { $_.RoleDefinitionName }) -join ', '
-    $detail           = if ($hasAssignment) { "Roles: $roles" } else { "No assignment found (PrincipalId: $principalId)" }
+foreach ($expected in $expectedAssignments) {
+    $groupName = [string]$expected.groupName
+    $principalId = [string]$expected.principalId
+    $roleName = [string]$expected.roleDefinitionName
+    $roleDefinitionId = Get-NormalizedRoleDefinitionId -Value ([string]$expected.roleDefinitionId)
+    $assignmentScope = [string]$expected.assignmentScope
+    $expectedSourceScope = if ($assignmentScope -eq 'sentinelResourceGroup') { $rgScope } else { $scope }
+    $sourceMatch = @($foreignGroupAssignments | Where-Object {
+        $_.ObjectId -eq $principalId -and
+        $_.RoleDefinitionName -eq $roleName -and
+        (Get-NormalizedRoleDefinitionId -Value ([string]$_.RoleDefinitionId)) -eq $roleDefinitionId -and
+        ([string]$_.Scope).TrimEnd('/') -eq $expectedSourceScope.TrimEnd('/')
+    })
+    $effectiveMatch = @($resourceGroupAssignments | Where-Object {
+        $_.ObjectId -eq $principalId -and
+        $_.RoleDefinitionName -eq $roleName -and
+        (Get-NormalizedRoleDefinitionId -Value ([string]$_.RoleDefinitionId)) -eq $roleDefinitionId
+    })
+    $inheritsByScope = $expectedSourceScope -eq $scope
+    $effectiveAtResourceGroup = $effectiveMatch.Count -gt 0 -or $inheritsByScope
+    $hasAssignment = $sourceMatch.Count -gt 0 -and $effectiveAtResourceGroup
+    $detail = "Role: $roleName; source: $expectedSourceScope; effective at Sentinel RG: $effectiveAtResourceGroup"
 
-    Add-Check -Name "Group has role assignment: $groupName" -Passed $hasAssignment -Detail $detail
+    Add-Check -Name "ForeignGroup access: $groupName / $roleName" -Passed $hasAssignment -Detail $detail
     $groupResults.Add(@{
-        groupName    = $groupName
-        principalId  = $principalId
-        hasAssignment = $hasAssignment
-        roles        = $roles
+        groupName = $groupName
+        principalId = $principalId
+        roleDefinitionName = $roleName
+        roleDefinitionId = $roleDefinitionId
+        expectedSourceScope = $expectedSourceScope
+        foundAtSourceScope = $sourceMatch.Count -gt 0
+        effectiveAtSentinelResourceGroup = $effectiveAtResourceGroup
     })
 }
 
@@ -110,10 +141,9 @@ try {
         -ResourceGroupName $resourceGroupName `
         -Name $umiName -ErrorAction Stop
 
-    $umiAssignments = $allAssignments | Where-Object { $_.ObjectId -eq $umiObj.PrincipalId }
+    $umiAssignments = $subscriptionAssignments | Where-Object { $_.ObjectId -eq $umiObj.PrincipalId }
 
     # Also check at RG scope
-    $rgScope            = "$scope/resourceGroups/$resourceGroupName"
     $umiRgAssignments   = @()
     try {
         $umiRgAssignments = Get-AzRoleAssignment -Scope $rgScope -ErrorAction Stop |
@@ -157,7 +187,8 @@ $ep = Write-Evidence -Data @{
     )
     subscriptionId          = $subscriptionId
     scope                   = $scope
-    foreignGroupAssignments = $allAssignments.Count
+    foreignGroupAssignments = $foreignGroupAssignments.Count
+    sentinelResourceGroupScope = $rgScope
     rsocGroupResults        = $groupResults.ToArray()
     umiName                 = $umiName
     umiPrincipalId          = $umiObj?.PrincipalId

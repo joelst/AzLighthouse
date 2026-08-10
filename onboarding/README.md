@@ -22,6 +22,22 @@ the `lighthouse` object in the private customer config, a JSON file passed with
 `-LighthouseParametersPath`, explicit script parameters, or
 `-PromptForLighthouseValues` for an interactive run.
 
+### Foreign-group Azure RBAC
+
+RSOC manages membership in its own Entra groups. The Lighthouse registration
+creates Azure RBAC assignments for those principals, which appear in the
+affiliate subscription as `ForeignGroup`. In the normal dedicated Sentinel
+subscription model, the assignments are created at subscription scope and
+inherit to the Sentinel resource group; no second manual resource-group
+assignment is required.
+
+The private customer config must define
+`lighthouse.expectedForeignGroupAssignments`. The private Lighthouse overlay
+creates that approved group/role matrix. `Test-LighthouseDelegation.ps1`
+validates the source assignments and Sentinel resource-group inheritance, and
+`Test-RsocCustomerAccessBaseline.ps1` validates effective access. Public files
+must not contain the real group IDs or production role matrix.
+
 ## Pipeline sequence
 
 Run `Start-OnboardingPipeline.ps1` to execute the full ordered sequence. It is idempotent — re-runs skip already-completed steps.
@@ -94,7 +110,7 @@ These run alongside the pipeline to monitor approval flows:
 | `content-drift-manifest.sample.json` | Starter manifest with sample entries for analytics/workbooks/watchlists/parsers |
 | `e2e-acceptance-criteria.json` | Gate criteria and evidence requirements for `Test-EndToEndDeployment.ps1` |
 | `onboarding-state.schema.json` | Schema for the per-customer state file |
-| `rbac-baseline.json` | RBAC role assignments applied by `Apply-RsocGovernanceBaseline.ps1` |
+| `rbac-baseline.json` | Customer/local RBAC assignments applied by `Apply-RsocGovernanceBaseline.ps1`; Lighthouse ForeignGroup assignments come from the private Lighthouse overlay |
 | `tenant-governance-template.parameters.json` | Parameters for tenant governance ARM template |
 | `workload-validation-catalog.json` | Expected workloads checked by `Test-EndToEndDeployment.ps1` |
 

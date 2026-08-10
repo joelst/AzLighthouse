@@ -247,6 +247,8 @@ NEXT STEPS FOR RSOC ONBOARDING ENGINEER
    - Lighthouse deploy button URL (see lighthouseUrls in config)
 
 2. LIGHTHOUSE DELEGATION (run as customer subscription Owner)
+   Before deployment, populate lighthouse.expectedForeignGroupAssignments and the
+   private Lighthouse overlay from the approved mssp-management group/role matrix.
    .\New-LighthouseDelegationPackage.ps1 ``
        -CustomerConfigPath "$configFile" ``
        -ManagedByTenantId "$ManagedByTenantId"
@@ -257,7 +259,8 @@ NEXT STEPS FOR RSOC ONBOARDING ENGINEER
 
 4. AFTER CUSTOMER ACCEPTS LIGHTHOUSE DELEGATION
    .\Test-LighthouseDelegation.ps1 ``
-       -CustomerConfigPath "$configFile"
+       -CustomerConfigPath "$configFile" ``
+       -ManagedByTenantId "$ManagedByTenantId"
 
 5. DEPLOY SENTINEL WORKSPACE (run from RSOC tenant via Lighthouse)
    .\Deploy-SentinelWorkspace.ps1 ``

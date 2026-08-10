@@ -6,6 +6,8 @@
     Idempotently applies role assignments from rbac-baseline.json, upserts custom Azure
     Policy definitions from Policies/*.json, creates/updates the RSOC policy initiative,
     and assigns the initiative at subscription scope.
+    Azure Lighthouse managing-tenant groups are created as ForeignGroup assignments by
+    the Lighthouse registration definition, not by this baseline script.
     TEST_REQUIRED: Validate policy aliases in your tenant and run in staging before switching
                    assignment effects from Audit to Deny.
     TEST_REQUIRED: Policy initiative creation requires Management Group or Subscription Owner.

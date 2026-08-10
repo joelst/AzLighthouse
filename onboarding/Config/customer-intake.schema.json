@@ -271,6 +271,46 @@
         "automationPrincipalIdDisplayName": {
           "type": "string",
           "minLength": 1
+        },
+        "expectedForeignGroupAssignments": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Private expected Azure Lighthouse group/role matrix used to validate ForeignGroup assignments and their effective access to the Sentinel resource group.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "groupName",
+              "principalId",
+              "roleDefinitionName",
+              "roleDefinitionId",
+              "assignmentScope"
+            ],
+            "properties": {
+              "groupName": {
+                "type": "string",
+                "minLength": 1
+              },
+              "principalId": {
+                "$ref": "#/$defs/guid"
+              },
+              "roleDefinitionName": {
+                "type": "string",
+                "minLength": 1
+              },
+              "roleDefinitionId": {
+                "$ref": "#/$defs/guid"
+              },
+              "assignmentScope": {
+                "type": "string",
+                "enum": [
+                  "subscription",
+                  "sentinelResourceGroup"
+                ],
+                "default": "subscription"
+              }
+            }
+          }
         }
       }
     },

@@ -281,5 +281,5 @@ Write-Status "=== New-LighthouseDelegationPackage Complete ===" -Color Green
 Write-Host "  Evidence: $evidenceFile"
 
 # TEST_REQUIRED: Must run from customer owner account; verify delegation appears in Azure Lighthouse portal
-# TEST_REQUIRED: Confirm all 9 RSOC ForeignGroup assignments visible in customer subscription IAM
+# TEST_REQUIRED: Confirm every lighthouse.expectedForeignGroupAssignments entry is visible at its source scope and effective on the Sentinel resource group
 # MANUAL_ACTION: If deployment fails with AuthorizationFailed, customer must grant Owner role to the RSOC onboarding account first

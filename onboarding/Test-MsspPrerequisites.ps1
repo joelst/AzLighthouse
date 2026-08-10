@@ -89,6 +89,34 @@ if ($schemaExists) {
     }
 }
 
+$lighthouseConfig = if ($config.PSObject.Properties.Name -contains 'lighthouse') { $config.lighthouse } else { $null }
+$expectedForeignGroupAssignments = @(
+    if (
+        $lighthouseConfig -and
+        ($lighthouseConfig.PSObject.Properties.Name -contains 'expectedForeignGroupAssignments')
+    ) {
+        $lighthouseConfig.expectedForeignGroupAssignments
+    }
+)
+$placeholderAssignments = @($expectedForeignGroupAssignments | Where-Object {
+    $propertyNames = @($_.PSObject.Properties.Name)
+    $principalId = if ($propertyNames -contains 'principalId') { [string]$_.principalId } else { '' }
+    $roleDefinitionId = if ($propertyNames -contains 'roleDefinitionId') { [string]$_.roleDefinitionId } else { '' }
+    [string]::IsNullOrWhiteSpace($principalId) -or
+    [string]::IsNullOrWhiteSpace($roleDefinitionId) -or
+    $principalId -match '^00000000-0000-0000-0000-0000000000[0-9]{2}$' -or
+    $roleDefinitionId -eq '00000000-0000-0000-0000-000000000000'
+})
+$foreignGroupMatrixReady = $expectedForeignGroupAssignments.Count -gt 0 -and $placeholderAssignments.Count -eq 0
+Add-Check -Name "Private Lighthouse ForeignGroup matrix configured" -Passed $foreignGroupMatrixReady `
+    -Detail $(if ($expectedForeignGroupAssignments.Count -eq 0) {
+        "Set lighthouse.expectedForeignGroupAssignments in the private customer config."
+    } elseif ($placeholderAssignments.Count -gt 0) {
+        "Replace placeholder principal or role definition IDs with approved values."
+    } else {
+        "$($expectedForeignGroupAssignments.Count) expected group/role assignment(s)"
+    })
+
 # Az context tenant check
 $currentContext = $null
 try {
