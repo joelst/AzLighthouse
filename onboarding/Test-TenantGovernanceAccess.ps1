@@ -64,23 +64,6 @@ $ErrorActionPreference = 'Stop'
 
 $TgBaseUrl = 'https://graph.microsoft.com/beta/directory/tenantGovernance'
 
-# Expected RSOC group IDs in the policySnapshot delegatedAdministrationRoleAssignments
-# IMPORTANT: Placeholder IDs — set actual values from mssp-management/Config/rsoc-groups.json
-# Copy rsoc-groups.json from mssp-management and pass via -CustomerConfigPath, or update these
-# before running in your environment. See README for setup instructions.
-# TEST_REQUIRED: Verify these match live RSOC tenant group object IDs
-$ExpectedGroupIds = @(
-    @{ Id = '00000000-0000-0000-0000-000000000001'; Name = 'RSOC_Sentinel_Admin' },
-    @{ Id = '00000000-0000-0000-0000-000000000002'; Name = 'RSOC_Sentinel_Onboarding' },
-    @{ Id = '00000000-0000-0000-0000-000000000003'; Name = 'RSOC_Sentinel_Threat_Detection_Engineering_Tier1' },
-    @{ Id = '00000000-0000-0000-0000-000000000004'; Name = 'RSOC_Sentinel_Threat_Detection_Engineering_Tier2' },
-    @{ Id = '00000000-0000-0000-0000-000000000005'; Name = 'RSOC_Sentinel_Security_Engineers' },
-    @{ Id = '00000000-0000-0000-0000-000000000006'; Name = 'RSOC_Sentinel_Red_Team' },
-    @{ Id = '00000000-0000-0000-0000-000000000007'; Name = 'RSOC_Sentinel_Incident_Response' },
-    @{ Id = '00000000-0000-0000-0000-000000000008'; Name = 'RSOC_Sentinel_Incident_Detection_Tier1' },
-    @{ Id = '00000000-0000-0000-0000-000000000009'; Name = 'RSOC_Sentinel_Incident_Detection_Tier2' }
-)
-
 function Write-Evidence {
     param([hashtable]$Data)
     $dir = Split-Path -Parent $EvidenceOutputPath
@@ -101,6 +84,31 @@ if (-not (Test-Path $CustomerConfigPath)) { throw "Customer config not found: $C
 $config           = Get-Content $CustomerConfigPath -Raw | ConvertFrom-Json
 $governedTenantId = if ($CustomerTenantId) { $CustomerTenantId } else { $config.customer.tenantId }
 if ([string]::IsNullOrWhiteSpace($governedTenantId)) { throw "No customer.tenantId in config." }
+$tenantGovernanceConfig = if ($config.PSObject.Properties.Name -contains 'tenantGovernance') { $config.tenantGovernance } else { $null }
+$expectedGoverningTenantId = if ($GoverningTenantId) {
+    $GoverningTenantId
+} elseif (
+    $tenantGovernanceConfig -and
+    ($tenantGovernanceConfig.PSObject.Properties.Name -contains 'governingTenantId')
+) {
+    [string]$tenantGovernanceConfig.governingTenantId
+} else {
+    ''
+}
+$ExpectedAssignments = @(
+    if (
+        $tenantGovernanceConfig -and
+        ($tenantGovernanceConfig.PSObject.Properties.Name -contains 'expectedDelegatedRoleAssignments')
+    ) {
+        $tenantGovernanceConfig.expectedDelegatedRoleAssignments
+    }
+)
+if ([string]::IsNullOrWhiteSpace($expectedGoverningTenantId)) {
+    throw "GoverningTenantId is required in the customer config or as a parameter."
+}
+if ($ExpectedAssignments.Count -eq 0) {
+    throw "Customer config must define tenantGovernance.expectedDelegatedRoleAssignments from the private approved RSOC role floor."
+}
 
 Write-Host ""
 Write-Host "=== Test-TenantGovernanceAccess ===" -ForegroundColor Cyan
@@ -128,6 +136,11 @@ Write-Host "Connected as: $($ctx.Account) in tenant: $($ctx.TenantId)"
 Write-Host ""
 
 $checks = @{}
+$graphTenantMatch = [string]$ctx.TenantId -eq $expectedGoverningTenantId
+$checks.GraphTenantMatch = $graphTenantMatch
+Write-Check -Label "Graph context is the RSOC governing tenant" -Pass $graphTenantMatch -Detail (
+    "Expected: $expectedGoverningTenantId | Actual: $($ctx.TenantId)"
+)
 
 # Check 1: Active governance relationship exists
 Write-Host "[1] Checking governance relationship..." -ForegroundColor Cyan
@@ -150,14 +163,12 @@ try {
 }
 
 # Check 2: Governing tenant ID matches expected
-if ($activeRel -and $GoverningTenantId) {
-    $tenantMatch = $activeRel.governingTenantId -eq $GoverningTenantId
+if ($activeRel) {
+    $tenantMatch = $activeRel.governingTenantId -eq $expectedGoverningTenantId
     $checks.GoverningTenantMatch = $tenantMatch
     Write-Check -Label "Governing tenant ID matches" -Pass $tenantMatch -Detail (
-        "Expected: $GoverningTenantId | Actual: $($activeRel.governingTenantId) ($($activeRel.governingTenantName))"
+        "Expected: $expectedGoverningTenantId | Actual: $($activeRel.governingTenantId) ($($activeRel.governingTenantName))"
     )
-} elseif ($activeRel) {
-    Write-Host "       Governing tenant: $($activeRel.governingTenantId) ($($activeRel.governingTenantName))" -ForegroundColor Gray
 }
 
 # Check 3: Policy snapshot has RSOC group assignments
@@ -167,15 +178,54 @@ if ($activeRel -and $activeRel.policySnapshot) {
 
     $snapshot           = $activeRel.policySnapshot
     $snapshotAssignments = $snapshot.delegatedAdministrationRoleAssignments ?? @()
-    $snapshotGroupIds    = @($snapshotAssignments | ForEach-Object { $_.group.id } | Where-Object { $_ })
-
     $groupChecks = @{}
-    foreach ($expected in $ExpectedGroupIds) {
-        $found = $snapshotGroupIds -contains $expected.Id
-        $groupChecks[$expected.Name] = $found
-        Write-Check -Label "  Group: $($expected.Name)" -Pass $found -Detail (
-            if (-not $found) { "Group ID $($expected.Id) not found in policySnapshot" } else { "" }
+    $assignmentDetails = [System.Collections.Generic.List[hashtable]]::new()
+    foreach ($expected in $ExpectedAssignments) {
+        $groupName = [string]$expected.groupName
+        $groupId = [string]$expected.groupId
+        $expectedRoleIds = @($expected.roleTemplateIds | ForEach-Object { ([string]$_).ToLowerInvariant() } | Sort-Object -Unique)
+        $snapshotAssignment = $snapshotAssignments |
+            Where-Object {
+                $propertyNames = @($_.PSObject.Properties.Name)
+                $snapshotGroupId = if ($propertyNames -contains 'groupId') {
+                    [string]$_.groupId
+                } elseif ($propertyNames -contains 'group' -and $_.group) {
+                    [string]$_.group.id
+                } else {
+                    ''
+                }
+                $snapshotGroupId -eq $groupId
+            } |
+            Select-Object -First 1
+        $actualRoleIds = @(
+            if ($snapshotAssignment) {
+                $snapshotAssignment.roleTemplates |
+                    ForEach-Object { ([string]$_.id).ToLowerInvariant() } |
+                    Sort-Object -Unique
+            }
         )
+        $missingRoleIds = @($expectedRoleIds | Where-Object { $_ -notin $actualRoleIds })
+        $unexpectedRoleIds = @($actualRoleIds | Where-Object { $_ -notin $expectedRoleIds })
+        $assignmentMatches = $null -ne $snapshotAssignment -and
+            $missingRoleIds.Count -eq 0 -and
+            $unexpectedRoleIds.Count -eq 0
+        $groupChecks[$groupName] = $assignmentMatches
+        Write-Check -Label "  Group and roles: $groupName" -Pass $assignmentMatches -Detail (
+            if (-not $snapshotAssignment) {
+                "Group ID $groupId not found in policySnapshot"
+            } else {
+                "Missing roles: $($missingRoleIds -join ', '); unexpected roles: $($unexpectedRoleIds -join ', ')"
+            }
+        )
+        $assignmentDetails.Add(@{
+            groupName = $groupName
+            groupId = $groupId
+            expectedRoleTemplateIds = $expectedRoleIds
+            actualRoleTemplateIds = $actualRoleIds
+            missingRoleTemplateIds = $missingRoleIds
+            unexpectedRoleTemplateIds = $unexpectedRoleIds
+            matches = $assignmentMatches
+        })
     }
 
     $allGroupsPresent         = ($groupChecks.Values | Where-Object { $_ -eq $false }).Count -eq 0
@@ -184,8 +234,9 @@ if ($activeRel -and $activeRel.policySnapshot) {
 
     Write-Host ""
     $presentCount = ($groupChecks.Values | Where-Object { $_ }).Count
-    Write-Check -Label "All $($ExpectedGroupIds.Count) RSOC groups in policySnapshot" -Pass $allGroupsPresent `
-        -Detail "$presentCount/$($ExpectedGroupIds.Count) groups found"
+    $checks.AssignmentDetails = $assignmentDetails.ToArray()
+    Write-Check -Label "All $($ExpectedAssignments.Count) RSOC group/role mappings match policySnapshot" -Pass $allGroupsPresent `
+        -Detail "$presentCount/$($ExpectedAssignments.Count) mappings matched"
 } elseif ($activeRel) {
     Write-Host "  WARNING: Active relationship has no policySnapshot - cannot verify role assignments" -ForegroundColor Yellow
     $checks.AllGroupsPresent = $false
@@ -193,7 +244,8 @@ if ($activeRel -and $activeRel.policySnapshot) {
 
 # Summary
 Write-Host ""
-$allPassed    = -not ($checks.Values | Where-Object { $_ -is [bool] -and $_ -eq $false })
+$failedChecks = @($checks.Values | Where-Object { $_ -is [bool] -and $_ -eq $false })
+$allPassed    = $failedChecks.Count -eq 0
 $overallStatus = if ($allPassed) { 'passed' } else { 'failed' }
 
 Write-Host "=== Result: $(if ($allPassed) { 'ALL CHECKS PASSED' } else { 'CHECKS FAILED - review above' })" `
@@ -222,8 +274,10 @@ Write-Evidence @{
     testRequired        = @(
         "API is Graph beta - verify endpoints before production run",
         "Run from RSOC governing tenant context",
-        "Verify ExpectedGroupIds match live RSOC tenant group object IDs",
-        "policySnapshot group.id fields require governance request to have been created with correct template"
+        "Verify expectedDelegatedRoleAssignments matches the private approved RSOC group/role floor",
+        "policySnapshot mappings require the governance request to have been created with the correct template"
     )
     timestampUtc        = (Get-Date).ToUniversalTime().ToString('o')
 }
+
+if (-not $allPassed) { exit 1 }

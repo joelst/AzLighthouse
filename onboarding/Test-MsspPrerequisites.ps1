@@ -117,6 +117,34 @@ Add-Check -Name "Private Lighthouse ForeignGroup matrix configured" -Passed $for
         "$($expectedForeignGroupAssignments.Count) expected group/role assignment(s)"
     })
 
+$tenantGovernanceConfig = if ($config.PSObject.Properties.Name -contains 'tenantGovernance') { $config.tenantGovernance } else { $null }
+$expectedDelegatedRoleAssignments = @(
+    if (
+        $tenantGovernanceConfig -and
+        ($tenantGovernanceConfig.PSObject.Properties.Name -contains 'expectedDelegatedRoleAssignments')
+    ) {
+        $tenantGovernanceConfig.expectedDelegatedRoleAssignments
+    }
+)
+$invalidDelegatedRoleAssignments = @($expectedDelegatedRoleAssignments | Where-Object {
+    $propertyNames = @($_.PSObject.Properties.Name)
+    $groupId = if ($propertyNames -contains 'groupId') { [string]$_.groupId } else { '' }
+    $roleTemplateIds = if ($propertyNames -contains 'roleTemplateIds') { @($_.roleTemplateIds) } else { @() }
+    [string]::IsNullOrWhiteSpace($groupId) -or
+    $groupId -match '^00000000-0000-0000-0000-0000000000[0-9]{2}$' -or
+    $roleTemplateIds.Count -eq 0 -or
+    @($roleTemplateIds | Where-Object { $_ -eq '00000000-0000-0000-0000-000000000000' }).Count -gt 0
+})
+$tenantGovernanceMatrixReady = $expectedDelegatedRoleAssignments.Count -gt 0 -and $invalidDelegatedRoleAssignments.Count -eq 0
+Add-Check -Name "Private Tenant Governance RSOC role floor configured" -Passed $tenantGovernanceMatrixReady `
+    -Detail $(if ($expectedDelegatedRoleAssignments.Count -eq 0) {
+        "Set tenantGovernance.expectedDelegatedRoleAssignments in the private customer config."
+    } elseif ($invalidDelegatedRoleAssignments.Count -gt 0) {
+        "Replace missing or placeholder group and role template IDs with approved values."
+    } else {
+        "$($expectedDelegatedRoleAssignments.Count) expected delegated group mapping(s)"
+    })
+
 # Az context tenant check
 $currentContext = $null
 try {

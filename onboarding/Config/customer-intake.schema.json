@@ -439,6 +439,37 @@
           "type": "boolean",
           "const": true
         },
+        "expectedDelegatedRoleAssignments": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Private minimum RSOC Tenant Governance role floor. These Entra/Defender delegated roles do not replace Azure Lighthouse RBAC for Sentinel resources.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "groupName",
+              "groupId",
+              "roleTemplateIds"
+            ],
+            "properties": {
+              "groupName": {
+                "type": "string",
+                "minLength": 1
+              },
+              "groupId": {
+                "$ref": "#/$defs/guid"
+              },
+              "roleTemplateIds": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/guid"
+                }
+              }
+            }
+          }
+        },
         "sharedVisibilityGroup": {
           "type": "object",
           "additionalProperties": false,

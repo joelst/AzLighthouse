@@ -38,6 +38,20 @@ validates the source assignments and Sentinel resource-group inheritance, and
 `Test-RsocCustomerAccessBaseline.ps1` validates effective access. Public files
 must not contain the real group IDs or production role matrix.
 
+### Tenant Governance/GDAP role floor
+
+Tenant Governance is a separate Entra/Defender authorization plane. The private
+customer config must define
+`tenantGovernance.expectedDelegatedRoleAssignments`. The governance request
+uses that matrix, and `Test-TenantGovernanceAccess.ps1` validates the governing
+tenant plus the exact protected group/role-template mappings.
+
+Affiliate-owned Entra groups and routine role changes may coexist with this
+floor. Monitoring should require the protected RSOC mappings while auditing,
+not automatically deleting, additional affiliate permissions. Azure RBAC on
+the Sentinel subscription/resource group remains an Azure Lighthouse
+responsibility.
+
 ## Pipeline sequence
 
 Run `Start-OnboardingPipeline.ps1` to execute the full ordered sequence. It is idempotent — re-runs skip already-completed steps.

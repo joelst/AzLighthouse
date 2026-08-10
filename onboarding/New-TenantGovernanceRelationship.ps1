@@ -96,63 +96,9 @@ $ErrorActionPreference = 'Stop'
 
 $TgBaseUrl = 'https://graph.microsoft.com/beta/directory/tenantGovernance'
 
-# RSOC security group -> Entra role delegated administration mappings
-# Group IDs are object IDs from the RSOC (governing) Entra tenant.
-# Source: AzLighthouse/lighthouse/lighthouse-offer1.json
-# Role template IDs are Entra built-in roles assigned in the governed tenant.
-# TEST_REQUIRED: Confirm group IDs match live RSOC tenant group object IDs.
-# TEST_REQUIRED: Confirm all groups have isAssignableToRole = true, not M365 groups.
-# Entra Role template IDs:
-#   Security Administrator:   194ae4cb-b126-40b2-bd5b-6091b380977d
-#   Security Operator:        8ac3fc64-6eca-42ea-9e69-59f4c7b60eb2
-#   Security Reader:          5d6b6bb7-de71-4623-b4af-96380a352509
-$RsocRoleAssignments = @(
-    @{
-        GroupId          = '00000000-0000-0000-0000-000000000001'
-        GroupDisplayName = 'RSOC_Sentinel_Admin'
-        RoleTemplateIds  = @('194ae4cb-b126-40b2-bd5b-6091b380977d')  # Security Administrator
-    },
-    @{
-        GroupId          = '00000000-0000-0000-0000-000000000002'
-        GroupDisplayName = 'RSOC_Sentinel_Onboarding'
-        RoleTemplateIds  = @('194ae4cb-b126-40b2-bd5b-6091b380977d')  # Security Administrator
-    },
-    @{
-        GroupId          = '00000000-0000-0000-0000-000000000003'
-        GroupDisplayName = 'RSOC_Sentinel_Threat_Detection_Engineering_Tier1'
-        RoleTemplateIds  = @('8ac3fc64-6eca-42ea-9e69-59f4c7b60eb2')  # Security Operator
-    },
-    @{
-        GroupId          = '00000000-0000-0000-0000-000000000004'
-        GroupDisplayName = 'RSOC_Sentinel_Threat_Detection_Engineering_Tier2'
-        RoleTemplateIds  = @('194ae4cb-b126-40b2-bd5b-6091b380977d')  # Security Administrator
-    },
-    @{
-        GroupId          = '00000000-0000-0000-0000-000000000005'
-        GroupDisplayName = 'RSOC_Sentinel_Security_Engineers'
-        RoleTemplateIds  = @('8ac3fc64-6eca-42ea-9e69-59f4c7b60eb2')  # Security Operator
-    },
-    @{
-        GroupId          = '00000000-0000-0000-0000-000000000006'
-        GroupDisplayName = 'RSOC_Sentinel_Red_Team'
-        RoleTemplateIds  = @('5d6b6bb7-de71-4623-b4af-96380a352509')  # Security Reader
-    },
-    @{
-        GroupId          = '00000000-0000-0000-0000-000000000007'
-        GroupDisplayName = 'RSOC_Sentinel_Incident_Response'
-        RoleTemplateIds  = @('8ac3fc64-6eca-42ea-9e69-59f4c7b60eb2')  # Security Operator
-    },
-    @{
-        GroupId          = '00000000-0000-0000-0000-000000000008'
-        GroupDisplayName = 'RSOC_Sentinel_Incident_Detection_Tier1'
-        RoleTemplateIds  = @('5d6b6bb7-de71-4623-b4af-96380a352509')  # Security Reader
-    },
-    @{
-        GroupId          = '00000000-0000-0000-0000-000000000009'
-        GroupDisplayName = 'RSOC_Sentinel_Incident_Detection_Tier2'
-        RoleTemplateIds  = @('8ac3fc64-6eca-42ea-9e69-59f4c7b60eb2')  # Security Operator
-    }
-)
+# The governing-tenant group and Entra/Defender role matrix comes from the
+# private customer configuration. Tenant Governance roles do not grant Azure
+# RBAC on the Sentinel subscription or resource group; Azure Lighthouse does.
 
 function Write-Evidence {
     param([hashtable]$Data)
@@ -175,6 +121,110 @@ $config           = Get-Content $CustomerConfigPath -Raw | ConvertFrom-Json
 $governedTenantId = if ($CustomerTenantId) { $CustomerTenantId } else { $config.customer.tenantId }
 if ([string]::IsNullOrWhiteSpace($governedTenantId)) {
     throw "No customer.tenantId in config and -CustomerTenantId not provided."
+}
+$tenantGovernanceConfig = if ($config.PSObject.Properties.Name -contains 'tenantGovernance') { $config.tenantGovernance } else { $null }
+$expectedGoverningTenantId = if (
+    $tenantGovernanceConfig -and
+    ($tenantGovernanceConfig.PSObject.Properties.Name -contains 'governingTenantId')
+) {
+    [string]$tenantGovernanceConfig.governingTenantId
+} else {
+    ''
+}
+if ([string]::IsNullOrWhiteSpace($expectedGoverningTenantId)) {
+    throw "Customer config must define tenantGovernance.governingTenantId."
+}
+$RsocRoleAssignments = @(
+    if (
+        $tenantGovernanceConfig -and
+        ($tenantGovernanceConfig.PSObject.Properties.Name -contains 'expectedDelegatedRoleAssignments')
+    ) {
+        foreach ($entry in $tenantGovernanceConfig.expectedDelegatedRoleAssignments) {
+            @{
+                GroupId = [string]$entry.groupId
+                GroupDisplayName = [string]$entry.groupName
+                RoleTemplateIds = @($entry.roleTemplateIds)
+            }
+        }
+    }
+)
+if ($RsocRoleAssignments.Count -eq 0) {
+    throw "Customer config must define tenantGovernance.expectedDelegatedRoleAssignments from the private approved RSOC role floor."
+}
+$placeholderAssignments = @($RsocRoleAssignments | Where-Object {
+    $_.GroupId -match '^00000000-0000-0000-0000-0000000000[0-9]{2}$' -or
+    @($_.RoleTemplateIds | Where-Object { $_ -eq '00000000-0000-0000-0000-000000000000' }).Count -gt 0
+})
+if ($placeholderAssignments.Count -gt 0) {
+    throw "Tenant Governance role matrix contains placeholder group or role template IDs."
+}
+
+function Test-TgAssignmentPropertyName {
+    # PSObject.Properties.Name does not surface hashtable keys (it reflects the
+    # .NET Hashtable class's own members instead). Check both shapes so this
+    # works for config-derived hashtables and Graph-returned PSCustomObjects.
+    param($Assignment, [string]$Name)
+    if ($Assignment -is [System.Collections.IDictionary]) {
+        return $Assignment.Contains($Name)
+    }
+    return (@($Assignment.PSObject.Properties.Name) -contains $Name)
+}
+
+function Get-TgAssignmentValue {
+    param($Assignment, [string]$Name)
+    if ($Assignment -is [System.Collections.IDictionary]) {
+        return $Assignment[$Name]
+    }
+    return $Assignment.$Name
+}
+
+function Get-TgAssignmentGroupId {
+    param($Assignment)
+    if (Test-TgAssignmentPropertyName -Assignment $Assignment -Name 'groupId') {
+        return [string](Get-TgAssignmentValue -Assignment $Assignment -Name 'groupId')
+    }
+    if (Test-TgAssignmentPropertyName -Assignment $Assignment -Name 'GroupId') {
+        return [string](Get-TgAssignmentValue -Assignment $Assignment -Name 'GroupId')
+    }
+    if ((Test-TgAssignmentPropertyName -Assignment $Assignment -Name 'group') -and (Get-TgAssignmentValue -Assignment $Assignment -Name 'group')) {
+        return [string](Get-TgAssignmentValue -Assignment $Assignment -Name 'group').id
+    }
+    if (Test-TgAssignmentPropertyName -Assignment $Assignment -Name 'group@odata.bind') {
+        return (([string](Get-TgAssignmentValue -Assignment $Assignment -Name 'group@odata.bind')).TrimEnd('/') -split '/')[-1]
+    }
+    return ''
+}
+
+function Get-TgMatrixSignatures {
+    param([array]$Assignments)
+    return @($Assignments | ForEach-Object {
+        $groupId = Get-TgAssignmentGroupId -Assignment $_
+        $roleTemplates = if (Test-TgAssignmentPropertyName -Assignment $_ -Name 'RoleTemplateIds') {
+            @(Get-TgAssignmentValue -Assignment $_ -Name 'RoleTemplateIds')
+        } elseif (Test-TgAssignmentPropertyName -Assignment $_ -Name 'roleTemplateIds') {
+            @(Get-TgAssignmentValue -Assignment $_ -Name 'roleTemplateIds')
+        } elseif (Test-TgAssignmentPropertyName -Assignment $_ -Name 'roleTemplates') {
+            @((Get-TgAssignmentValue -Assignment $_ -Name 'roleTemplates') | ForEach-Object { $_.id })
+        } else {
+            @()
+        }
+        $roleIds = @($roleTemplates | ForEach-Object { ([string]$_).ToLowerInvariant() } | Sort-Object -Unique)
+        "$($groupId.ToLowerInvariant())|$($roleIds -join ',')"
+    } | Sort-Object -Unique)
+}
+
+function Test-TgTemplateMatrix {
+    param($Template)
+    $propertyNames = @($Template.PSObject.Properties.Name)
+    $actualAssignments = @(
+        if ($propertyNames -contains 'delegatedAdministrationRoleAssignments') {
+            $Template.delegatedAdministrationRoleAssignments
+        }
+    )
+    $expectedSignatures = @(Get-TgMatrixSignatures -Assignments $RsocRoleAssignments)
+    $actualSignatures = @(Get-TgMatrixSignatures -Assignments $actualAssignments)
+    $difference = @(Compare-Object -ReferenceObject $expectedSignatures -DifferenceObject $actualSignatures)
+    return $difference.Count -eq 0
 }
 
 Write-Host ""
@@ -210,6 +260,9 @@ Connect-MgGraph -Scopes @(
 
 $ctx = Get-MgContext
 Write-Host "Connected as: $($ctx.Account) | RSOC tenant: $($ctx.TenantId)"
+if ([string]$ctx.TenantId -ne $expectedGoverningTenantId) {
+    throw "Graph context tenant '$($ctx.TenantId)' does not match configured RSOC governing tenant '$expectedGoverningTenantId'."
+}
 
 # Check for existing active relationship
 Write-Host ""
@@ -310,37 +363,48 @@ Write-Host "  Expires:        $($pendingInvitation.expirationDateTime)"
 Write-Host ""
 Write-Host "[2] Resolving governance policy template..."
 
-if (-not $PolicyTemplateId) {
+if ($CreateTemplate) {
+    $PolicyTemplateId = $null
+}
+
+if (-not $PolicyTemplateId -and -not $CreateTemplate) {
     $templates    = Invoke-TgGraph -Uri "$TgBaseUrl/governancePolicyTemplates"
     $rsocTemplate = $templates.value |
         Where-Object { $_.displayName -like '*RSOC*' -or $_.displayName -like '*ManagedServices*' } |
         Select-Object -First 1
 
-    if ($rsocTemplate -and -not $CreateTemplate) {
+    if ($rsocTemplate) {
         $PolicyTemplateId = $rsocTemplate.id
         Write-Host "  Found existing RSOC template: '$($rsocTemplate.displayName)' ($PolicyTemplateId)"
-    } else {
-        Write-Host "  Creating governance policy template: '$PolicyTemplateDisplayName'"
-
-        $delegatedAssignments = foreach ($ra in $RsocRoleAssignments) {
-            @{
-                'group@odata.bind' = "https://graph.microsoft.com/beta/groups/$($ra.GroupId)"
-                roleTemplates      = @($ra.RoleTemplateIds | ForEach-Object { @{ id = $_ } })
-            }
-        }
-
-        $templateBody = @{
-            displayName                            = $PolicyTemplateDisplayName
-            description                            = 'RSOC delegated Sentinel/Defender admin policy. Groups from AzLighthouse/lighthouse/lighthouse-offer1.json.'
-            delegatedAdministrationRoleAssignments = $delegatedAssignments
-        }
-
-        $newTemplate      = Invoke-TgGraph -Method POST -Uri "$TgBaseUrl/governancePolicyTemplates" -Body $templateBody
-        $PolicyTemplateId = $newTemplate.id
-        Write-Host "  Policy template created: $PolicyTemplateId" -ForegroundColor Green
     }
 }
 
+if (-not $PolicyTemplateId) {
+    Write-Host "  Creating governance policy template: '$PolicyTemplateDisplayName'"
+
+    $delegatedAssignments = foreach ($ra in $RsocRoleAssignments) {
+        @{
+            'group@odata.bind' = "https://graph.microsoft.com/beta/groups/$($ra.GroupId)"
+            roleTemplates      = @($ra.RoleTemplateIds | ForEach-Object { @{ id = $_ } })
+        }
+    }
+
+    $templateBody = @{
+        displayName                            = $PolicyTemplateDisplayName
+        description                            = 'RSOC delegated Entra and Defender role floor from the private customer configuration. Azure resource access is provided separately by Lighthouse.'
+        delegatedAdministrationRoleAssignments = $delegatedAssignments
+    }
+
+    $newTemplate      = Invoke-TgGraph -Method POST -Uri "$TgBaseUrl/governancePolicyTemplates" -Body $templateBody
+    $PolicyTemplateId = $newTemplate.id
+    Write-Host "  Policy template created: $PolicyTemplateId" -ForegroundColor Green
+}
+
+$selectedTemplate = Invoke-TgGraph -Uri "$TgBaseUrl/governancePolicyTemplates/$PolicyTemplateId"
+if (-not (Test-TgTemplateMatrix -Template $selectedTemplate)) {
+    throw "Governance policy template '$PolicyTemplateId' does not exactly match tenantGovernance.expectedDelegatedRoleAssignments. Create a new approved template before sending the request."
+}
+Write-Host "  Policy template matches the private protected role floor." -ForegroundColor Green
 Write-Host "  Using policy template: $PolicyTemplateId"
 
 # STEP 2 cont.: POST governance request
